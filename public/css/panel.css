@@ -586,6 +586,58 @@ body {
     color: #ffb4b4;
 }
 
+.file-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.7rem;
+}
+
+.file-toolbar h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.file-table {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.file-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) 0.8fr 0.8fr 1fr;
+    gap: 0.6rem;
+    padding: 0.7rem 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.86rem;
+}
+
+.file-row:last-child {
+    border-bottom: none;
+}
+
+.file-row-head {
+    background: rgba(255, 255, 255, 0.04);
+    color: #b5c4f3;
+    font-weight: 600;
+}
+
+.file-row span {
+    color: #d2dcff;
+    overflow-wrap: anywhere;
+}
+
+.file-row a {
+    color: #cde0ff;
+    text-decoration: none;
+}
+
+.file-row a:hover {
+    text-decoration: underline;
+}
+
 .server-card {
     background: linear-gradient(180deg, rgba(18, 26, 51, 0.98), rgba(10, 16, 35, 0.95));
     border: 1px solid var(--line);
@@ -736,6 +788,11 @@ body {
 
     .hosting-row {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .file-row {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
     }
 
     .input-with-action {

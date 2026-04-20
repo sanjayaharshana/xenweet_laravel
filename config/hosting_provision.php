@@ -14,17 +14,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Base Directory For Hosted Domains
+    |--------------------------------------------------------------------------
+    |
+    | Each domain will be created under this root path, for example:
+    | /path/to/root/example.com/public_html
+    |
+    */
+    'hosts_root' => env('HOSTING_SITES_ROOT', storage_path('app/hosting-sites')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Command Template
     |--------------------------------------------------------------------------
     |
     | Available placeholders:
     | {id}, {domain}, {server_ip}, {plan}, {panel_username},
-    | {panel_password}, {php_version}, {status}, {disk_usage_mb}
+    | {panel_password}, {php_version}, {status}, {disk_usage_mb},
+    | {host_root_path}, {web_root_path}
     |
     */
     'command' => env(
         'HOSTING_SPLIT_COMMAND',
-        "echo '[split-server] provision {domain} on {server_ip} plan={plan} user={panel_username}'"
+        "echo '[split-server] bind {domain} to {web_root_path} on {server_ip} plan={plan} user={panel_username}'"
     ),
 
     /*

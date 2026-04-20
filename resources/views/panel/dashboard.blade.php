@@ -60,6 +60,10 @@
                     <p class="label">CLI Provision</p>
                     <strong>{{ ucfirst($hosting->provision_status) }}</strong>
                 </div>
+                <div class="plan-actions">
+                    <a class="btn-secondary compact-btn" href="{{ route('hosts.panel', $hosting) }}">Open Panel</a>
+                    <a class="btn-secondary compact-btn" href="http://{{ $hosting->server_ip }}" target="_blank" rel="noopener noreferrer">Open Host</a>
+                </div>
             </article>
         @empty
             <article class="server-card empty-state">

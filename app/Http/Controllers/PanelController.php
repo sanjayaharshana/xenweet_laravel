@@ -6,7 +6,9 @@ use App\Models\Hosting;
 use App\Services\HostingCliProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Plan\Models\Plan;
@@ -63,5 +65,87 @@ class PanelController extends Controller
         return redirect()
             ->route('panel')
             ->with('success', 'Hosting created and CLI provisioning executed.');
+    }
+
+    public function hostPanel(Hosting $hosting, Request $request): View
+    {
+        $hostRoot = $this->hostRootPath($hosting);
+        File::ensureDirectoryExists($hostRoot);
+
+        $requestedPath = (string) $request->query('path', '');
+        $currentPath = $this->safeResolvedPath($hostRoot, $requestedPath);
+        $relativePath = ltrim(Str::after($currentPath, $hostRoot), DIRECTORY_SEPARATOR);
+
+        $items = collect(File::files($currentPath))
+            ->map(fn ($file) => [
+                'name' => $file->getFilename(),
+                'type' => 'file',
+                'size' => $this->humanSize($file->getSize()),
+                'path' => ltrim(Str::after($file->getPathname(), $hostRoot), DIRECTORY_SEPARATOR),
+                'modified' => Carbon::createFromTimestamp($file->getMTime())->format('d M Y H:i'),
+            ])
+            ->merge(
+                collect(File::directories($currentPath))->map(fn ($directory) => [
+                    'name' => basename($directory),
+                    'type' => 'directory',
+                    'size' => '--',
+                    'path' => ltrim(Str::after($directory, $hostRoot), DIRECTORY_SEPARATOR),
+                    'modified' => Carbon::createFromTimestamp(filemtime($directory))->format('d M Y H:i'),
+                ])
+            )
+            ->sortBy([['type', 'asc'], ['name', 'asc']])
+            ->values();
+
+        $parentPath = '';
+        if ($relativePath !== '') {
+            $parentPath = dirname($relativePath);
+            $parentPath = $parentPath === '.' ? '' : $parentPath;
+        }
+
+        return view('panel.host-panel', [
+            'hosting' => $hosting,
+            'items' => $items,
+            'relativePath' => $relativePath,
+            'parentPath' => $parentPath,
+        ]);
+    }
+
+    private function hostRootPath(Hosting $hosting): string
+    {
+        if (! empty($hosting->host_root_path)) {
+            return $hosting->host_root_path;
+        }
+
+        return storage_path('app/hosting-sites/'.$hosting->domain);
+    }
+
+    private function safeResolvedPath(string $hostRoot, string $relativePath): string
+    {
+        $clean = trim(str_replace('\\', '/', $relativePath), '/');
+        $candidate = $clean === '' ? $hostRoot : $hostRoot.DIRECTORY_SEPARATOR.$clean;
+        $real = realpath($candidate);
+
+        if ($real === false || ! Str::startsWith($real, $hostRoot)) {
+            return $hostRoot;
+        }
+
+        return $real;
+    }
+
+    private function humanSize(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes.' B';
+        }
+
+        if ($bytes < 1024 * 1024) {
+            return round($bytes / 1024, 2).' KB';
+        }
+
+        if ($bytes < 1024 * 1024 * 1024) {
+            return round($bytes / (1024 * 1024), 2).' MB';
+        }
+
+        return round($bytes / (1024 * 1024 * 1024), 2).' GB';
     }
 }

@@ -15,5 +15,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/panel', [PanelController::class, 'index'])->name('panel');
     Route::get('/hosts/create', [PanelController::class, 'create'])->name('hosts.create');
     Route::post('/hosts', [PanelController::class, 'store'])->name('hosts.store');
+    Route::get('/hosts/{hosting}/panel', [PanelController::class, 'hostPanel'])->name('hosts.panel');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

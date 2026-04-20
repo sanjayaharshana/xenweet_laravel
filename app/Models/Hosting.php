@@ -9,6 +9,8 @@ class Hosting extends Model
     protected $fillable = [
         'domain',
         'server_ip',
+        'host_root_path',
+        'web_root_path',
         'plan',
         'panel_username',
         'panel_password',
