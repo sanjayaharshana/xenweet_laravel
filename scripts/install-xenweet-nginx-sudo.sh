@@ -28,4 +28,5 @@ rm -f "$TMP"
 sudo visudo -cf /etc/sudoers.d/xenweet-nginx
 
 echo "Done. Verify (should list the two NOPASSWD lines): sudo -u ${PHP_USER} sudo -n -l"
+echo "After git pull changes xenweet-nginx-*, re-run this script to refresh /usr/local/sbin/."
 echo "Then retry provisioning from the panel."

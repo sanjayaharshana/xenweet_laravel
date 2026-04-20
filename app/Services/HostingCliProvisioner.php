@@ -209,10 +209,11 @@ class HostingCliProvisioner
         $script = $this->resolveVhostScriptPath('vhost_nginx_activate_script');
 
         if ($systemBin !== null) {
+            // Second arg = output dir: sudo does not forward env to the root helper.
             $process = new Process(
-                ['sudo', '-n', $systemBin, $hosting->siteHost()],
+                ['sudo', '-n', $systemBin, $hosting->siteHost(), $outputDir],
                 base_path(),
-                ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
+                [],
                 null,
                 (float) config('hosting_provision.timeout', 120)
             );

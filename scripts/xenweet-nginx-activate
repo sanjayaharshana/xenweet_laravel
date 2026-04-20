@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 #
-# Installed to /usr/local/sbin/ — runs as root via: sudo -n /usr/local/sbin/xenweet-nginx-activate <domain>
+# Installed to /usr/local/sbin/ — runs as root via:
+#   sudo -n /usr/local/sbin/xenweet-nginx-activate <domain> <output_dir>
+#
+# <output_dir> must be passed as the second argument: sudo strips environment
+# variables by default, so HOSTING_VHOST_OUTPUT_DIR is not available here.
+#
 # One NOPASSWD sudo rule for www-data (see scripts/install-xenweet-nginx-sudo.sh).
 #
 set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-DOMAIN="${1:?Usage: $0 <domain>}"
-OUTPUT_DIR="${HOSTING_VHOST_OUTPUT_DIR:?Set HOSTING_VHOST_OUTPUT_DIR}"
+DOMAIN="${1:?Usage: $0 <domain> <output_dir>}"
+OUTPUT_DIR="${2:-${HOSTING_VHOST_OUTPUT_DIR:-}}"
+if [[ -z "$OUTPUT_DIR" ]]; then
+  echo "ERROR: pass Laravel storage/app/hosting-vhosts path as second argument" >&2
+  exit 1
+fi
 
 SAFE_NAME="${DOMAIN//[^a-zA-Z0-9._-]/_}"
 SRC="${OUTPUT_DIR}/${SAFE_NAME}.conf"
