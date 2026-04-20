@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Install generated nginx snippet into sites-available + sites-enabled and reload nginx.
-# Requires passwordless sudo for the PHP user, e.g. in /etc/sudoers.d/xenweet-nginx:
+# Fallback: multiple "sudo -n" calls (needs many NOPASSWD rules — awkward).
 #
-#   www-data ALL=(root) NOPASSWD: /bin/cp, /bin/ln, /usr/sbin/nginx, /bin/systemctl
-#
-# Or a single wrapper path — adjust to match your OS (nginx binary path).
+# Preferred on production: run once on the server:
+#   bash scripts/install-xenweet-nginx-sudo.sh
+# That installs /usr/local/sbin/xenweet-nginx-activate; Laravel then uses a
+# single "sudo -n" with one sudoers entry.
 #
 # Usage: hosting-vhost-nginx-activate.sh <domain>
 # Env:   HOSTING_VHOST_OUTPUT_DIR (same as vhost generator)

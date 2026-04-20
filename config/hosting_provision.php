@@ -103,6 +103,15 @@ return [
     ),
 
     /*
+    | Optional: paths to root helpers installed by scripts/install-xenweet-nginx-sudo.sh
+    | When executable, Laravel uses sudo -n <path> (single NOPASSWD rule) instead of
+    | the bash wrappers that call sudo many times.
+    */
+    'vhost_nginx_system_activate' => env('HOSTING_VHOST_NGINX_SYSTEM_BIN'),
+
+    'vhost_nginx_system_deactivate' => env('HOSTING_VHOST_NGINX_SYSTEM_DEACTIVATE_BIN'),
+
+    /*
     |--------------------------------------------------------------------------
     | Command Timeout (seconds)
     |--------------------------------------------------------------------------

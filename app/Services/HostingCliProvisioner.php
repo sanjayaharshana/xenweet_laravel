@@ -205,9 +205,47 @@ class HostingCliProvisioner
             return ['failed' => false, 'message' => null];
         }
 
+        $systemBin = $this->resolveNginxSystemBinary('xenweet-nginx-activate', 'vhost_nginx_system_activate');
         $script = $this->resolveVhostScriptPath('vhost_nginx_activate_script');
+
+        if ($systemBin !== null) {
+            $process = new Process(
+                ['sudo', '-n', $systemBin, $hosting->siteHost()],
+                base_path(),
+                ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
+                null,
+                (float) config('hosting_provision.timeout', 120)
+            );
+            $process->run();
+
+            $activateOut = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+            Log::info('hosting_vhost_nginx_activate', [
+                'domain' => $hosting->domain,
+                'script' => $systemBin,
+                'system' => true,
+                'success' => $process->isSuccessful(),
+                'output' => $activateOut,
+            ]);
+
+            if (! $process->isSuccessful()) {
+                return [
+                    'failed' => true,
+                    'message' => 'Nginx activate failed: '.($activateOut ?: 'no output').$this->nginxSudoHint($activateOut),
+                ];
+            }
+
+            return [
+                'failed' => false,
+                'message' => 'Nginx activate: '.($activateOut ?: 'ok'),
+            ];
+        }
+
         if ($script === null) {
-            return ['failed' => false, 'message' => 'Nginx activate: skipped (script missing).'];
+            return [
+                'failed' => false,
+                'message' => 'Nginx activate: skipped (install helpers: bash scripts/install-xenweet-nginx-sudo.sh on the server).',
+            ];
         }
 
         $process = new Process(
@@ -224,6 +262,7 @@ class HostingCliProvisioner
         Log::info('hosting_vhost_nginx_activate', [
             'domain' => $hosting->domain,
             'script' => $script,
+            'system' => false,
             'success' => $process->isSuccessful(),
             'output' => $activateOut,
         ]);
@@ -231,7 +270,7 @@ class HostingCliProvisioner
         if (! $process->isSuccessful()) {
             return [
                 'failed' => true,
-                'message' => 'Nginx activate failed: '.($activateOut ?: 'no output'),
+                'message' => 'Nginx activate failed: '.($activateOut ?: 'no output').$this->nginxSudoHint($activateOut),
             ];
         }
 
@@ -247,7 +286,31 @@ class HostingCliProvisioner
             return;
         }
 
+        $systemBin = $this->resolveNginxSystemBinary('xenweet-nginx-deactivate', 'vhost_nginx_system_deactivate');
         $script = $this->resolveVhostScriptPath('vhost_nginx_deactivate_script');
+
+        if ($systemBin !== null) {
+            $process = new Process(
+                ['sudo', '-n', $systemBin, $hosting->siteHost()],
+                base_path(),
+                [],
+                null,
+                (float) config('hosting_provision.timeout', 120)
+            );
+            $process->run();
+            $out = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+            Log::info('hosting_vhost_nginx_deactivate', [
+                'domain' => $hosting->domain,
+                'script' => $systemBin,
+                'system' => true,
+                'success' => $process->isSuccessful(),
+                'output' => $out,
+            ]);
+
+            return;
+        }
+
         if ($script === null) {
             return;
         }
@@ -266,9 +329,35 @@ class HostingCliProvisioner
         Log::info('hosting_vhost_nginx_deactivate', [
             'domain' => $hosting->domain,
             'script' => $script,
+            'system' => false,
             'success' => $process->isSuccessful(),
             'output' => $out,
         ]);
+    }
+
+    private function resolveNginxSystemBinary(string $basename, string $configKey): ?string
+    {
+        $configured = config('hosting_provision.'.$configKey);
+        if (is_string($configured) && $configured !== '' && is_executable($configured)) {
+            return $configured;
+        }
+
+        $default = '/usr/local/sbin/'.$basename;
+        if (is_executable($default)) {
+            return $default;
+        }
+
+        return null;
+    }
+
+    private function nginxSudoHint(string $output): string
+    {
+        if (! str_contains($output, 'password is required')) {
+            return '';
+        }
+
+        return "\n\n[Hint] On the server run: bash scripts/install-xenweet-nginx-sudo.sh"
+            ."\n(or set HOSTING_VHOST_NGINX_ACTIVATE=false and enable sites manually).";
     }
 
     private function runVhostRemove(Hosting $hosting): void

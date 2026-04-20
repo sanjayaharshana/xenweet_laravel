@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# Installed to /usr/local/sbin/ — runs as root via sudo (see install-xenweet-nginx-sudo.sh).
+#
+set -euo pipefail
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+DOMAIN="${1:?Usage: $0 <domain>}"
+
+SAFE_NAME="${DOMAIN//[^a-zA-Z0-9._-]/_}"
+ENABLED="/etc/nginx/sites-enabled/${SAFE_NAME}.conf"
+AVAIL="/etc/nginx/sites-available/${SAFE_NAME}.conf"
+
+rm -f "$ENABLED"
+rm -f "$AVAIL"
+nginx -t
+systemctl reload nginx
+
+echo "OK: nginx site removed for ${DOMAIN}"
