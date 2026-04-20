@@ -16,6 +16,7 @@
 
             <div class="nav-links">
                 <a href="{{ route('panel') }}" class="{{ request()->routeIs('panel') ? 'active' : '' }}">Dashboard</a>
+                <a href="{{ route('panel.logs') }}" class="{{ request()->routeIs('panel.logs') ? 'active' : '' }}">Logs</a>
                 <a href="#">Documentation</a>
                 <a href="#">Customer Support</a>
                 <span class="disabled-link nav-disabled-link" aria-disabled="true" title="Coming soon">Reseller Program</span>
@@ -38,6 +39,7 @@
             <div class="sidebar-group">
                 <a href="{{ route('panel') }}" class="{{ request()->routeIs('panel') ? 'active' : '' }}">Hosting List</a>
                 <a href="{{ route('plan.index') }}" class="{{ request()->routeIs('plan.*') ? 'active' : '' }}">Plans</a>
+                <a href="{{ route('panel.logs') }}" class="{{ request()->routeIs('panel.logs') ? 'active' : '' }}">Logs</a>
                 <a href="#">Account Security</a>
                 <a href="#">Backups</a>
             </div>

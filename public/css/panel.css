@@ -761,6 +761,60 @@ body {
     color: var(--muted);
 }
 
+.log-viewer-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding: 0.7rem 0.95rem;
+}
+
+.log-viewer-toolbar label {
+    font-size: 0.86rem;
+    color: var(--muted);
+}
+
+.log-file-picker {
+    margin: 0;
+}
+
+.log-file-picker select {
+    min-width: 220px;
+    padding: 0.45rem 0.65rem;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card-soft);
+    color: var(--text);
+    font-size: 0.88rem;
+}
+
+.log-truncation-note {
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.log-viewer-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.log-viewer {
+    margin: 0;
+    max-height: min(70vh, 900px);
+    overflow: auto;
+    padding: 1rem 1.1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #d2e0ff;
+    background: #070b14;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 @media (max-width: 920px) {
     .auth-shell {
         grid-template-columns: 1fr;
