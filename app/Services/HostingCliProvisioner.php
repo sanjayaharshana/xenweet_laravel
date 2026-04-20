@@ -12,7 +12,7 @@ class HostingCliProvisioner
 {
     public function run(Hosting $hosting): void
     {
-        [$hostRootPath, $webRootPath] = $this->ensureHostFolders($hosting);
+        [$hostRootPath, $webRootPath, $folderNote] = $this->ensureHostFolders($hosting);
 
         $hosting->update([
             'host_root_path' => $hostRootPath,
@@ -20,9 +20,13 @@ class HostingCliProvisioner
         ]);
 
         if (! config('hosting_provision.enabled')) {
+            $log = 'Provision command disabled. Folder binding created at: '.$webRootPath;
+            if ($folderNote !== null) {
+                $log .= "\n".$folderNote;
+            }
             $hosting->update([
                 'provision_status' => 'success',
-                'provision_log' => 'Provision command disabled. Folder binding created at: '.$webRootPath,
+                'provision_log' => $log,
                 'provisioned_at' => Carbon::now(),
             ]);
 
@@ -31,9 +35,13 @@ class HostingCliProvisioner
 
         $command = $this->resolveCommandTemplate($hosting);
 
+        $runningLog = 'Running command: '.$command;
+        if ($folderNote !== null) {
+            $runningLog = $folderNote."\n".$runningLog;
+        }
         $hosting->update([
             'provision_status' => 'running',
-            'provision_log' => 'Running command: '.$command,
+            'provision_log' => $runningLog,
         ]);
 
         $process = Process::fromShellCommandline($command);
@@ -43,18 +51,26 @@ class HostingCliProvisioner
         $log = trim($process->getOutput()."\n".$process->getErrorOutput());
 
         if ($process->isSuccessful()) {
+            $successLog = $log ?: 'Provision completed with no output.';
+            if ($folderNote !== null) {
+                $successLog = $folderNote."\n".$successLog;
+            }
             $hosting->update([
                 'provision_status' => 'success',
-                'provision_log' => $log ?: 'Provision completed with no output.',
+                'provision_log' => $successLog,
                 'provisioned_at' => Carbon::now(),
             ]);
 
             return;
         }
 
+        $failLog = $log ?: 'Provision failed with no output.';
+        if ($folderNote !== null) {
+            $failLog = $folderNote."\n".$failLog;
+        }
         $hosting->update([
             'provision_status' => 'failed',
-            'provision_log' => $log ?: 'Provision failed with no output.',
+            'provision_log' => $failLog,
         ]);
     }
 
@@ -79,7 +95,10 @@ class HostingCliProvisioner
 
     private function ensureHostFolders(Hosting $hosting): array
     {
-        $baseRoot = (string) config('hosting_provision.hosts_root', storage_path('app/hosting-sites'));
+        $configuredRoot = (string) config('hosting_provision.hosts_root', storage_path('app/hosting-sites'));
+        $fallbackRoot = storage_path('app/hosting-sites');
+
+        [$baseRoot, $folderNote] = $this->writableBaseRoot($configuredRoot, $fallbackRoot);
         $domainFolder = Str::lower(preg_replace('/[^a-zA-Z0-9\.\-_]/', '-', $hosting->domain) ?: 'site-'.$hosting->id);
         $hostRootPath = rtrim($baseRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$domainFolder;
         $webRootPath = $hostRootPath.DIRECTORY_SEPARATOR.'public_html';
@@ -87,11 +106,11 @@ class HostingCliProvisioner
         $backupPath = $hostRootPath.DIRECTORY_SEPARATOR.'backups';
         $sslPath = $hostRootPath.DIRECTORY_SEPARATOR.'ssl';
 
-        File::ensureDirectoryExists($hostRootPath);
-        File::ensureDirectoryExists($webRootPath);
-        File::ensureDirectoryExists($logPath);
-        File::ensureDirectoryExists($backupPath);
-        File::ensureDirectoryExists($sslPath);
+        $this->mkdirSafe($hostRootPath);
+        $this->mkdirSafe($webRootPath);
+        $this->mkdirSafe($logPath);
+        $this->mkdirSafe($backupPath);
+        $this->mkdirSafe($sslPath);
 
         $indexFile = $webRootPath.DIRECTORY_SEPARATOR.'index.html';
         if (! File::exists($indexFile)) {
@@ -101,6 +120,41 @@ class HostingCliProvisioner
             );
         }
 
-        return [$hostRootPath, $webRootPath];
+        return [$hostRootPath, $webRootPath, $folderNote];
+    }
+
+    /**
+     * Prefer HOSTING_SITES_ROOT; if PHP cannot create/write there, use storage (always writable in a normal Laravel deploy).
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    private function writableBaseRoot(string $configuredRoot, string $fallbackRoot): array
+    {
+        if ($configuredRoot === $fallbackRoot) {
+            return [$fallbackRoot, null];
+        }
+
+        try {
+            $this->mkdirSafe($configuredRoot);
+
+            if (is_writable($configuredRoot)) {
+                return [$configuredRoot, null];
+            }
+        } catch (\Throwable) {
+            // fall through to fallback
+        }
+
+        $note = 'HOSTING_SITES_ROOT was not usable ('.$configuredRoot.'); using '.$fallbackRoot.'. Fix permissions or chown so the PHP user can write there.';
+
+        return [$fallbackRoot, $note];
+    }
+
+    private function mkdirSafe(string $path): void
+    {
+        if (is_dir($path)) {
+            return;
+        }
+
+        File::ensureDirectoryExists($path);
     }
 }
