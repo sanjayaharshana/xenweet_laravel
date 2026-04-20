@@ -19,11 +19,30 @@ class HostingCliProvisioner
             'host_root_path' => $hostRootPath,
             'web_root_path' => $webRootPath,
         ]);
+        $hosting->refresh();
+
+        $vhostResult = $this->runVhostProvision($hosting);
+        if ($vhostResult['stopped']) {
+            $failLog = $vhostResult['message'] ?? 'Vhost script failed.';
+            if ($folderNote !== null) {
+                $failLog = $folderNote."\n".$failLog;
+            }
+            $hosting->update([
+                'provision_status' => 'failed',
+                'provision_log' => $failLog,
+            ]);
+
+            return;
+        }
+        $vhostLog = $vhostResult['message'];
 
         if (! config('hosting_provision.enabled')) {
             $log = 'Provision command disabled. Folder binding created at: '.$webRootPath;
             if ($folderNote !== null) {
                 $log .= "\n".$folderNote;
+            }
+            if ($vhostLog !== null) {
+                $log .= "\n".$vhostLog;
             }
             $hosting->update([
                 'provision_status' => 'success',
@@ -39,6 +58,9 @@ class HostingCliProvisioner
         $runningLog = 'Running command: '.$command;
         if ($folderNote !== null) {
             $runningLog = $folderNote."\n".$runningLog;
+        }
+        if ($vhostLog !== null) {
+            $runningLog = $vhostLog."\n".$runningLog;
         }
         $hosting->update([
             'provision_status' => 'running',
@@ -56,6 +78,9 @@ class HostingCliProvisioner
             if ($folderNote !== null) {
                 $successLog = $folderNote."\n".$successLog;
             }
+            if ($vhostLog !== null) {
+                $successLog = $vhostLog."\n".$successLog;
+            }
             $hosting->update([
                 'provision_status' => 'success',
                 'provision_log' => $successLog,
@@ -68,6 +93,9 @@ class HostingCliProvisioner
         $failLog = $log ?: 'Provision failed with no output.';
         if ($folderNote !== null) {
             $failLog = $folderNote."\n".$failLog;
+        }
+        if ($vhostLog !== null) {
+            $failLog = $vhostLog."\n".$failLog;
         }
         $hosting->update([
             'provision_status' => 'failed',
@@ -82,6 +110,9 @@ class HostingCliProvisioner
      */
     public function remove(Hosting $hosting): bool
     {
+        $this->runNginxDeactivate($hosting);
+        $this->runVhostRemove($hosting);
+
         if (! config('hosting_provision.remove_enabled')) {
             return true;
         }
@@ -103,6 +134,198 @@ class HostingCliProvisioner
         ]);
 
         return $process->isSuccessful();
+    }
+
+    /**
+     * @return array{stopped: bool, message: string|null}
+     */
+    private function runVhostProvision(Hosting $hosting): array
+    {
+        if (! config('hosting_provision.vhost_enabled')) {
+            return ['stopped' => false, 'message' => null];
+        }
+
+        $script = $this->resolveVhostScriptPath('vhost_script');
+        if ($script === null) {
+            return ['stopped' => false, 'message' => 'Vhost: skipped (HOSTING_VHOST_SCRIPT missing or not a file).'];
+        }
+
+        $outputDir = storage_path('app/hosting-vhosts');
+        File::ensureDirectoryExists($outputDir);
+
+        $process = new Process(
+            ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path],
+            base_path(),
+            [
+                'HOSTING_VHOST_OUTPUT_DIR' => $outputDir,
+                'PHP_FPM_SOCKET' => $this->resolvePhpFpmSocket($hosting),
+            ],
+            null,
+            (float) config('hosting_provision.timeout', 120)
+        );
+        $process->run();
+
+        $out = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+        Log::info('hosting_vhost_provision', [
+            'domain' => $hosting->domain,
+            'script' => $script,
+            'success' => $process->isSuccessful(),
+            'output' => $out,
+        ]);
+
+        if (! $process->isSuccessful()) {
+            $msg = 'Vhost script failed: '.($out ?: 'no output');
+            if (config('hosting_provision.vhost_stop_on_error')) {
+                return ['stopped' => true, 'message' => $msg];
+            }
+
+            return ['stopped' => false, 'message' => $msg.' (continuing; HOSTING_VHOST_STOP_ON_ERROR=false)'];
+        }
+
+        $message = 'Vhost: '.($out ?: 'ok');
+
+        $activate = $this->runNginxActivate($hosting, $outputDir);
+        if ($activate['message'] !== null) {
+            $message .= "\n".$activate['message'];
+        }
+        if ($activate['failed'] && config('hosting_provision.vhost_stop_on_error')) {
+            return ['stopped' => true, 'message' => $message];
+        }
+
+        return ['stopped' => false, 'message' => $message];
+    }
+
+    /**
+     * @return array{failed: bool, message: string|null}
+     */
+    private function runNginxActivate(Hosting $hosting, string $outputDir): array
+    {
+        if (! config('hosting_provision.vhost_nginx_activate')) {
+            return ['failed' => false, 'message' => null];
+        }
+
+        $script = $this->resolveVhostScriptPath('vhost_nginx_activate_script');
+        if ($script === null) {
+            return ['failed' => false, 'message' => 'Nginx activate: skipped (script missing).'];
+        }
+
+        $process = new Process(
+            ['bash', $script, $hosting->siteHost()],
+            base_path(),
+            ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
+            null,
+            (float) config('hosting_provision.timeout', 120)
+        );
+        $process->run();
+
+        $activateOut = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+        Log::info('hosting_vhost_nginx_activate', [
+            'domain' => $hosting->domain,
+            'script' => $script,
+            'success' => $process->isSuccessful(),
+            'output' => $activateOut,
+        ]);
+
+        if (! $process->isSuccessful()) {
+            return [
+                'failed' => true,
+                'message' => 'Nginx activate failed: '.($activateOut ?: 'no output'),
+            ];
+        }
+
+        return [
+            'failed' => false,
+            'message' => 'Nginx activate: '.($activateOut ?: 'ok'),
+        ];
+    }
+
+    private function runNginxDeactivate(Hosting $hosting): void
+    {
+        if (! config('hosting_provision.vhost_nginx_activate')) {
+            return;
+        }
+
+        $script = $this->resolveVhostScriptPath('vhost_nginx_deactivate_script');
+        if ($script === null) {
+            return;
+        }
+
+        $process = new Process(
+            ['bash', $script, $hosting->siteHost()],
+            base_path(),
+            [],
+            null,
+            (float) config('hosting_provision.timeout', 120)
+        );
+        $process->run();
+
+        $out = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+        Log::info('hosting_vhost_nginx_deactivate', [
+            'domain' => $hosting->domain,
+            'script' => $script,
+            'success' => $process->isSuccessful(),
+            'output' => $out,
+        ]);
+    }
+
+    private function runVhostRemove(Hosting $hosting): void
+    {
+        if (! config('hosting_provision.vhost_enabled')) {
+            return;
+        }
+
+        $script = $this->resolveVhostScriptPath('vhost_remove_script');
+        if ($script === null) {
+            return;
+        }
+
+        $outputDir = storage_path('app/hosting-vhosts');
+
+        $process = new Process(
+            ['bash', $script, $hosting->siteHost()],
+            base_path(),
+            ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
+            null,
+            (float) config('hosting_provision.timeout', 120)
+        );
+        $process->run();
+
+        $out = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+        Log::info('hosting_vhost_remove', [
+            'domain' => $hosting->domain,
+            'script' => $script,
+            'success' => $process->isSuccessful(),
+            'output' => $out,
+        ]);
+    }
+
+    private function resolveVhostScriptPath(string $key): ?string
+    {
+        $path = (string) config('hosting_provision.'.$key);
+        if ($path === '' || ! is_file($path)) {
+            return null;
+        }
+
+        return $path;
+    }
+
+    private function resolvePhpFpmSocket(Hosting $hosting): string
+    {
+        $override = config('hosting_provision.php_fpm_socket');
+        if (is_string($override) && $override !== '') {
+            return $override;
+        }
+
+        $v = trim((string) $hosting->php_version);
+        if (preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
+            return '/var/run/php/php'.$m[1].'.'.$m[2].'-fpm.sock';
+        }
+
+        return '/var/run/php/php8.3-fpm.sock';
     }
 
     private function applyHostingPlaceholders(Hosting $hosting, string $template): string
