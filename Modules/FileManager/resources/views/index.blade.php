@@ -8,7 +8,7 @@
         <div>
             <p class="eyebrow">File Manager</p>
             <h1>{{ $hosting->domain }}</h1>
-            <p class="subtle">Browse and manage files for this hosting account.</p>
+            <p class="subtle">Files and folders under this hosting account root on the panel server.</p>
         </div>
         <div class="topbar-actions">
             <a class="btn-secondary" href="{{ route('hosts.panel', $hosting) }}">Back to Host Panel</a>
@@ -16,10 +16,402 @@
         </div>
     </header>
 
-    <div class="file-manager-placeholder server-card">
-        <p class="file-manager-placeholder__icon" aria-hidden="true"><i class="fa fa-folder-open"></i></p>
-        <h3 class="file-manager-placeholder__title">File browser</h3>
-        <p class="subtle">Listing, upload, and edit will connect to the host over SSH/SFTP or your storage API. This page is the entry point from the host panel.</p>
-    </div>
+    @if (! $listing['ok'])
+        <div class="file-manager-alert server-card" role="alert">
+            <p class="file-manager-alert__text">{{ $listing['error'] }}</p>
+        </div>
+    @else
+        <div class="file-manager-panel server-card" data-rename-url="{{ route('hosts.files.rename', $hosting) }}">
+            @if (session('success'))
+                <div class="file-manager-flash file-manager-flash--success" role="status">{{ session('success') }}</div>
+            @endif
+            @if ($errors->has('action'))
+                <div class="file-manager-flash file-manager-flash--error" role="alert">{{ $errors->first('action') }}</div>
+            @endif
+
+            <div class="file-manager-actions-toolbar" aria-label="File manager tools">
+                <div class="file-manager-actions-toolbar__buttons">
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-mkdir" title="Create folder">
+                        <i class="fa fa-folder-o" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Folder</span>
+                    </button>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-file" title="Create file">
+                        <i class="fa fa-file-o" aria-hidden="true"></i><span class="file-manager-icon-btn__label">File</span>
+                    </button>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-upload" title="Upload">
+                        <i class="fa fa-cloud-upload" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Upload</span>
+                    </button>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-delete" data-requires-selection="1" title="Delete selected">
+                        <i class="fa fa-trash" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Delete</span>
+                    </button>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-move" data-requires-selection="1" title="Move selected">
+                        <i class="fa fa-arrows" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Move</span>
+                    </button>
+                    <a class="file-manager-icon-btn file-manager-icon-btn--link" href="{{ route('hosts.files.index', array_filter(['hosting' => $hosting, 'path' => $listing['relativePath']])) }}" title="Refresh">
+                        <i class="fa fa-refresh" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Refresh</span>
+                    </a>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-download" title="Download">
+                        <i class="fa fa-download" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Download</span>
+                    </button>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-copy" title="Copy">
+                        <i class="fa fa-files-o" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Copy</span>
+                    </button>
+                    <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-rename" title="Rename">
+                        <i class="fa fa-pencil" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Rename</span>
+                    </button>
+                </div>
+            </div>
+
+            <dialog id="fm-dialog-mkdir" class="file-manager-dialog">
+                <form method="post" action="{{ route('hosts.files.mkdir', $hosting) }}">
+                    @csrf
+                    <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                    <h3 class="file-manager-dialog__title"><i class="fa fa-folder-o" aria-hidden="true"></i> New folder</h3>
+                    <p class="file-manager-dialog__hint subtle">Create a folder in the current directory.</p>
+                    <label class="file-manager-dialog__field">
+                        <span>Folder name</span>
+                        <input type="text" name="name" maxlength="255" autocomplete="off" required>
+                    </label>
+                    <div class="file-manager-dialog__actions">
+                        <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
+                        <button type="submit" class="btn-primary">Create</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <dialog id="fm-dialog-file" class="file-manager-dialog">
+                <form method="post" action="{{ route('hosts.files.touch', $hosting) }}">
+                    @csrf
+                    <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                    <h3 class="file-manager-dialog__title"><i class="fa fa-file-o" aria-hidden="true"></i> New file</h3>
+                    <p class="file-manager-dialog__hint subtle">Create an empty file in the current directory.</p>
+                    <label class="file-manager-dialog__field">
+                        <span>File name</span>
+                        <input type="text" name="name" maxlength="255" autocomplete="off" required>
+                    </label>
+                    <div class="file-manager-dialog__actions">
+                        <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
+                        <button type="submit" class="btn-primary">Create</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <dialog id="fm-dialog-upload" class="file-manager-dialog">
+                <form method="post" action="{{ route('hosts.files.upload', $hosting) }}" enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                    <h3 class="file-manager-dialog__title"><i class="fa fa-cloud-upload" aria-hidden="true"></i> Upload file</h3>
+                    <p class="file-manager-dialog__hint subtle">Upload into the current folder.</p>
+                    <label class="file-manager-dialog__field">
+                        <span>Choose file</span>
+                        <input type="file" name="file" required>
+                    </label>
+                    <div class="file-manager-dialog__actions">
+                        <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
+                        <button type="submit" class="btn-primary">Upload</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <dialog id="fm-dialog-delete" class="file-manager-dialog file-manager-dialog--notice">
+                <h3 class="file-manager-dialog__title"><i class="fa fa-trash" aria-hidden="true"></i> Delete</h3>
+                <p class="file-manager-dialog__hint">Permanently delete the selected files or folders? This cannot be undone.</p>
+                <div class="file-manager-dialog__actions">
+                    <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
+                    <button type="submit" class="btn-primary file-manager-dialog__btn-danger" form="file-manager-bulk" formaction="{{ route('hosts.files.destroy', $hosting) }}">Delete</button>
+                </div>
+            </dialog>
+
+            <dialog id="fm-dialog-move" class="file-manager-dialog">
+                <form method="post" action="{{ route('hosts.files.move', $hosting) }}" id="fm-form-move">
+                    @csrf
+                    <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                    <h3 class="file-manager-dialog__title"><i class="fa fa-arrows" aria-hidden="true"></i> Move</h3>
+                    <p class="file-manager-dialog__hint subtle">Move selected items to another folder under this host (relative path from host root).</p>
+                    <label class="file-manager-dialog__field">
+                        <span>Destination folder</span>
+                        <input type="text" name="destination" maxlength="4096" autocomplete="off" placeholder="e.g. public_html or backups/sub" required>
+                    </label>
+                    <p class="file-manager-dialog__hint subtle">Selected items are submitted with this request.</p>
+                    <div class="file-manager-dialog__actions">
+                        <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
+                        <button type="submit" class="btn-primary">Move</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <dialog id="fm-dialog-download" class="file-manager-dialog file-manager-dialog--notice">
+                <h3 class="file-manager-dialog__title"><i class="fa fa-download" aria-hidden="true"></i> Download</h3>
+                <p class="file-manager-dialog__hint">This action is not available yet.</p>
+                <div class="file-manager-dialog__actions">
+                    <button type="button" class="btn-primary" data-close-dialog>OK</button>
+                </div>
+            </dialog>
+
+            <dialog id="fm-dialog-copy" class="file-manager-dialog file-manager-dialog--notice">
+                <h3 class="file-manager-dialog__title"><i class="fa fa-files-o" aria-hidden="true"></i> Copy</h3>
+                <p class="file-manager-dialog__hint">This action is not available yet.</p>
+                <div class="file-manager-dialog__actions">
+                    <button type="button" class="btn-primary" data-close-dialog>OK</button>
+                </div>
+            </dialog>
+
+            <dialog id="fm-dialog-rename" class="file-manager-dialog file-manager-dialog--notice">
+                <h3 class="file-manager-dialog__title"><i class="fa fa-pencil" aria-hidden="true"></i> Rename</h3>
+                <p class="file-manager-dialog__hint">This action is not available yet.</p>
+                <div class="file-manager-dialog__actions">
+                    <button type="button" class="btn-primary" data-close-dialog>OK</button>
+                </div>
+            </dialog>
+
+            <form id="file-manager-bulk" method="post" action="{{ route('hosts.files.destroy', $hosting) }}" hidden aria-hidden="true">
+                @csrf
+                <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+            </form>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    (function () {
+                        const bulkId = 'file-manager-bulk';
+                        function selectedCount() {
+                            return document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').length;
+                        }
+                        document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                if (btn.getAttribute('data-requires-selection') && selectedCount() === 0) {
+                                    window.alert('Select one or more items in the list first.');
+                                    return;
+                                }
+                                var id = btn.getAttribute('data-open-dialog');
+                                var el = id ? document.getElementById(id) : null;
+                                if (el && typeof el.showModal === 'function') el.showModal();
+                            });
+                        });
+                        document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                var d = btn.closest('dialog');
+                                if (d) d.close();
+                            });
+                        });
+                        document.querySelectorAll('dialog.file-manager-dialog').forEach(function (dialog) {
+                            dialog.addEventListener('click', function (e) {
+                                if (e.target === dialog) dialog.close();
+                            });
+                        });
+                        var moveForm = document.getElementById('fm-form-move');
+                        if (moveForm) {
+                            moveForm.addEventListener('submit', function (e) {
+                                var dest = moveForm.querySelector('input[name="destination"]');
+                                if (dest && !dest.value.trim()) {
+                                    e.preventDefault();
+                                    window.alert('Enter a destination folder.');
+                                    return;
+                                }
+                                moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
+                                document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').forEach(function (cb) {
+                                    var hidden = document.createElement('input');
+                                    hidden.type = 'hidden';
+                                    hidden.name = 'items[]';
+                                    hidden.value = cb.value;
+                                    hidden.className = 'fm-move-sync';
+                                    moveForm.appendChild(hidden);
+                                });
+                            });
+                        }
+
+                        var panel = document.querySelector('.file-manager-panel[data-rename-url]');
+                        var renameUrl = panel ? panel.getAttribute('data-rename-url') : '';
+                        function csrfToken() {
+                            var t = document.querySelector('#file-manager-bulk input[name="_token"]');
+                            return t ? t.value : '';
+                        }
+                        document.querySelectorAll('.file-row__name-text--file').forEach(function (span) {
+                            span.addEventListener('click', function (e) {
+                                if (span.querySelector('input')) return;
+                                e.preventDefault();
+                                var row = span.closest('.file-row');
+                                var cb = row ? row.querySelector('input[type="checkbox"][name="items[]"]') : null;
+                                if (cb) {
+                                    cb.checked = true;
+                                }
+                            });
+                            span.addEventListener('dblclick', function (e) {
+                                e.preventDefault();
+                                if (span.querySelector('input')) return;
+                                var rel = span.getAttribute('data-relative');
+                                var orig = span.textContent.trim();
+                                var input = document.createElement('input');
+                                input.type = 'text';
+                                input.className = 'file-row__rename-input';
+                                input.value = orig;
+                                input.setAttribute('autocomplete', 'off');
+                                span.textContent = '';
+                                span.appendChild(input);
+                                input.focus();
+                                input.select();
+                                var done = false;
+                                function restore(text) {
+                                    if (done) return;
+                                    done = true;
+                                    span.removeChild(input);
+                                    span.textContent = text;
+                                }
+                                function save() {
+                                    if (done) return;
+                                    var newName = input.value.trim();
+                                    if (newName === '' || newName === orig) {
+                                        restore(orig);
+                                        return;
+                                    }
+                                    done = true;
+                                    span.removeChild(input);
+                                    span.textContent = newName;
+                                    fetch(renameUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Accept': 'application/json',
+                                            'X-CSRF-TOKEN': csrfToken(),
+                                            'X-Requested-With': 'XMLHttpRequest'
+                                        },
+                                        body: JSON.stringify({ from: rel, name: newName })
+                                    }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                                        .then(function (res) {
+                                            if (!res.ok || !res.data.ok) {
+                                                var msg = 'Rename failed.';
+                                                if (res.data) {
+                                                    if (res.data.message) msg = res.data.message;
+                                                    else if (res.data.errors && res.data.errors.name) msg = res.data.errors.name[0];
+                                                }
+                                                window.alert(msg);
+                                                span.textContent = orig;
+                                                return;
+                                            }
+                                            span.textContent = res.data.name;
+                                            span.setAttribute('data-relative', res.data.relative);
+                                            var row = span.closest('.file-row');
+                                            var cb = row ? row.querySelector('input[type="checkbox"][name="items[]"]') : null;
+                                            if (cb) cb.value = res.data.relative;
+                                        })
+                                        .catch(function () {
+                                            window.alert('Rename failed.');
+                                            span.textContent = orig;
+                                        });
+                                }
+                                input.addEventListener('keydown', function (ev) {
+                                    if (ev.key === 'Enter') {
+                                        ev.preventDefault();
+                                        save();
+                                    } else if (ev.key === 'Escape') {
+                                        ev.preventDefault();
+                                        restore(orig);
+                                    }
+                                });
+                                input.addEventListener('blur', function () {
+                                    window.setTimeout(function () {
+                                        if (!done && document.activeElement !== input) save();
+                                    }, 0);
+                                });
+                            });
+                        });
+                    })();
+                });
+            </script>
+
+            <div class="file-manager-layout">
+                <aside class="file-manager-tree-panel" aria-label="Folder tree">
+                    <h3 class="file-manager-tree-panel__title">Explore</h3>
+                    <p class="file-manager-tree-panel__hint subtle">Expand folders or open a folder to view its files.</p>
+                    <nav class="file-tree">
+                        <div class="file-tree__root">
+                            <a
+                                href="{{ route('hosts.files.index', $hosting) }}"
+                                class="file-tree__root-link @if ($listing['relativePath'] === '') is-active @endif"
+                            ><i class="fa fa-home" aria-hidden="true"></i> Host root</a>
+                        </div>
+                        @if (count($listing['tree']) > 0)
+                            @include('filemanager::partials.tree-nodes', [
+                                'nodes' => $listing['tree'],
+                                'hosting' => $hosting,
+                                'currentPath' => $listing['relativePath'],
+                            ])
+                        @else
+                            <p class="file-tree__empty subtle">No subfolders in the host root.</p>
+                        @endif
+                        @if ($listing['tree_truncated'])
+                            <p class="file-tree__limit subtle">Tree limited for performance — use the list below for full paths.</p>
+                        @endif
+                    </nav>
+                </aside>
+
+                <div class="file-manager-main">
+                    <nav class="file-manager-breadcrumb" aria-label="Folder path">
+                        <a href="{{ route('hosts.files.index', $hosting) }}">Host root</a>
+                        @foreach ($listing['breadcrumbs'] as $crumb)
+                            <span class="file-manager-breadcrumb__sep" aria-hidden="true">/</span>
+                            <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $crumb['path']]) }}">{{ $crumb['label'] }}</a>
+                        @endforeach
+                    </nav>
+
+                    <div class="file-toolbar">
+                        <h2>Contents @if ($listing['relativePath'] !== '')<span class="subtle">· {{ $listing['relativePath'] }}</span>@endif</h2>
+                        @if ($listing['parentRelativePath'] !== null)
+                            <a class="btn-secondary compact" href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $listing['parentRelativePath']]) }}">Up one level</a>
+                        @endif
+                    </div>
+
+                    @if (count($listing['entries']) === 0)
+                        <div class="file-manager-empty">
+                            <p class="subtle">This folder is empty.</p>
+                        </div>
+                    @else
+                        <div class="file-table file-table--selectable">
+                            <div class="file-row file-row-head">
+                                <span class="file-row__check" title="Select"></span>
+                                <span>Name</span>
+                                <span>Type</span>
+                                <span>Size</span>
+                                <span>Modified</span>
+                            </div>
+                            @foreach ($listing['entries'] as $entry)
+                                <div class="file-row">
+                                    <span class="file-row__check">
+                                        <input
+                                            type="checkbox"
+                                            name="items[]"
+                                            value="{{ $entry['relative'] }}"
+                                            form="file-manager-bulk"
+                                        >
+                                    </span>
+                                    <span class="file-row__name">
+                                        @if ($entry['is_dir'])
+                                            <i class="fa fa-folder file-row__icon" aria-hidden="true"></i>
+                                            <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $entry['relative']]) }}">{{ $entry['name'] }}</a>
+                                        @else
+                                            <i class="fa fa-file-o file-row__icon" aria-hidden="true"></i>
+                                            <span
+                                                class="file-row__name-text file-row__name-text--file"
+                                                data-relative="{{ $entry['relative'] }}"
+                                                title="Click to select · Double-click to rename"
+                                            >{{ $entry['name'] }}</span>
+                                        @endif
+                                    </span>
+                                    <span>{{ $entry['is_dir'] ? 'Folder' : 'File' }}</span>
+                                    <span>{{ $entry['is_dir'] ? '—' : \Illuminate\Support\Number::fileSize($entry['size'] ?? 0, 2) }}</span>
+                                    <span>
+                                        @if ($entry['mtime'])
+                                            {{ \Illuminate\Support\Carbon::createFromTimestamp($entry['mtime'])->format('M j, Y H:i') }}
+                                        @else
+                                            —
+                                        @endif
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="file-manager-select-hint subtle">Click a <strong>file</strong> name to select it; double-click to rename. Use <strong>Delete</strong> or <strong>Move</strong> from the toolbar.</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
 @endsection
