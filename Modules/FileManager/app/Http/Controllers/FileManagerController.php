@@ -137,16 +137,31 @@ class FileManagerController extends Controller
         ]);
     }
 
-    public function edit(Request $request, Hosting $hosting, HostFilesystemService $fs): View|RedirectResponse
+    public function edit(Request $request, Hosting $hosting, HostFilesystemService $fs): View|RedirectResponse|JsonResponse
     {
         $path = (string) $request->query('path', '');
 
         try {
             $content = $fs->readTextFile($hosting, $path);
         } catch (Throwable $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->route('hosts.files.index', $this->listingParams($hosting, $this->parentRelative($path)))
                 ->withErrors(['action' => $e->getMessage()]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'path' => $path,
+                'content' => $content,
+            ]);
         }
 
         return view('filemanager::edit', [
@@ -157,7 +172,7 @@ class FileManagerController extends Controller
         ]);
     }
 
-    public function update(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function update(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $max = (int) config('file_manager.max_edit_bytes', 2 * 1024 * 1024);
         $validated = $request->validate([
@@ -168,10 +183,24 @@ class FileManagerController extends Controller
         try {
             $fs->writeTextFile($hosting, $validated['path'], (string) ($validated['content'] ?? ''));
         } catch (Throwable $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->route('hosts.files.edit', ['hosting' => $hosting, 'path' => $validated['path']])
                 ->withErrors(['action' => $e->getMessage()])
                 ->withInput();
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'File saved.',
+            ]);
         }
 
         return redirect()

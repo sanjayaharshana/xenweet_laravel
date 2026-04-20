@@ -4,19 +4,17 @@
 
 @section('content')
 <div class="host-panel-scope file-manager-scope">
-    <header class="topbar">
-        <div>
-            <p class="eyebrow">File Manager</p>
-            <h1>{{ $hosting->domain }}</h1>
-            <p class="subtle">Files and folders under this hosting account root on the panel server.</p>
-        </div>
-        <div class="topbar-actions">
-            <a class="btn-secondary" href="{{ route('hosts.panel', $hosting) }}">Back to Host Panel</a>
-            <a class="btn-secondary compact" href="{{ $hosting->publicSiteUrl() }}" target="_blank" rel="noopener noreferrer">Open Site</a>
-        </div>
-    </header>
-
     @if (! $listing['ok'])
+        <div class="file-manager-actions-toolbar" aria-label="Navigation">
+            <div class="file-manager-actions-toolbar__buttons">
+                <a class="file-manager-icon-btn file-manager-icon-btn--link" href="{{ route('hosts.panel', $hosting) }}" title="Back to Host Panel">
+                    <i class="fa fa-arrow-left" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Host Panel</span>
+                </a>
+                <a class="file-manager-icon-btn file-manager-icon-btn--link" href="{{ $hosting->publicSiteUrl() }}" target="_blank" rel="noopener noreferrer" title="Open site in new tab">
+                    <i class="fa fa-globe" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Open Site</span>
+                </a>
+            </div>
+        </div>
         <div class="file-manager-alert server-card" role="alert">
             <p class="file-manager-alert__text">{{ $listing['error'] }}</p>
         </div>
@@ -26,6 +24,7 @@
             data-rename-url="{{ route('hosts.files.rename', $hosting) }}"
             data-open-url="{{ route('hosts.files.open', $hosting) }}"
             data-edit-url="{{ route('hosts.files.edit', $hosting) }}"
+            data-update-url="{{ route('hosts.files.update', $hosting) }}"
         >
             @if (session('success'))
                 <div class="file-manager-flash file-manager-flash--success" role="status">{{ session('success') }}</div>
@@ -36,6 +35,13 @@
 
             <div class="file-manager-actions-toolbar" aria-label="File manager tools">
                 <div class="file-manager-actions-toolbar__buttons">
+                    <a class="file-manager-icon-btn file-manager-icon-btn--link" href="{{ route('hosts.panel', $hosting) }}" title="Back to Host Panel">
+                        <i class="fa fa-arrow-left" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Host Panel</span>
+                    </a>
+                    <a class="file-manager-icon-btn file-manager-icon-btn--link" href="{{ $hosting->publicSiteUrl() }}" target="_blank" rel="noopener noreferrer" title="Open site in new tab">
+                        <i class="fa fa-globe" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Open Site</span>
+                    </a>
+                    <span class="file-manager-toolbar-sep" aria-hidden="true"></span>
                     <button type="button" class="file-manager-icon-btn" data-open-dialog="fm-dialog-mkdir" title="Create folder">
                         <i class="fa fa-folder-o" aria-hidden="true"></i><span class="file-manager-icon-btn__label">Folder</span>
                     </button>
@@ -168,6 +174,19 @@
                 </div>
             </dialog>
 
+            <dialog id="fm-dialog-edit" class="file-manager-dialog file-manager-dialog--edit">
+                <div class="file-manager-dialog--edit__inner">
+                    <h3 class="file-manager-dialog__title"><i class="fa fa-pencil" aria-hidden="true"></i> Edit file</h3>
+                    <p class="file-manager-dialog__path subtle" id="fm-edit-path-label"></p>
+                    <textarea id="fm-edit-content" class="file-manager-dialog--edit__textarea" spellcheck="false" rows="16" placeholder="Loading…"></textarea>
+                    <p class="file-manager-dialog--edit__error" id="fm-edit-error" hidden role="alert"></p>
+                    <div class="file-manager-dialog__actions">
+                        <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
+                        <button type="button" class="btn-primary" id="fm-edit-save">Save</button>
+                    </div>
+                </div>
+            </dialog>
+
             <form id="file-manager-bulk" method="post" action="{{ route('hosts.files.destroy', $hosting) }}" hidden aria-hidden="true">
                 @csrf
                 <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
@@ -252,11 +271,25 @@
                         var fmMenu = document.getElementById('fm-context-menu');
                         var fmOpenBase = panel ? panel.getAttribute('data-open-url') : '';
                         var fmEditBase = panel ? panel.getAttribute('data-edit-url') : '';
+                        var fmUpdateUrl = panel ? panel.getAttribute('data-update-url') : '';
+                        var fmDialogEdit = document.getElementById('fm-dialog-edit');
+                        var fmEditContent = document.getElementById('fm-edit-content');
+                        var fmEditPathLabel = document.getElementById('fm-edit-path-label');
+                        var fmEditError = document.getElementById('fm-edit-error');
+                        var fmEditSave = document.getElementById('fm-edit-save');
                         var fmDupForm = document.getElementById('fm-form-context-duplicate');
                         var fmDelForm = document.getElementById('fm-form-context-delete');
                         var fmDupFrom = document.getElementById('fm-context-duplicate-from');
                         var fmDelItem = document.getElementById('fm-context-delete-item');
                         var ctxState = { relative: '', editable: false };
+                        var ctxHighlightRow = null;
+
+                        function clearCtxRowHighlight() {
+                            if (ctxHighlightRow) {
+                                ctxHighlightRow.classList.remove('file-row--menu-open');
+                                ctxHighlightRow = null;
+                            }
+                        }
 
                         function fmUrl(base, relative) {
                             if (!base) {
@@ -266,11 +299,124 @@
                             return base + q + 'path=' + encodeURIComponent(relative);
                         }
 
+                        function openEditModal(rel) {
+                            if (!fmDialogEdit || !fmEditContent) {
+                                return;
+                            }
+                            fmEditError.hidden = true;
+                            fmEditError.textContent = '';
+                            fmEditPathLabel.textContent = rel;
+                            fmDialogEdit.setAttribute('data-edit-path', rel);
+                            fmEditContent.value = '';
+                            fmEditContent.placeholder = 'Loading…';
+                            fmEditContent.disabled = true;
+                            if (fmEditSave) {
+                                fmEditSave.disabled = true;
+                            }
+                            fmDialogEdit.showModal();
+                            fetch(fmUrl(fmEditBase, rel), {
+                                credentials: 'same-origin',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            }).then(function (r) {
+                                return r.json().then(function (d) {
+                                    return { ok: r.ok, data: d };
+                                });
+                            }).then(function (res) {
+                                fmEditContent.disabled = false;
+                                if (fmEditSave) {
+                                    fmEditSave.disabled = false;
+                                }
+                                if (!res.ok || !res.data.ok) {
+                                    var msg = 'Could not load file.';
+                                    if (res.data && res.data.message) {
+                                        msg = res.data.message;
+                                    }
+                                    fmEditError.textContent = msg;
+                                    fmEditError.hidden = false;
+                                    return;
+                                }
+                                fmEditContent.value = res.data.content != null ? res.data.content : '';
+                                fmEditContent.placeholder = '';
+                            }).catch(function () {
+                                fmEditContent.disabled = false;
+                                if (fmEditSave) {
+                                    fmEditSave.disabled = false;
+                                }
+                                fmEditError.textContent = 'Could not load file.';
+                                fmEditError.hidden = false;
+                            });
+                        }
+
+                        if (fmDialogEdit && fmEditContent) {
+                            fmDialogEdit.addEventListener('close', function () {
+                                fmEditContent.value = '';
+                                fmEditPathLabel.textContent = '';
+                                fmDialogEdit.removeAttribute('data-edit-path');
+                                fmEditError.hidden = true;
+                            });
+                        }
+
+                        if (fmEditSave && fmUpdateUrl && fmDialogEdit) {
+                            fmEditSave.addEventListener('click', function () {
+                                var rel = fmDialogEdit.getAttribute('data-edit-path') || '';
+                                if (!rel) {
+                                    return;
+                                }
+                                fmEditSave.disabled = true;
+                                fmEditError.hidden = true;
+                                fetch(fmUpdateUrl, {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    headers: {
+                                        'Content-Type': 'application/x-www-form-urlencoded',
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'X-CSRF-TOKEN': csrfToken()
+                                    },
+                                    body: new URLSearchParams({
+                                        _token: csrfToken(),
+                                        path: rel,
+                                        content: fmEditContent.value
+                                    })
+                                }).then(function (r) {
+                                    return r.json().then(function (d) {
+                                        return { ok: r.ok, data: d, status: r.status };
+                                    });
+                                }).then(function (res) {
+                                    fmEditSave.disabled = false;
+                                    if (res.data && res.data.ok) {
+                                        fmDialogEdit.close();
+                                        return;
+                                    }
+                                    var msg = 'Save failed.';
+                                    if (res.data && res.data.message) {
+                                        msg = res.data.message;
+                                    }
+                                    if (res.data && res.data.errors && res.data.errors.content) {
+                                        msg = res.data.errors.content[0];
+                                    }
+                                    fmEditError.textContent = msg;
+                                    fmEditError.hidden = false;
+                                }).catch(function () {
+                                    fmEditSave.disabled = false;
+                                    fmEditError.textContent = 'Save failed.';
+                                    fmEditError.hidden = false;
+                                });
+                            });
+                        }
+
                         function hideFmMenu() {
+                            clearCtxRowHighlight();
                             if (fmMenu) {
                                 fmMenu.hidden = true;
+                                fmMenu.style.position = '';
+                                fmMenu.style.zIndex = '';
                                 fmMenu.style.left = '';
                                 fmMenu.style.top = '';
+                                fmMenu.style.visibility = '';
                             }
                         }
 
@@ -278,24 +424,36 @@
                             if (!fmMenu) {
                                 return;
                             }
+                            /* Detach from overflow:hidden ancestors so fixed + size work reliably */
+                            if (fmMenu.parentNode !== document.body) {
+                                document.body.appendChild(fmMenu);
+                            }
                             fmMenu.hidden = false;
-                            var pad = 8;
+                            fmMenu.style.position = 'fixed';
+                            fmMenu.style.zIndex = '10050';
+                            /* While display:none, size is 0 — measure off-screen then place at cursor */
+                            fmMenu.style.visibility = 'hidden';
+                            fmMenu.style.left = '-10000px';
+                            fmMenu.style.top = '0';
+                            void fmMenu.offsetWidth;
                             var w = fmMenu.offsetWidth;
                             var h = fmMenu.offsetHeight;
+                            var pad = 8;
                             var vw = window.innerWidth;
                             var vh = window.innerHeight;
                             var left = x;
                             var top = y;
-                            if (left + w + pad > vw) {
-                                left = Math.max(pad, vw - w - pad);
+                            if (w > 0 && h > 0) {
+                                if (left + w + pad > vw) {
+                                    left = Math.max(pad, vw - w - pad);
+                                }
+                                if (top + h + pad > vh) {
+                                    top = Math.max(pad, vh - h - pad);
+                                }
                             }
-                            if (top + h + pad > vh) {
-                                top = Math.max(pad, vh - h - pad);
-                            }
-                            fmMenu.style.position = 'fixed';
                             fmMenu.style.left = left + 'px';
                             fmMenu.style.top = top + 'px';
-                            fmMenu.style.zIndex = '10050';
+                            fmMenu.style.visibility = 'visible';
                         }
 
                         function setEditDisabled(disabled) {
@@ -317,6 +475,9 @@
                                 }
                                 ctxState.relative = rel;
                                 ctxState.editable = row.getAttribute('data-file-editable') === '1';
+                                clearCtxRowHighlight();
+                                ctxHighlightRow = row;
+                                row.classList.add('file-row--menu-open');
                                 setEditDisabled(!ctxState.editable);
                                 positionFmMenu(e.clientX, e.clientY);
                             });
@@ -351,7 +512,7 @@
                                         if (!ctxState.editable) {
                                             return;
                                         }
-                                        window.location.href = fmUrl(fmEditBase, rel);
+                                        openEditModal(rel);
                                     } else if (action === 'copy') {
                                         if (fmDupFrom && fmDupForm) {
                                             fmDupFrom.value = rel;
@@ -471,8 +632,10 @@
 
             <div class="file-manager-layout">
                 <aside class="file-manager-tree-panel" aria-label="Folder tree">
-                    <h3 class="file-manager-tree-panel__title">Explore</h3>
-                    <p class="file-manager-tree-panel__hint subtle">Expand folders or open a folder to view its files.</p>
+                    <div class="file-manager-tree-panel__sticky-head">
+                        <h3 class="file-manager-tree-panel__title">Explore</h3>
+                        <p class="file-manager-tree-panel__hint subtle">Expand folders or open a folder to view its files.</p>
+                    </div>
                     <nav class="file-tree">
                         <div class="file-tree__root">
                             <a
@@ -496,19 +659,21 @@
                 </aside>
 
                 <div class="file-manager-main">
-                    <nav class="file-manager-breadcrumb" aria-label="Folder path">
-                        <a href="{{ route('hosts.files.index', $hosting) }}">Host root</a>
-                        @foreach ($listing['breadcrumbs'] as $crumb)
-                            <span class="file-manager-breadcrumb__sep" aria-hidden="true">/</span>
-                            <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $crumb['path']]) }}">{{ $crumb['label'] }}</a>
-                        @endforeach
-                    </nav>
+                    <div class="file-manager-main__sticky-head">
+                        <nav class="file-manager-breadcrumb" aria-label="Folder path">
+                            <a href="{{ route('hosts.files.index', $hosting) }}">Host root</a>
+                            @foreach ($listing['breadcrumbs'] as $crumb)
+                                <span class="file-manager-breadcrumb__sep" aria-hidden="true">/</span>
+                                <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $crumb['path']]) }}">{{ $crumb['label'] }}</a>
+                            @endforeach
+                        </nav>
 
-                    <div class="file-toolbar">
-                        <h2>Contents @if ($listing['relativePath'] !== '')<span class="subtle">· {{ $listing['relativePath'] }}</span>@endif</h2>
-                        @if ($listing['parentRelativePath'] !== null)
-                            <a class="btn-secondary compact" href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $listing['parentRelativePath']]) }}">Up one level</a>
-                        @endif
+                        <div class="file-toolbar">
+                            <h2>Contents @if ($listing['relativePath'] !== '')<span class="subtle">· {{ $listing['relativePath'] }}</span>@endif</h2>
+                            @if ($listing['parentRelativePath'] !== null)
+                                <a class="btn-secondary compact" href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $listing['parentRelativePath']]) }}">Up one level</a>
+                            @endif
+                        </div>
                     </div>
 
                     @if (count($listing['entries']) === 0)

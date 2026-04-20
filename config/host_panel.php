@@ -26,7 +26,7 @@ return [
             'id' => 'files',
             'title' => 'Files',
             'items' => [
-                ['label' => 'File Manager', 'description' => 'Browse files on the server', 'icon' => 'fa fa-folder-open', 'route' => 'hosts.files.index'],
+                ['label' => 'File Manager', 'description' => 'Browse files on the server', 'icon' => 'fa fa-folder-open', 'route' => 'hosts.files.index', 'target' => '_blank'],
                 ['label' => 'File Backup', 'description' => 'Backups and restore', 'icon' => 'fa fa-cloud-upload'],
                 ['label' => 'Git', 'description' => 'Repositories and deploy keys', 'icon' => 'fa fa-code-fork'],
                 ['label' => 'Update pipeline', 'description' => 'CI / deployment', 'icon' => 'fa fa-refresh'],
