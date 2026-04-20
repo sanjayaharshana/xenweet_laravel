@@ -19,12 +19,32 @@
             <p class="field-hint">Use a valid root domain like <code>example.com</code>.</p>
 
             <label for="server_ip">Server IP</label>
-            <input id="server_ip" name="server_ip" type="text" value="{{ old('server_ip') }}" placeholder="192.168.1.10" required>
+            <div class="input-with-action">
+                <input id="server_ip" name="server_ip" type="text" value="{{ old('server_ip') }}" placeholder="192.168.1.10" required>
+                <button
+                    type="button"
+                    class="btn-secondary compact-btn"
+                    data-fill-server-ip="{{ $currentServerIp }}"
+                    onclick="document.getElementById('server_ip').value = this.dataset.fillServerIp;"
+                >
+                    Use Current Server IP
+                </button>
+            </div>
             <p class="field-hint">Enter the IPv4 or IPv6 address where the host is deployed.</p>
 
             <label for="plan">Plan</label>
-            <input id="plan" name="plan" type="text" value="{{ old('plan', 'Starter') }}" required>
-            <p class="field-hint">Set the package label such as Starter, Business, or Enterprise.</p>
+            <select id="plan" name="plan" required @disabled($plans->isEmpty())>
+                <option value="">Select hosting plan</option>
+                @foreach ($plans as $plan)
+                    <option value="{{ $plan->name }}" @selected(old('plan') === $plan->name)>{{ $plan->name }}</option>
+                @endforeach
+            </select>
+            <p class="field-hint">
+                Choose an active plan from Plan module.
+                @if ($plans->isEmpty())
+                    No active plans found. Create one in <a href="{{ route('plan.create') }}">Plans</a> first.
+                @endif
+            </p>
 
             <label for="panel_username">Panel Username</label>
             <input id="panel_username" name="panel_username" type="text" value="{{ old('panel_username') }}" required>

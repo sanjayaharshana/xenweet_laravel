@@ -6,7 +6,9 @@ use App\Models\Hosting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Plan\Models\Plan;
 
 class PanelController extends Controller
 {
@@ -24,7 +26,16 @@ class PanelController extends Controller
 
     public function create(): View
     {
-        return view('panel.create-host');
+        $plans = Plan::query()
+            ->where('status', 'active')
+            ->orderBy('monthly_price')
+            ->get(['name']);
+
+        $currentServerIp = request()->server('SERVER_ADDR')
+            ?? gethostbyname(gethostname())
+            ?? request()->ip();
+
+        return view('panel.create-host', compact('plans', 'currentServerIp'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -32,7 +43,12 @@ class PanelController extends Controller
         $validated = $request->validate([
             'domain' => ['required', 'string', 'max:255', 'unique:hostings,domain'],
             'server_ip' => ['required', 'ip'],
-            'plan' => ['required', 'string', 'max:100'],
+            'plan' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::exists('plans', 'name')->where(fn ($query) => $query->where('status', 'active')),
+            ],
             'panel_username' => ['required', 'string', 'max:100'],
             'panel_password' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'max:50'],

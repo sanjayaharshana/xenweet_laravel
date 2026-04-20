@@ -524,6 +524,17 @@ body {
     outline: none;
 }
 
+.input-with-action {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+}
+
+.input-with-action input {
+    grid-column: auto;
+}
+
 .field-hint {
     grid-column: span 2;
     margin: -0.2rem 0 0.2rem;
@@ -725,6 +736,10 @@ body {
 
     .hosting-row {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .input-with-action {
+        grid-template-columns: 1fr;
     }
 
     .panel-shell {
