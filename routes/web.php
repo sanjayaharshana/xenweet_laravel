@@ -1,0 +1,19 @@
+<?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PanelController;
+use Illuminate\Support\Facades\Route;
+
+Route::redirect('/', '/login');
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/panel', [PanelController::class, 'index'])->name('panel');
+    Route::get('/hosts/create', [PanelController::class, 'create'])->name('hosts.create');
+    Route::post('/hosts', [PanelController::class, 'store'])->name('hosts.store');
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+});

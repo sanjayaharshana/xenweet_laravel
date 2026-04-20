@@ -1,0 +1,11 @@
+{
+    "name": "Hosting",
+    "alias": "hosting",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Hosting\\Providers\\HostingServiceProvider"
+    ],
+    "files": []
+}

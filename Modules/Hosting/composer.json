@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/hosting",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Hosting\\": "app/",
+            "Modules\\Hosting\\Database\\Factories\\": "database/factories/",
+            "Modules\\Hosting\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Hosting\\Tests\\": "tests/"
+        }
+    }
+}
