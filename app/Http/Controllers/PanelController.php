@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Hosting;
 use App\Services\HostingCliProvisioner;
+use App\Services\PublicIpResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -34,9 +35,11 @@ class PanelController extends Controller
             ->orderBy('monthly_price')
             ->get(['name']);
 
-        $currentServerIp = request()->server('SERVER_ADDR')
+        $publicIp = app(PublicIpResolver::class)->resolve();
+        $localHint = request()->server('SERVER_ADDR')
             ?? gethostbyname(gethostname())
             ?? request()->ip();
+        $currentServerIp = filled($publicIp) ? $publicIp : $localHint;
 
         return view('panel.create-host', compact('plans', 'currentServerIp'));
     }

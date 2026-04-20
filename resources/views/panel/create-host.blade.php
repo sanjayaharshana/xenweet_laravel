@@ -20,17 +20,17 @@
 
             <label for="server_ip">Server IP</label>
             <div class="input-with-action">
-                <input id="server_ip" name="server_ip" type="text" value="{{ old('server_ip') }}" placeholder="192.168.1.10" required>
+                <input id="server_ip" name="server_ip" type="text" value="{{ old('server_ip', $currentServerIp) }}" placeholder="203.0.113.10" required>
                 <button
                     type="button"
                     class="btn-secondary compact-btn"
                     data-fill-server-ip="{{ $currentServerIp }}"
                     onclick="document.getElementById('server_ip').value = this.dataset.fillServerIp;"
                 >
-                    Use Current Server IP
+                    Use public IP
                 </button>
             </div>
-            <p class="field-hint">Enter the IPv4 or IPv6 address where the host is deployed.</p>
+            <p class="field-hint">Pre-filled with this server’s public IP when reachable (via api.ipify.org). You can edit or use the button to restore it.</p>
 
             <label for="plan">Plan</label>
             <select id="plan" name="plan" required @disabled($plans->isEmpty())>
