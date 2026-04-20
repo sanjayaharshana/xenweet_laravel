@@ -56,6 +56,10 @@
                     <p class="label">Disk Usage</p>
                     <strong>{{ $hosting->disk_usage_mb }} MB</strong>
                 </div>
+                <div>
+                    <p class="label">CLI Provision</p>
+                    <strong>{{ ucfirst($hosting->provision_status) }}</strong>
+                </div>
             </article>
         @empty
             <article class="server-card empty-state">

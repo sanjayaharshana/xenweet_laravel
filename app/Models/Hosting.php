@@ -13,6 +13,9 @@ class Hosting extends Model
         'panel_username',
         'panel_password',
         'status',
+        'provision_status',
+        'provision_log',
+        'provisioned_at',
         'php_version',
         'disk_usage_mb',
     ];
@@ -21,6 +24,7 @@ class Hosting extends Model
     {
         return [
             'panel_password' => 'encrypted',
+            'provisioned_at' => 'datetime',
         ];
     }
 }

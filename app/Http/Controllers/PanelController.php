@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hosting;
+use App\Services\HostingCliProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -56,10 +57,11 @@ class PanelController extends Controller
             'disk_usage_mb' => ['required', 'integer', 'min:0'],
         ]);
 
-        Hosting::create($validated);
+        $hosting = Hosting::create($validated);
+        app(HostingCliProvisioner::class)->run($hosting);
 
         return redirect()
             ->route('panel')
-            ->with('success', 'Hosting created successfully.');
+            ->with('success', 'Hosting created and CLI provisioning executed.');
     }
 }
