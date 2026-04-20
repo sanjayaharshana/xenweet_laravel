@@ -1,36 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xenweet Hosting Panel</title>
-    <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
-</head>
-<body class="dashboard-body">
-    <nav class="main-navbar">
-        <div class="nav-inner">
-            <a href="{{ route('panel') }}" class="brand">
-                <span class="brand-dot"></span>
-                Xenweet Panel
-            </a>
+@extends('layouts.panel')
 
-            <div class="nav-links">
-                <a href="{{ route('panel') }}" class="active">Dashboard</a>
-                <a href="{{ route('hosts.create') }}">Create Host</a>
-                <a href="#">Databases</a>
-                <a href="#">Security</a>
-            </div>
+@section('title', 'Xenweet Hosting Panel')
 
-            <div class="nav-user">
-                <span>{{ auth()->user()->name }}</span>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="btn-secondary" type="submit">Logout</button>
-                </form>
-            </div>
-        </div>
-    </nav>
-
+@section('content')
     <header class="topbar">
         <div>
             <p class="eyebrow">Hosting Panel</p>
@@ -40,10 +12,6 @@
 
         <div class="topbar-actions">
             <a class="btn-primary compact" href="{{ route('hosts.create') }}">+ Create Host</a>
-            <div class="user-chip">
-                <strong>{{ auth()->user()->name }}</strong>
-                <span>{{ auth()->user()->email }}</span>
-            </div>
         </div>
     </header>
 
@@ -69,16 +37,24 @@
                     <strong>{{ $hosting->plan }}</strong>
                 </div>
                 <div>
+                    <p class="label">Panel User</p>
+                    <strong>{{ $hosting->panel_username }}</strong>
+                </div>
+                <div>
+                    <p class="label">Panel Pass</p>
+                    <strong>{{ $hosting->panel_password }}</strong>
+                </div>
+                <div>
                     <p class="label">PHP</p>
                     <strong>{{ $hosting->php_version }}</strong>
                 </div>
                 <div>
-                    <p class="label">Disk Usage</p>
-                    <strong>{{ $hosting->disk_usage_mb }} MB</strong>
-                </div>
-                <div>
                     <p class="label">Status</p>
                     <span class="status online">{{ $hosting->status }}</span>
+                </div>
+                <div>
+                    <p class="label">Disk Usage</p>
+                    <strong>{{ $hosting->disk_usage_mb }} MB</strong>
                 </div>
             </article>
         @empty
@@ -89,5 +65,4 @@
             </article>
         @endforelse
     </main>
-</body>
-</html>
+@endsection
