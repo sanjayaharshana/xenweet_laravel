@@ -46,6 +46,10 @@ class PanelController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'domain' => Hosting::normalizeDomainName((string) $request->input('domain', '')),
+        ]);
+
         $validated = $request->validate([
             'domain' => ['required', 'string', 'max:255', 'unique:hostings,domain'],
             'server_ip' => ['required', 'ip'],

@@ -29,4 +29,34 @@ class Hosting extends Model
             'provisioned_at' => 'datetime',
         ];
     }
+
+    /**
+     * Strip protocol/path so DNS and URLs use a bare hostname (example.com).
+     */
+    public static function normalizeDomainName(string $domain): string
+    {
+        $d = trim($domain);
+        $d = preg_replace('#^https?://#i', '', $d);
+        $d = trim($d, '/');
+        if ($d === '') {
+            return $d;
+        }
+
+        return explode('/', $d, 2)[0];
+    }
+
+    public function siteHost(): string
+    {
+        return self::normalizeDomainName((string) $this->domain);
+    }
+
+    /**
+     * URL for the customer's public site (DNS should point to server_ip).
+     */
+    public function publicSiteUrl(): string
+    {
+        $scheme = (string) config('hosting.open_host_scheme', 'http');
+
+        return $scheme.'://'.$this->siteHost();
+    }
 }

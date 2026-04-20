@@ -62,7 +62,8 @@
                 </div>
                 <div class="plan-actions">
                     <a class="btn-secondary compact-btn" href="{{ route('hosts.panel', $hosting) }}">Open Panel</a>
-                    <a class="btn-secondary compact-btn" href="http://{{ $hosting->server_ip }}" target="_blank" rel="noopener noreferrer">Open Host</a>
+                    <a class="btn-secondary compact-btn" href="{{ $hosting->publicSiteUrl() }}" target="_blank" rel="noopener noreferrer">Open Site</a>
+                    <a class="btn-secondary compact-btn subtle-link" href="http://{{ $hosting->server_ip }}" target="_blank" rel="noopener noreferrer" title="Direct IP (default vhost)">Open IP</a>
                     <form method="POST" action="{{ route('hosts.destroy', $hosting) }}" class="inline-form" onsubmit="return confirm('Remove this hosting account? This cannot be undone.');">
                         @csrf
                         @method('DELETE')

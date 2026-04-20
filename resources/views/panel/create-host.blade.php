@@ -16,7 +16,7 @@
 
             <label for="domain">Domain</label>
             <input id="domain" name="domain" type="text" value="{{ old('domain') }}" placeholder="example.com" required>
-            <p class="field-hint">Use a valid root domain like <code>example.com</code>.</p>
+            <p class="field-hint">Use a root hostname like <code>example.com</code> (no <code>https://</code>). Point your DNS A record to the server IP below.</p>
 
             <label for="server_ip">Server IP</label>
             <div class="input-with-action">

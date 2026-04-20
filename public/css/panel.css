@@ -583,6 +583,11 @@ body {
     align-items: center;
 }
 
+.btn-secondary.subtle-link {
+    opacity: 0.82;
+    font-size: 0.78rem;
+}
+
 .compact-btn {
     padding: 0.4rem 0.65rem;
     font-size: 0.8rem;
