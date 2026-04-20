@@ -63,6 +63,11 @@
                 <div class="plan-actions">
                     <a class="btn-secondary compact-btn" href="{{ route('hosts.panel', $hosting) }}">Open Panel</a>
                     <a class="btn-secondary compact-btn" href="http://{{ $hosting->server_ip }}" target="_blank" rel="noopener noreferrer">Open Host</a>
+                    <form method="POST" action="{{ route('hosts.destroy', $hosting) }}" class="inline-form" onsubmit="return confirm('Remove this hosting account? This cannot be undone.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn-secondary compact-btn danger-btn">Remove</button>
+                    </form>
                 </div>
             </article>
         @empty

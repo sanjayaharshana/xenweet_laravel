@@ -573,7 +573,14 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
+    align-items: center;
     justify-content: flex-end;
+}
+
+.plan-actions .inline-form {
+    display: inline-flex;
+    margin: 0;
+    align-items: center;
 }
 
 .compact-btn {

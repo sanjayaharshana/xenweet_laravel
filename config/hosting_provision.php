@@ -41,6 +41,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Remove Command (on delete)
+    |--------------------------------------------------------------------------
+    |
+    | When a hosting row is deleted from the panel, this shell command runs first
+    | with the same placeholders as "command" above.
+    |
+    */
+    'remove_enabled' => (bool) env('HOSTING_SPLIT_REMOVE_ENABLED', true),
+
+    'remove_command' => env(
+        'HOSTING_SPLIT_REMOVE_COMMAND',
+        "echo '[split-server] unbind {domain} from {web_root_path} on {server_ip} user={panel_username}'"
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Command Timeout (seconds)
     |--------------------------------------------------------------------------
     */

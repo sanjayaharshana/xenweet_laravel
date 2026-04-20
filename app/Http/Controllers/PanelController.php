@@ -70,6 +70,24 @@ class PanelController extends Controller
             ->with('success', 'Hosting created and CLI provisioning executed.');
     }
 
+    public function destroy(Hosting $hosting): RedirectResponse
+    {
+        $domain = $hosting->domain;
+        $removeCliOk = app(HostingCliProvisioner::class)->remove($hosting);
+        $hosting->delete();
+
+        $message = 'Hosting "'.$domain.'" removed.';
+        if (config('hosting_provision.remove_enabled')) {
+            $message .= $removeCliOk
+                ? ' Remove script completed.'
+                : ' Remove script failed — details are in the application log.';
+        }
+
+        return redirect()
+            ->route('panel')
+            ->with('success', $message);
+    }
+
     public function hostPanel(Hosting $hosting, Request $request): View
     {
         $hostRoot = $this->hostRootPath($hosting);

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Hosting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -33,7 +34,7 @@ class HostingCliProvisioner
             return;
         }
 
-        $command = $this->resolveCommandTemplate($hosting);
+        $command = $this->applyHostingPlaceholders($hosting, (string) config('hosting_provision.command'));
 
         $runningLog = 'Running command: '.$command;
         if ($folderNote !== null) {
@@ -74,10 +75,38 @@ class HostingCliProvisioner
         ]);
     }
 
-    private function resolveCommandTemplate(Hosting $hosting): string
+    /**
+     * Run the configured remove shell command before the hosting row is deleted.
+     *
+     * @return bool True when disabled, or when the process exited successfully.
+     */
+    public function remove(Hosting $hosting): bool
     {
-        $template = (string) config('hosting_provision.command');
+        if (! config('hosting_provision.remove_enabled')) {
+            return true;
+        }
 
+        $command = $this->applyHostingPlaceholders($hosting, (string) config('hosting_provision.remove_command'));
+
+        $process = Process::fromShellCommandline($command);
+        $process->setTimeout((int) config('hosting_provision.timeout', 120));
+        $process->run();
+
+        $log = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+        Log::info('hosting_remove_cli', [
+            'domain' => $hosting->domain,
+            'id' => $hosting->id,
+            'command' => $command,
+            'success' => $process->isSuccessful(),
+            'output' => $log,
+        ]);
+
+        return $process->isSuccessful();
+    }
+
+    private function applyHostingPlaceholders(Hosting $hosting, string $template): string
+    {
         return strtr($template, [
             '{id}' => (string) $hosting->id,
             '{domain}' => $hosting->domain,
