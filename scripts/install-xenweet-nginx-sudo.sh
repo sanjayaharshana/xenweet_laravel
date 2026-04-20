@@ -28,5 +28,8 @@ rm -f "$TMP"
 sudo visudo -cf /etc/sudoers.d/xenweet-nginx
 
 echo "Done. Verify (should list the two NOPASSWD lines): sudo -u ${PHP_USER} sudo -n -l"
-echo "After git pull changes xenweet-nginx-*, re-run this script to refresh /usr/local/sbin/."
+echo ""
+echo "IMPORTANT: The helper must accept <domain> <output_dir> (sudo drops env)."
+echo "After git pull, always re-run this script so /usr/local/sbin/xenweet-nginx-activate stays current:"
+echo "  bash ${ROOT}/scripts/install-xenweet-nginx-sudo.sh ${PHP_USER}"
 echo "Then retry provisioning from the panel."

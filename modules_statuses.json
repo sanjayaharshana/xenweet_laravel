@@ -1,4 +1,5 @@
 {
     "Hosting": true,
-    "Plan": true
+    "Plan": true,
+    "FileManager": true
 }

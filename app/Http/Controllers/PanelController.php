@@ -7,9 +7,8 @@ use App\Services\HostingCliProvisioner;
 use App\Services\PublicIpResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Plan\Models\Plan;
@@ -92,85 +91,41 @@ class PanelController extends Controller
             ->with('success', $message);
     }
 
-    public function hostPanel(Hosting $hosting, Request $request): View
+    public function hostPanel(Hosting $hosting): View
     {
-        $hostRoot = $this->hostRootPath($hosting);
-        File::ensureDirectoryExists($hostRoot);
-
-        $requestedPath = (string) $request->query('path', '');
-        $currentPath = $this->safeResolvedPath($hostRoot, $requestedPath);
-        $relativePath = ltrim(Str::after($currentPath, $hostRoot), DIRECTORY_SEPARATOR);
-
-        $items = collect(File::files($currentPath))
-            ->map(fn ($file) => [
-                'name' => $file->getFilename(),
-                'type' => 'file',
-                'size' => $this->humanSize($file->getSize()),
-                'path' => ltrim(Str::after($file->getPathname(), $hostRoot), DIRECTORY_SEPARATOR),
-                'modified' => Carbon::createFromTimestamp($file->getMTime())->format('d M Y H:i'),
-            ])
-            ->merge(
-                collect(File::directories($currentPath))->map(fn ($directory) => [
-                    'name' => basename($directory),
-                    'type' => 'directory',
-                    'size' => '--',
-                    'path' => ltrim(Str::after($directory, $hostRoot), DIRECTORY_SEPARATOR),
-                    'modified' => Carbon::createFromTimestamp(filemtime($directory))->format('d M Y H:i'),
-                ])
-            )
-            ->sortBy([['type', 'asc'], ['name', 'asc']])
-            ->values();
-
-        $parentPath = '';
-        if ($relativePath !== '') {
-            $parentPath = dirname($relativePath);
-            $parentPath = $parentPath === '.' ? '' : $parentPath;
-        }
-
         return view('panel.host-panel', [
             'hosting' => $hosting,
-            'items' => $items,
-            'relativePath' => $relativePath,
-            'parentPath' => $parentPath,
+            'hostPanelCategories' => $this->resolveHostPanelCategories($hosting),
         ]);
     }
 
-    private function hostRootPath(Hosting $hosting): string
+    /**
+     * @return list<array{id?: string, title: string, items: list<array<string, mixed>>}>
+     */
+    private function resolveHostPanelCategories(Hosting $hosting): array
     {
-        if (! empty($hosting->host_root_path)) {
-            return $hosting->host_root_path;
-        }
+        return collect(config('host_panel.categories', []))
+            ->map(function (array $category) use ($hosting) {
+                $items = collect($category['items'] ?? [])
+                    ->map(function (array $item) use ($hosting) {
+                        $href = null;
+                        if (! empty($item['route']) && Route::has($item['route'])) {
+                            $params = array_merge($item['route_parameters'] ?? [], ['hosting' => $hosting]);
+                            $href = route($item['route'], $params);
+                        } elseif (! empty($item['url'])) {
+                            $href = $item['url'];
+                        }
 
-        return storage_path('app/hosting-sites/'.$hosting->domain);
-    }
+                        return array_merge($item, [
+                            'href' => $href,
+                        ]);
+                    })
+                    ->values()
+                    ->all();
 
-    private function safeResolvedPath(string $hostRoot, string $relativePath): string
-    {
-        $clean = trim(str_replace('\\', '/', $relativePath), '/');
-        $candidate = $clean === '' ? $hostRoot : $hostRoot.DIRECTORY_SEPARATOR.$clean;
-        $real = realpath($candidate);
-
-        if ($real === false || ! Str::startsWith($real, $hostRoot)) {
-            return $hostRoot;
-        }
-
-        return $real;
-    }
-
-    private function humanSize(int $bytes): string
-    {
-        if ($bytes < 1024) {
-            return $bytes.' B';
-        }
-
-        if ($bytes < 1024 * 1024) {
-            return round($bytes / 1024, 2).' KB';
-        }
-
-        if ($bytes < 1024 * 1024 * 1024) {
-            return round($bytes / (1024 * 1024), 2).' MB';
-        }
-
-        return round($bytes / (1024 * 1024 * 1024), 2).' GB';
+                return array_merge($category, ['items' => $items]);
+            })
+            ->values()
+            ->all();
     }
 }

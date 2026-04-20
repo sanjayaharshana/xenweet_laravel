@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Xenweet Hosting Panel')</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
 </head>
 <body class="dashboard-body">
@@ -51,7 +52,7 @@
             </div>
         </aside>
 
-        <section class="panel-content @hasSection('right_sidebar') panel-content-with-sidebar @endif">
+        <section class="panel-content @if (view()->hasSection('right_sidebar')) panel-content-with-sidebar @if (request()->routeIs('hosts.panel')) panel-content-with-sidebar--compact @endif @endif">
             <div class="panel-main-content">
                 @yield('content')
             </div>

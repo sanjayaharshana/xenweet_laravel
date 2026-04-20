@@ -32,6 +32,9 @@
             "Modules\\Plan\\": "Modules/Plan/app/",
             "Modules\\Plan\\Database\\Factories\\": "Modules/Plan/database/factories/",
             "Modules\\Plan\\Database\\Seeders\\": "Modules/Plan/database/seeders/",
+            "Modules\\FileManager\\": "Modules/FileManager/app/",
+            "Modules\\FileManager\\Database\\Factories\\": "Modules/FileManager/database/factories/",
+            "Modules\\FileManager\\Database\\Seeders\\": "Modules/FileManager/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

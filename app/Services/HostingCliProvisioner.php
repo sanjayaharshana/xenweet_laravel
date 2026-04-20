@@ -250,7 +250,7 @@ class HostingCliProvisioner
         }
 
         $process = new Process(
-            ['bash', $script, $hosting->siteHost()],
+            ['bash', $script, $hosting->siteHost(), $outputDir],
             base_path(),
             ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
             null,
