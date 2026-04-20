@@ -21,7 +21,7 @@ class HostFolderBrowser
      *     relativePath: string,
      *     parentRelativePath: string|null,
      *     breadcrumbs: list<array{label: string, path: string}>,
-     *     entries: list<array{name: string, is_dir: bool, size: int|null, mtime: int|null, relative: string}>,
+     *     entries: list<array{name: string, is_dir: bool, editable: bool, size: int|null, mtime: int|null, relative: string}>,
      *     tree: list<array{name: string, relative: string, open: bool, children: list, truncated: bool}>,
      *     tree_truncated: bool
      * }
@@ -78,6 +78,7 @@ class HostFolderBrowser
             $entries[] = [
                 'name' => $name,
                 'is_dir' => $isDir,
+                'editable' => ! $isDir && HostFilesystemService::isEditableFilename($name),
                 'size' => $size,
                 'mtime' => $mtime !== false ? $mtime : null,
                 'relative' => $childRelative,
@@ -236,7 +237,7 @@ class HostFolderBrowser
      *     relativePath: string,
      *     parentRelativePath: null,
      *     breadcrumbs: list<array{label: string, path: string}>,
-     *     entries: list<array{name: string, is_dir: bool, size: int|null, mtime: int|null, relative: string}>,
+     *     entries: list<array{name: string, is_dir: bool, editable: bool, size: int|null, mtime: int|null, relative: string}>,
      *     tree: list<array{name: string, relative: string, open: bool, children: list, truncated: bool}>,
      *     tree_truncated: bool
      * }

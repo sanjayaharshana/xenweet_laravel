@@ -1143,6 +1143,93 @@ body {
     box-sizing: border-box;
 }
 
+.file-manager-scope .fm-context-menu {
+    min-width: 11rem;
+    padding: 0.35rem 0;
+    margin: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(12, 18, 36, 0.98);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.file-manager-scope .fm-context-menu__item {
+    display: block;
+    width: 100%;
+    padding: 0.45rem 0.85rem;
+    border: none;
+    background: transparent;
+    color: #e4e9ff;
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.file-manager-scope .fm-context-menu__item:hover:not(:disabled):not(.fm-context-menu__item--disabled) {
+    background: rgba(79, 124, 255, 0.18);
+}
+
+.file-manager-scope .fm-context-menu__item--danger {
+    color: #ffb4b4;
+}
+
+.file-manager-scope .fm-context-menu__item--danger:hover:not(:disabled):not(.fm-context-menu__item--disabled) {
+    background: rgba(220, 80, 80, 0.2);
+}
+
+.file-manager-scope .fm-context-menu__item--disabled,
+.file-manager-scope .fm-context-menu__item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.file-manager-scope .file-manager-editor-card {
+    padding: 1rem 1.1rem 1.15rem;
+}
+
+.file-manager-scope .file-manager-editor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.file-manager-scope .file-manager-editor-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--primary-2);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.file-manager-scope .file-manager-editor-textarea {
+    width: 100%;
+    min-height: 22rem;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.25);
+    color: #e8edff;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.file-manager-scope .file-manager-editor-textarea:focus {
+    outline: none;
+    border-color: rgba(79, 124, 255, 0.65);
+    box-shadow: 0 0 0 2px rgba(79, 124, 255, 0.2);
+}
+
+.file-manager-scope .file-manager-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
 /* File manager: one outer card (.file-manager-panel) contains tree + main */
 .file-manager-scope .file-manager-panel.server-card {
     padding: 0;

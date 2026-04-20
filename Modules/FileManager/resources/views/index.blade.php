@@ -21,7 +21,12 @@
             <p class="file-manager-alert__text">{{ $listing['error'] }}</p>
         </div>
     @else
-        <div class="file-manager-panel server-card" data-rename-url="{{ route('hosts.files.rename', $hosting) }}">
+        <div
+            class="file-manager-panel server-card"
+            data-rename-url="{{ route('hosts.files.rename', $hosting) }}"
+            data-open-url="{{ route('hosts.files.open', $hosting) }}"
+            data-edit-url="{{ route('hosts.files.edit', $hosting) }}"
+        >
             @if (session('success'))
                 <div class="file-manager-flash file-manager-flash--success" role="status">{{ session('success') }}</div>
             @endif
@@ -168,6 +173,25 @@
                 <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
             </form>
 
+            <form id="fm-form-context-duplicate" method="post" action="{{ route('hosts.files.duplicate', $hosting) }}" hidden aria-hidden="true">
+                @csrf
+                <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                <input type="hidden" name="from" id="fm-context-duplicate-from" value="">
+            </form>
+
+            <form id="fm-form-context-delete" method="post" action="{{ route('hosts.files.destroy', $hosting) }}" hidden aria-hidden="true">
+                @csrf
+                <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                <input type="hidden" name="items[]" id="fm-context-delete-item" value="">
+            </form>
+
+            <div id="fm-context-menu" class="fm-context-menu" role="menu" hidden>
+                <button type="button" class="fm-context-menu__item" role="menuitem" data-action="copy">Copy</button>
+                <button type="button" class="fm-context-menu__item fm-context-menu__item--danger" role="menuitem" data-action="delete">Delete</button>
+                <button type="button" class="fm-context-menu__item" role="menuitem" data-action="edit">Edit</button>
+                <button type="button" class="fm-context-menu__item" role="menuitem" data-action="open">Open file</button>
+            </div>
+
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
                     (function () {
@@ -224,6 +248,125 @@
                             var t = document.querySelector('#file-manager-bulk input[name="_token"]');
                             return t ? t.value : '';
                         }
+
+                        var fmMenu = document.getElementById('fm-context-menu');
+                        var fmOpenBase = panel ? panel.getAttribute('data-open-url') : '';
+                        var fmEditBase = panel ? panel.getAttribute('data-edit-url') : '';
+                        var fmDupForm = document.getElementById('fm-form-context-duplicate');
+                        var fmDelForm = document.getElementById('fm-form-context-delete');
+                        var fmDupFrom = document.getElementById('fm-context-duplicate-from');
+                        var fmDelItem = document.getElementById('fm-context-delete-item');
+                        var ctxState = { relative: '', editable: false };
+
+                        function fmUrl(base, relative) {
+                            if (!base) {
+                                return '';
+                            }
+                            var q = base.indexOf('?') >= 0 ? '&' : '?';
+                            return base + q + 'path=' + encodeURIComponent(relative);
+                        }
+
+                        function hideFmMenu() {
+                            if (fmMenu) {
+                                fmMenu.hidden = true;
+                                fmMenu.style.left = '';
+                                fmMenu.style.top = '';
+                            }
+                        }
+
+                        function positionFmMenu(x, y) {
+                            if (!fmMenu) {
+                                return;
+                            }
+                            fmMenu.hidden = false;
+                            var pad = 8;
+                            var w = fmMenu.offsetWidth;
+                            var h = fmMenu.offsetHeight;
+                            var vw = window.innerWidth;
+                            var vh = window.innerHeight;
+                            var left = x;
+                            var top = y;
+                            if (left + w + pad > vw) {
+                                left = Math.max(pad, vw - w - pad);
+                            }
+                            if (top + h + pad > vh) {
+                                top = Math.max(pad, vh - h - pad);
+                            }
+                            fmMenu.style.position = 'fixed';
+                            fmMenu.style.left = left + 'px';
+                            fmMenu.style.top = top + 'px';
+                            fmMenu.style.zIndex = '10050';
+                        }
+
+                        function setEditDisabled(disabled) {
+                            var btn = fmMenu ? fmMenu.querySelector('[data-action="edit"]') : null;
+                            if (!btn) {
+                                return;
+                            }
+                            btn.disabled = disabled;
+                            btn.classList.toggle('fm-context-menu__item--disabled', disabled);
+                            btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+                        }
+
+                        document.querySelectorAll('.file-row--file').forEach(function (row) {
+                            row.addEventListener('contextmenu', function (e) {
+                                e.preventDefault();
+                                var rel = row.getAttribute('data-file-relative');
+                                if (!rel || !fmMenu) {
+                                    return;
+                                }
+                                ctxState.relative = rel;
+                                ctxState.editable = row.getAttribute('data-file-editable') === '1';
+                                setEditDisabled(!ctxState.editable);
+                                positionFmMenu(e.clientX, e.clientY);
+                            });
+                        });
+
+                        document.addEventListener('click', function (e) {
+                            if (fmMenu && !fmMenu.hidden && !fmMenu.contains(e.target)) {
+                                hideFmMenu();
+                            }
+                        });
+
+                        document.addEventListener('keydown', function (e) {
+                            if (e.key === 'Escape') {
+                                hideFmMenu();
+                            }
+                        });
+
+                        window.addEventListener('scroll', hideFmMenu, true);
+
+                        if (fmMenu) {
+                            fmMenu.querySelectorAll('[data-action]').forEach(function (btn) {
+                                btn.addEventListener('click', function () {
+                                    var action = btn.getAttribute('data-action');
+                                    var rel = ctxState.relative;
+                                    hideFmMenu();
+                                    if (!rel) {
+                                        return;
+                                    }
+                                    if (action === 'open') {
+                                        window.open(fmUrl(fmOpenBase, rel), '_blank', 'noopener,noreferrer');
+                                    } else if (action === 'edit') {
+                                        if (!ctxState.editable) {
+                                            return;
+                                        }
+                                        window.location.href = fmUrl(fmEditBase, rel);
+                                    } else if (action === 'copy') {
+                                        if (fmDupFrom && fmDupForm) {
+                                            fmDupFrom.value = rel;
+                                            fmDupForm.submit();
+                                        }
+                                    } else if (action === 'delete') {
+                                        if (fmDelItem && fmDelForm && window.confirm('Delete this file? This cannot be undone.')) {
+                                            fmDelItem.value = rel;
+                                            fmDelForm.submit();
+                                        }
+                                    }
+                                });
+                            });
+                        }
+
                         document.querySelectorAll('.file-row__name-text--file').forEach(function (span) {
                             span.addEventListener('click', function (e) {
                                 if (span.querySelector('input')) return;
@@ -286,9 +429,18 @@
                                                 span.textContent = orig;
                                                 return;
                                             }
-                                            span.textContent = res.data.name;
+                                                span.textContent = res.data.name;
                                             span.setAttribute('data-relative', res.data.relative);
+                                            if (typeof res.data.editable !== 'undefined') {
+                                                span.setAttribute('data-editable', res.data.editable ? '1' : '0');
+                                            }
                                             var row = span.closest('.file-row');
+                                            if (row && row.classList.contains('file-row--file')) {
+                                                row.setAttribute('data-file-relative', res.data.relative);
+                                                if (typeof res.data.editable !== 'undefined') {
+                                                    row.setAttribute('data-file-editable', res.data.editable ? '1' : '0');
+                                                }
+                                            }
                                             var cb = row ? row.querySelector('input[type="checkbox"][name="items[]"]') : null;
                                             if (cb) cb.value = res.data.relative;
                                         })
@@ -373,7 +525,13 @@
                                 <span>Modified</span>
                             </div>
                             @foreach ($listing['entries'] as $entry)
-                                <div class="file-row">
+                                <div
+                                    class="file-row @unless ($entry['is_dir']) file-row--file @endunless"
+                                    @unless ($entry['is_dir'])
+                                        data-file-relative="{{ $entry['relative'] }}"
+                                        data-file-editable="{{ $entry['editable'] ? '1' : '0' }}"
+                                    @endunless
+                                >
                                     <span class="file-row__check">
                                         <input
                                             type="checkbox"
@@ -391,7 +549,8 @@
                                             <span
                                                 class="file-row__name-text file-row__name-text--file"
                                                 data-relative="{{ $entry['relative'] }}"
-                                                title="Click to select · Double-click to rename"
+                                                data-editable="{{ $entry['editable'] ? '1' : '0' }}"
+                                                title="Right-click for menu · Click to select · Double-click to rename"
                                             >{{ $entry['name'] }}</span>
                                         @endif
                                     </span>
@@ -407,7 +566,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="file-manager-select-hint subtle">Click a <strong>file</strong> name to select it; double-click to rename. Use <strong>Delete</strong> or <strong>Move</strong> from the toolbar.</p>
+                        <p class="file-manager-select-hint subtle">Right-click a <strong>file</strong> for Open, Edit, Copy, or Delete. Click a file name to select; double-click to rename. Use the toolbar for bulk actions.</p>
                     @endif
                 </div>
             </div>

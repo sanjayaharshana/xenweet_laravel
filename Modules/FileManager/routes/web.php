@@ -11,4 +11,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/hosts/{hosting}/files/move', [FileManagerController::class, 'move'])->name('hosts.files.move');
     Route::post('/hosts/{hosting}/files/upload', [FileManagerController::class, 'upload'])->name('hosts.files.upload');
     Route::post('/hosts/{hosting}/files/rename', [FileManagerController::class, 'rename'])->name('hosts.files.rename');
+    Route::get('/hosts/{hosting}/files/open', [FileManagerController::class, 'openFile'])->name('hosts.files.open');
+    Route::get('/hosts/{hosting}/files/edit', [FileManagerController::class, 'edit'])->name('hosts.files.edit');
+    Route::post('/hosts/{hosting}/files/edit', [FileManagerController::class, 'update'])->name('hosts.files.update');
+    Route::post('/hosts/{hosting}/files/duplicate', [FileManagerController::class, 'duplicate'])->name('hosts.files.duplicate');
 });

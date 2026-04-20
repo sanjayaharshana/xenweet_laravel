@@ -215,4 +215,174 @@ class HostFilesystemService
 
         return HostPathGuard::joinRelative(array_merge($parentSegments, [$newName]));
     }
+
+    /**
+     * Whether the file can be opened in the text editor (by extension).
+     */
+    public static function isEditableFilename(string $filename): bool
+    {
+        $lower = strtolower($filename);
+        if ($lower === '.env' || str_ends_with($lower, '.blade.php')) {
+            return true;
+        }
+
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        return in_array($ext, config('file_manager.editable_extensions', []), true);
+    }
+
+    public function readTextFile(Hosting $hosting, string $relativePath): string
+    {
+        $root = HostPathGuard::hostRootReal($hosting);
+        if ($root === null) {
+            throw new RuntimeException('Host root is not available.');
+        }
+
+        try {
+            $segments = HostPathGuard::splitRelativePath($relativePath);
+        } catch (Throwable) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        if ($segments === []) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        $abs = HostPathGuard::itemRealPath($root, $segments);
+        if ($abs === null || ! is_file($abs)) {
+            throw new RuntimeException('File not found.');
+        }
+
+        $name = basename($abs);
+        if (! self::isEditableFilename($name)) {
+            throw new InvalidArgumentException('This file type cannot be edited in the text editor.');
+        }
+
+        $max = (int) config('file_manager.max_edit_bytes', 2 * 1024 * 1024);
+        $size = filesize($abs);
+        if ($size === false || $size > $max) {
+            throw new RuntimeException('File is too large to edit.');
+        }
+
+        $raw = File::get($abs);
+        if (! mb_check_encoding($raw, 'UTF-8')) {
+            throw new RuntimeException('File is not valid UTF-8 text.');
+        }
+
+        return $raw;
+    }
+
+    public function writeTextFile(Hosting $hosting, string $relativePath, string $content): void
+    {
+        $root = HostPathGuard::hostRootReal($hosting);
+        if ($root === null) {
+            throw new RuntimeException('Host root is not available.');
+        }
+
+        try {
+            $segments = HostPathGuard::splitRelativePath($relativePath);
+        } catch (Throwable) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        if ($segments === []) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        $abs = HostPathGuard::itemRealPath($root, $segments);
+        if ($abs === null || ! is_file($abs)) {
+            throw new RuntimeException('File not found.');
+        }
+
+        $name = basename($abs);
+        if (! self::isEditableFilename($name)) {
+            throw new InvalidArgumentException('This file type cannot be edited in the text editor.');
+        }
+
+        $max = (int) config('file_manager.max_edit_bytes', 2 * 1024 * 1024);
+        if (strlen($content) > $max) {
+            throw new RuntimeException('Content is too large to save.');
+        }
+
+        if (! mb_check_encoding($content, 'UTF-8')) {
+            throw new InvalidArgumentException('Content must be valid UTF-8 text.');
+        }
+
+        File::put($abs, $content);
+    }
+
+    /**
+     * Duplicate a file in the same directory (e.g. "name - Copy.ext").
+     */
+    public function duplicateFile(Hosting $hosting, string $fromRelative): string
+    {
+        $root = HostPathGuard::hostRootReal($hosting);
+        if ($root === null) {
+            throw new RuntimeException('Host root is not available.');
+        }
+
+        try {
+            $segments = HostPathGuard::splitRelativePath($fromRelative);
+        } catch (Throwable) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        if ($segments === []) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        $fromAbs = HostPathGuard::itemRealPath($root, $segments);
+        if ($fromAbs === null || ! is_file($fromAbs)) {
+            throw new RuntimeException('File not found.');
+        }
+
+        $parentSegments = array_slice($segments, 0, -1);
+        $parentAbs = $parentSegments === []
+            ? $root
+            : HostPathGuard::walkDirectory($root, $parentSegments);
+        if ($parentAbs === null) {
+            throw new RuntimeException('Parent folder not found.');
+        }
+
+        $base = basename($fromAbs);
+
+        $copyName = $base.' - Copy';
+        $n = 1;
+        while (file_exists($parentAbs.DIRECTORY_SEPARATOR.$copyName)) {
+            $n++;
+            $copyName = $base.' - Copy ('.$n.')';
+        }
+
+        $toAbs = $parentAbs.DIRECTORY_SEPARATOR.$copyName;
+        if (! File::copy($fromAbs, $toAbs)) {
+            throw new RuntimeException('Could not copy file.');
+        }
+
+        return HostPathGuard::joinRelative(array_merge($parentSegments, [$copyName]));
+    }
+
+    /**
+     * Absolute path to a file under the host root (must be a regular file).
+     */
+    public function fileAbsolutePath(Hosting $hosting, string $relativePath): ?string
+    {
+        $root = HostPathGuard::hostRootReal($hosting);
+        if ($root === null) {
+            return null;
+        }
+
+        try {
+            $segments = HostPathGuard::splitRelativePath($relativePath);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if ($segments === []) {
+            return null;
+        }
+
+        $abs = HostPathGuard::itemRealPath($root, $segments);
+
+        return ($abs !== null && is_file($abs)) ? $abs : null;
+    }
 }
