@@ -39,7 +39,7 @@ return [
             'id' => 'database',
             'title' => 'Database',
             'items' => [
-                ['label' => 'Manage DB', 'description' => 'Connections and users', 'icon' => 'fa fa-database'],
+                ['label' => 'Manage DB', 'description' => 'Connections and users', 'icon' => 'fa fa-database', 'route' => 'hosts.db.manage'],
                 ['label' => 'Adminer', 'description' => 'Web SQL client', 'icon' => 'fa fa-table'],
                 ['label' => 'MySQL Manager', 'description' => 'MySQL tools', 'icon' => 'fa fa-server'],
                 ['label' => 'PgSql', 'description' => 'PostgreSQL tools', 'icon' => 'fa fa-linux'],

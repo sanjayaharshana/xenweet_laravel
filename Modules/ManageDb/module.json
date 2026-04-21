@@ -1,0 +1,11 @@
+{
+    "name": "ManageDb",
+    "alias": "managedb",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ManageDb\\Providers\\ManageDbServiceProvider"
+    ],
+    "files": []
+}

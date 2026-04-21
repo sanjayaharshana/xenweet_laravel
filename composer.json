@@ -35,6 +35,9 @@
             "Modules\\FileManager\\": "Modules/FileManager/app/",
             "Modules\\FileManager\\Database\\Factories\\": "Modules/FileManager/database/factories/",
             "Modules\\FileManager\\Database\\Seeders\\": "Modules/FileManager/database/seeders/",
+            "Modules\\ManageDb\\": "Modules/ManageDb/app/",
+            "Modules\\ManageDb\\Database\\Factories\\": "Modules/ManageDb/database/factories/",
+            "Modules\\ManageDb\\Database\\Seeders\\": "Modules/ManageDb/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

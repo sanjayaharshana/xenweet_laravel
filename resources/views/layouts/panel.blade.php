@@ -47,6 +47,7 @@
                     <a href="{{ route('panel') }}" class="{{ request()->routeIs('panel') ? 'active' : '' }}">Hosting List</a>
                     <a href="{{ route('plan.index') }}" class="{{ request()->routeIs('plan.*') ? 'active' : '' }}">Plans</a>
                     <a href="{{ route('panel.logs') }}" class="{{ request()->routeIs('panel.logs') ? 'active' : '' }}">Logs</a>
+                    <a href="{{ route('panel.settings') }}" class="{{ request()->routeIs('panel.settings*') ? 'active' : '' }}">Settings</a>
                     <a href="#">Account Security</a>
                     <a href="#">Backups</a>
                 </div>

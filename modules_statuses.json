@@ -1,5 +1,6 @@
 {
     "Hosting": true,
     "Plan": true,
-    "FileManager": true
+    "FileManager": true,
+    "ManageDb": true
 }
