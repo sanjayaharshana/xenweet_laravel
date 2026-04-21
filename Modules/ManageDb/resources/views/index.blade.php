@@ -33,9 +33,15 @@
         </div>
     @endif
 
-    @if ($loadError)
+    @if ($loadDbError)
         <div class="alert error managedb-flash">
-            Could not load current databases/users: {{ $loadError }}
+            Could not load database list: {{ $loadDbError }}
+        </div>
+    @endif
+
+    @if ($loadUsersError)
+        <div class="alert error managedb-flash">
+            Could not load MySQL user list (insufficient privileges for mysql.user): {{ $loadUsersError }}
         </div>
     @endif
 

@@ -16,13 +16,19 @@ class ManageDbController extends Controller
     {
         $databases = [];
         $users = [];
-        $error = null;
+        $loadDbError = null;
+        $loadUsersError = null;
 
         try {
             $databases = $db->listDatabases($hosting);
+        } catch (Throwable $e) {
+            $loadDbError = $e->getMessage();
+        }
+
+        try {
             $users = $db->listUsers($hosting);
         } catch (Throwable $e) {
-            $error = $e->getMessage();
+            $loadUsersError = $e->getMessage();
         }
 
         return view('managedb::index', [
@@ -30,7 +36,8 @@ class ManageDbController extends Controller
             'prefix' => $db->prefixForHosting($hosting),
             'databases' => $databases,
             'users' => $users,
-            'loadError' => $error,
+            'loadDbError' => $loadDbError,
+            'loadUsersError' => $loadUsersError,
         ]);
     }
 
