@@ -15,4 +15,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/hosts/{hosting}/files/edit', [FileManagerController::class, 'edit'])->name('hosts.files.edit');
     Route::post('/hosts/{hosting}/files/edit', [FileManagerController::class, 'update'])->name('hosts.files.update');
     Route::post('/hosts/{hosting}/files/duplicate', [FileManagerController::class, 'duplicate'])->name('hosts.files.duplicate');
+    Route::post('/hosts/{hosting}/files/compress', [FileManagerController::class, 'compress'])->name('hosts.files.compress');
+    Route::post('/hosts/{hosting}/files/extract', [FileManagerController::class, 'extract'])->name('hosts.files.extract');
+    Route::get('/hosts/{hosting}/files/queue-status', [FileManagerController::class, 'queueStatus'])->name('hosts.files.queue-status');
 });

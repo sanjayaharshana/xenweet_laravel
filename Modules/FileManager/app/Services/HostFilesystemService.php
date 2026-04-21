@@ -6,8 +6,11 @@ use App\Models\Hosting;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Throwable;
+use ZipArchive;
 
 class HostFilesystemService
 {
@@ -384,5 +387,183 @@ class HostFilesystemService
         $abs = HostPathGuard::itemRealPath($root, $segments);
 
         return ($abs !== null && is_file($abs)) ? $abs : null;
+    }
+
+    public function compressItem(Hosting $hosting, string $fromRelative): string
+    {
+        $root = HostPathGuard::hostRootReal($hosting);
+        if ($root === null) {
+            throw new RuntimeException('Host root is not available.');
+        }
+
+        try {
+            $segments = HostPathGuard::splitRelativePath($fromRelative);
+        } catch (Throwable) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        if ($segments === []) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        $fromAbs = HostPathGuard::itemRealPath($root, $segments);
+        if ($fromAbs === null || (! is_file($fromAbs) && ! is_dir($fromAbs))) {
+            throw new RuntimeException('Item not found.');
+        }
+
+        $parentSegments = array_slice($segments, 0, -1);
+        $parentAbs = $parentSegments === []
+            ? $root
+            : HostPathGuard::walkDirectory($root, $parentSegments);
+        if ($parentAbs === null) {
+            throw new RuntimeException('Parent folder not found.');
+        }
+
+        $baseName = basename(str_replace('\\', '/', $fromAbs));
+        $zipName = $this->nextAvailableName($parentAbs, $baseName.'.zip');
+        $zipAbs = $parentAbs.DIRECTORY_SEPARATOR.$zipName;
+
+        $zip = new ZipArchive;
+        if ($zip->open($zipAbs, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('Could not create archive.');
+        }
+
+        if (is_dir($fromAbs)) {
+            $this->addDirectoryToZip($zip, $fromAbs, $baseName);
+        } else {
+            $zip->addFile($fromAbs, $baseName);
+        }
+
+        $zip->close();
+
+        return HostPathGuard::joinRelative(array_merge($parentSegments, [$zipName]));
+    }
+
+    public function extractArchive(Hosting $hosting, string $archiveRelative): string
+    {
+        $root = HostPathGuard::hostRootReal($hosting);
+        if ($root === null) {
+            throw new RuntimeException('Host root is not available.');
+        }
+
+        try {
+            $segments = HostPathGuard::splitRelativePath($archiveRelative);
+        } catch (Throwable) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        if ($segments === []) {
+            throw new InvalidArgumentException('Invalid path.');
+        }
+
+        $archiveAbs = HostPathGuard::itemRealPath($root, $segments);
+        if ($archiveAbs === null || ! is_file($archiveAbs)) {
+            throw new RuntimeException('Archive not found.');
+        }
+        if (strtolower((string) pathinfo($archiveAbs, PATHINFO_EXTENSION)) !== 'zip') {
+            throw new InvalidArgumentException('Only .zip archives can be extracted.');
+        }
+
+        $parentSegments = array_slice($segments, 0, -1);
+        $parentAbs = $parentSegments === []
+            ? $root
+            : HostPathGuard::walkDirectory($root, $parentSegments);
+        if ($parentAbs === null) {
+            throw new RuntimeException('Parent folder not found.');
+        }
+
+        $baseFolder = (string) pathinfo(basename($archiveAbs), PATHINFO_FILENAME);
+        if ($baseFolder === '') {
+            $baseFolder = 'extracted';
+        }
+        $targetFolder = $this->nextAvailableName($parentAbs, $baseFolder);
+        $targetAbs = $parentAbs.DIRECTORY_SEPARATOR.$targetFolder;
+
+        File::makeDirectory($targetAbs, 0755, true, true);
+
+        $zip = new ZipArchive;
+        if ($zip->open($archiveAbs) !== true) {
+            throw new RuntimeException('Could not open archive.');
+        }
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entry = (string) $zip->getNameIndex($i);
+            if (! $this->isSafeZipEntryPath($entry)) {
+                $zip->close();
+                File::deleteDirectory($targetAbs);
+                throw new RuntimeException('Archive contains unsafe paths.');
+            }
+        }
+
+        $ok = $zip->extractTo($targetAbs);
+        $zip->close();
+
+        if (! $ok) {
+            File::deleteDirectory($targetAbs);
+            throw new RuntimeException('Could not extract archive.');
+        }
+
+        return HostPathGuard::joinRelative(array_merge($parentSegments, [$targetFolder]));
+    }
+
+    private function addDirectoryToZip(ZipArchive $zip, string $sourceAbs, string $zipRootName): void
+    {
+        $zip->addEmptyDir($zipRootName);
+
+        $iter = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($sourceAbs, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iter as $item) {
+            $itemPath = (string) $item->getPathname();
+            $relPath = substr($itemPath, strlen($sourceAbs) + 1);
+            if ($relPath === false || $relPath === '') {
+                continue;
+            }
+            $zipPath = $zipRootName.'/'.str_replace('\\', '/', $relPath);
+
+            if ($item->isDir()) {
+                $zip->addEmptyDir($zipPath);
+            } else {
+                $zip->addFile($itemPath, $zipPath);
+            }
+        }
+    }
+
+    private function isSafeZipEntryPath(string $entry): bool
+    {
+        $normalized = str_replace('\\', '/', $entry);
+        if ($normalized === '' || str_starts_with($normalized, '/')) {
+            return false;
+        }
+
+        foreach (explode('/', $normalized) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..' || str_contains($part, "\0")) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function nextAvailableName(string $parentAbs, string $name): string
+    {
+        $candidate = $name;
+        $n = 1;
+
+        while (file_exists($parentAbs.DIRECTORY_SEPARATOR.$candidate)) {
+            $n++;
+            $ext = pathinfo($name, PATHINFO_EXTENSION);
+            $stem = $ext !== '' ? substr($name, 0, -1 * (strlen($ext) + 1)) : $name;
+            $candidate = $ext !== ''
+                ? $stem.' ('.$n.').'.$ext
+                : $stem.' ('.$n.')';
+        }
+
+        return $candidate;
     }
 }

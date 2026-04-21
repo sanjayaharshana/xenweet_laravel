@@ -1021,6 +1021,42 @@ body {
     background: rgba(255, 90, 90, 0.14);
 }
 
+.file-manager-queue-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.48rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(28, 83, 211, 0.14);
+}
+
+.file-manager-queue-progress[hidden] {
+    display: none !important;
+}
+
+.file-manager-queue-progress__bar {
+    flex: 1 1 auto;
+    height: 0.5rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.file-manager-queue-progress__bar > span {
+    display: block;
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #6f93ff, #76d7ff);
+    transition: width 0.25s linear;
+}
+
+.file-manager-queue-progress__text {
+    min-width: 6.5rem;
+    text-align: right;
+    font-size: 0.76rem;
+    color: #dce8ff;
+}
+
 .file-manager-actions-toolbar {
     padding: 0.55rem 0.75rem;
     border-bottom: 1px solid var(--line);
@@ -1472,6 +1508,21 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
 .file-manager-scope .file-row--item.file-row--menu-open {
     background: rgba(79, 124, 255, 0.12);
     box-shadow: inset 3px 0 0 0 rgba(129, 164, 255, 0.9);
+    border-radius: 8px;
+}
+
+.file-manager-scope .file-row--item {
+    cursor: grab;
+}
+
+.file-manager-scope .file-row--item.file-row--dragging {
+    opacity: 0.55;
+    cursor: grabbing;
+}
+
+.file-manager-scope .file-row--item.file-row--drop-target {
+    background: rgba(90, 160, 255, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(130, 190, 255, 0.55);
     border-radius: 8px;
 }
 

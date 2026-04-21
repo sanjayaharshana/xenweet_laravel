@@ -26,6 +26,8 @@
             data-edit-url="{{ route('hosts.files.edit', $hosting) }}"
             data-update-url="{{ route('hosts.files.update', $hosting) }}"
             data-index-url="{{ route('hosts.files.index', $hosting) }}"
+            data-queue-status-url="{{ route('hosts.files.queue-status', $hosting) }}"
+            data-queue-token="{{ session('fm_queue_token', '') }}"
         >
             @if (session('success'))
                 <div class="file-manager-flash file-manager-flash--success" role="status">{{ session('success') }}</div>
@@ -33,6 +35,13 @@
             @if ($errors->has('action'))
                 <div class="file-manager-flash file-manager-flash--error" role="alert">{{ $errors->first('action') }}</div>
             @endif
+
+            <div class="file-manager-queue-progress" id="fm-queue-progress" hidden>
+                <div class="file-manager-queue-progress__bar">
+                    <span id="fm-queue-progress-bar"></span>
+                </div>
+                <span class="file-manager-queue-progress__text" id="fm-queue-progress-text">Queued…</span>
+            </div>
 
             <div class="file-manager-actions-toolbar" aria-label="File manager tools">
                 <div class="file-manager-actions-toolbar__buttons">
@@ -214,8 +223,22 @@
                 <input type="hidden" name="items[]" id="fm-context-delete-item" value="">
             </form>
 
+            <form id="fm-form-context-compress" method="post" action="{{ route('hosts.files.compress', $hosting) }}" hidden aria-hidden="true">
+                @csrf
+                <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                <input type="hidden" name="from" id="fm-context-compress-from" value="">
+            </form>
+
+            <form id="fm-form-context-extract" method="post" action="{{ route('hosts.files.extract', $hosting) }}" hidden aria-hidden="true">
+                @csrf
+                <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
+                <input type="hidden" name="from" id="fm-context-extract-from" value="">
+            </form>
+
             <div id="fm-context-menu" class="fm-context-menu" role="menu" hidden>
                 <button type="button" class="fm-context-menu__item" role="menuitem" data-action="copy">Copy</button>
+                <button type="button" class="fm-context-menu__item" role="menuitem" data-action="compress">Compress</button>
+                <button type="button" class="fm-context-menu__item" role="menuitem" data-action="extract">Extract</button>
                 <button type="button" class="fm-context-menu__item fm-context-menu__item--danger" role="menuitem" data-action="delete">Delete</button>
                 <button type="button" class="fm-context-menu__item" role="menuitem" data-action="edit">Edit</button>
                 <button type="button" class="fm-context-menu__item" role="menuitem" data-action="open">Open file</button>
@@ -275,6 +298,10 @@
                                     return;
                                 }
                                 moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
+                                if (moveForm.getAttribute('data-drag-submit') === '1') {
+                                    moveForm.removeAttribute('data-drag-submit');
+                                    return;
+                                }
                                 document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').forEach(function (cb) {
                                     var hidden = document.createElement('input');
                                     hidden.type = 'hidden';
@@ -443,6 +470,11 @@
 
                         var panel = document.querySelector('.file-manager-panel[data-rename-url]');
                         var renameUrl = panel ? panel.getAttribute('data-rename-url') : '';
+                        var queueStatusBase = panel ? panel.getAttribute('data-queue-status-url') : '';
+                        var queueToken = panel ? panel.getAttribute('data-queue-token') : '';
+                        var queueProgressWrap = document.getElementById('fm-queue-progress');
+                        var queueProgressBar = document.getElementById('fm-queue-progress-bar');
+                        var queueProgressText = document.getElementById('fm-queue-progress-text');
                         function csrfToken() {
                             var t = document.querySelector('#file-manager-bulk input[name="_token"]');
                             return t ? t.value : '';
@@ -460,9 +492,13 @@
                         var fmEditSave = document.getElementById('fm-edit-save');
                         var fmDupForm = document.getElementById('fm-form-context-duplicate');
                         var fmDelForm = document.getElementById('fm-form-context-delete');
+                        var fmCompressForm = document.getElementById('fm-form-context-compress');
+                        var fmExtractForm = document.getElementById('fm-form-context-extract');
                         var fmDupFrom = document.getElementById('fm-context-duplicate-from');
                         var fmDelItem = document.getElementById('fm-context-delete-item');
-                        var ctxState = { relative: '', editable: false, type: 'file' };
+                        var fmCompressFrom = document.getElementById('fm-context-compress-from');
+                        var fmExtractFrom = document.getElementById('fm-context-extract-from');
+                        var ctxState = { relative: '', editable: false, type: 'file', extractable: false };
                         var ctxHighlightRow = null;
 
                         function clearCtxRowHighlight() {
@@ -637,8 +673,8 @@
                             fmMenu.style.visibility = 'visible';
                         }
 
-                        function setEditDisabled(disabled) {
-                            var btn = fmMenu ? fmMenu.querySelector('[data-action="edit"]') : null;
+                        function setMenuActionDisabled(action, disabled) {
+                            var btn = fmMenu ? fmMenu.querySelector('[data-action="' + action + '"]') : null;
                             if (!btn) {
                                 return;
                             }
@@ -657,10 +693,12 @@
                                 ctxState.relative = rel;
                                 ctxState.editable = row.getAttribute('data-item-editable') === '1';
                                 ctxState.type = row.getAttribute('data-item-type') || 'file';
+                                ctxState.extractable = ctxState.type === 'file' && /\.zip$/i.test(rel);
                                 clearCtxRowHighlight();
                                 ctxHighlightRow = row;
                                 row.classList.add('file-row--menu-open');
-                                setEditDisabled(!ctxState.editable);
+                                setMenuActionDisabled('edit', !ctxState.editable);
+                                setMenuActionDisabled('extract', !ctxState.extractable);
                                 positionFmMenu(e.clientX, e.clientY);
                             });
                         });
@@ -704,6 +742,19 @@
                                             fmDupFrom.value = rel;
                                             fmDupForm.submit();
                                         }
+                                    } else if (action === 'compress') {
+                                        if (fmCompressFrom && fmCompressForm) {
+                                            fmCompressFrom.value = rel;
+                                            fmCompressForm.submit();
+                                        }
+                                    } else if (action === 'extract') {
+                                        if (!ctxState.extractable) {
+                                            return;
+                                        }
+                                        if (fmExtractFrom && fmExtractForm) {
+                                            fmExtractFrom.value = rel;
+                                            fmExtractForm.submit();
+                                        }
                                     } else if (action === 'delete') {
                                         if (!fmDelForm || !window.confirm('Delete selected item(s)? This cannot be undone.')) {
                                             return;
@@ -734,6 +785,35 @@
                                     }
                                 });
                             });
+                        }
+
+                        if (queueStatusBase && queueToken) {
+                            var fakeProgress = 5;
+                            if (queueProgressWrap) queueProgressWrap.hidden = false;
+                            if (queueProgressBar) queueProgressBar.style.width = fakeProgress + '%';
+                            if (queueProgressText) queueProgressText.textContent = 'Queued…';
+                            var pollId = window.setInterval(function () {
+                                fakeProgress = Math.min(95, fakeProgress + 7);
+                                if (queueProgressBar) queueProgressBar.style.width = fakeProgress + '%';
+                                if (queueProgressText && fakeProgress < 95) queueProgressText.textContent = 'Processing… ' + fakeProgress + '%';
+                                fetch(queueStatusBase + '?token=' + encodeURIComponent(queueToken), {
+                                    credentials: 'same-origin',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                }).then(function (r) { return r.json(); })
+                                    .then(function (data) {
+                                        if (data && data.done) {
+                                            window.clearInterval(pollId);
+                                            if (queueProgressBar) queueProgressBar.style.width = '100%';
+                                            if (queueProgressText) queueProgressText.textContent = data.status === 'failed' ? (data.message || 'Failed') : 'Completed';
+                                            window.setTimeout(function () { window.location.reload(); }, 450);
+                                        }
+                                    })
+                                    .catch(function () {
+                                    });
+                            }, 2000);
                         }
 
                         document.querySelectorAll('.file-row__name-text--file').forEach(function (span) {
@@ -835,6 +915,119 @@
                                 });
                             });
                         });
+
+                        var fmSelectAll = document.getElementById('fm-select-all');
+                        var fmItemChecks = Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]'));
+
+                        function syncSelectAll() {
+                            if (!fmSelectAll) {
+                                return;
+                            }
+                            if (fmItemChecks.length === 0) {
+                                fmSelectAll.checked = false;
+                                fmSelectAll.indeterminate = false;
+                                return;
+                            }
+                            var checkedCount = fmItemChecks.filter(function (cb) { return cb.checked; }).length;
+                            fmSelectAll.checked = checkedCount > 0 && checkedCount === fmItemChecks.length;
+                            fmSelectAll.indeterminate = checkedCount > 0 && checkedCount < fmItemChecks.length;
+                        }
+
+                        if (fmSelectAll) {
+                            fmSelectAll.addEventListener('change', function () {
+                                var to = fmSelectAll.checked;
+                                fmItemChecks.forEach(function (cb) { cb.checked = to; });
+                                syncSelectAll();
+                            });
+                        }
+                        fmItemChecks.forEach(function (cb) {
+                            cb.addEventListener('change', syncSelectAll);
+                        });
+                        syncSelectAll();
+
+                        var dragState = { items: [] };
+                        function selectedItems() {
+                            return Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked')).map(function (cb) {
+                                return cb.value;
+                            });
+                        }
+                        function clearDragMarks() {
+                            document.querySelectorAll('.file-row--dragging').forEach(function (n) { n.classList.remove('file-row--dragging'); });
+                            document.querySelectorAll('.file-row--drop-target').forEach(function (n) { n.classList.remove('file-row--drop-target'); });
+                        }
+                        function submitDragMove(items, destination) {
+                            if (!moveForm || !items || items.length === 0 || !destination) {
+                                return;
+                            }
+                            var dest = moveForm.querySelector('input[name="destination"]');
+                            if (!dest) {
+                                return;
+                            }
+                            moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
+                            dest.value = destination;
+                            items.forEach(function (rel) {
+                                var hidden = document.createElement('input');
+                                hidden.type = 'hidden';
+                                hidden.name = 'items[]';
+                                hidden.value = rel;
+                                hidden.className = 'fm-move-sync';
+                                moveForm.appendChild(hidden);
+                            });
+                            moveForm.setAttribute('data-drag-submit', '1');
+                            moveForm.submit();
+                        }
+                        document.querySelectorAll('.file-row--item').forEach(function (row) {
+                            row.setAttribute('draggable', 'true');
+                            row.addEventListener('dragstart', function (e) {
+                                if (e.target && e.target.closest('input,button,textarea,a,label')) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                var rel = row.getAttribute('data-item-relative');
+                                if (!rel) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                var selected = selectedItems();
+                                dragState.items = selected.indexOf(rel) >= 0 ? selected : [rel];
+                                row.classList.add('file-row--dragging');
+                                if (e.dataTransfer) {
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    e.dataTransfer.setData('text/plain', dragState.items.join('\n'));
+                                }
+                            });
+                            row.addEventListener('dragend', function () {
+                                dragState.items = [];
+                                clearDragMarks();
+                            });
+                        });
+                        document.querySelectorAll('.file-row--item[data-item-type="dir"]').forEach(function (row) {
+                            row.addEventListener('dragover', function (e) {
+                                if (!dragState.items || dragState.items.length === 0) {
+                                    return;
+                                }
+                                e.preventDefault();
+                                row.classList.add('file-row--drop-target');
+                                if (e.dataTransfer) {
+                                    e.dataTransfer.dropEffect = 'move';
+                                }
+                            });
+                            row.addEventListener('dragleave', function () {
+                                row.classList.remove('file-row--drop-target');
+                            });
+                            row.addEventListener('drop', function (e) {
+                                e.preventDefault();
+                                row.classList.remove('file-row--drop-target');
+                                if (!dragState.items || dragState.items.length === 0) {
+                                    return;
+                                }
+                                var destination = row.getAttribute('data-item-relative') || '';
+                                if (!destination) {
+                                    return;
+                                }
+                                submitDragMove(dragState.items, destination);
+                            });
+                        });
                     })();
                 });
             </script>
@@ -892,7 +1085,9 @@
                     @else
                         <div class="file-table file-table--selectable">
                             <div class="file-row file-row-head">
-                                <span class="file-row__check" title="Select"></span>
+                                <span class="file-row__check" title="Select all">
+                                    <input type="checkbox" id="fm-select-all" aria-label="Select all items">
+                                </span>
                                 <span>Name</span>
                                 <span>Type</span>
                                 <span>Size</span>
@@ -918,7 +1113,22 @@
                                             <i class="fa fa-folder file-row__icon" aria-hidden="true"></i>
                                             <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $entry['relative']]) }}">{{ $entry['name'] }}</a>
                                         @else
-                                            <i class="fa fa-file-o file-row__icon" aria-hidden="true"></i>
+                                            @php
+                                                $lowerName = strtolower($entry['name']);
+                                                $isArchive = str_ends_with($lowerName, '.zip')
+                                                    || str_ends_with($lowerName, '.tar')
+                                                    || str_ends_with($lowerName, '.gz')
+                                                    || str_ends_with($lowerName, '.tgz')
+                                                    || str_ends_with($lowerName, '.tar.gz')
+                                                    || str_ends_with($lowerName, '.bz2')
+                                                    || str_ends_with($lowerName, '.tar.bz2')
+                                                    || str_ends_with($lowerName, '.xz')
+                                                    || str_ends_with($lowerName, '.tar.xz')
+                                                    || str_ends_with($lowerName, '.7z')
+                                                    || str_ends_with($lowerName, '.rar');
+                                                $fileIcon = $isArchive ? 'fa-file-archive-o' : 'fa-file-o';
+                                            @endphp
+                                            <i class="fa {{ $fileIcon }} file-row__icon" aria-hidden="true"></i>
                                             <span
                                                 class="file-row__name-text file-row__name-text--file"
                                                 data-relative="{{ $entry['relative'] }}"
@@ -939,7 +1149,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="file-manager-select-hint subtle">Right-click a <strong>file or folder</strong> for quick actions (folders support Open, Copy, Delete). Click a file name to select; double-click a file name to rename. Use the toolbar for bulk actions.</p>
+                        <p class="file-manager-select-hint subtle">Right-click a <strong>file or folder</strong> for quick actions. Compress/Extract are queued background tasks (extract is available for .zip files). Click a file name to select; double-click a file name to rename.</p>
                     @endif
                 </div>
             </div>

@@ -7,7 +7,11 @@ use App\Models\Hosting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Modules\FileManager\Jobs\CompressItemJob;
+use Modules\FileManager\Jobs\ExtractArchiveJob;
 use Modules\FileManager\Services\HostFilesystemService;
 use Modules\FileManager\Services\HostFolderBrowser;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -251,6 +255,78 @@ class FileManagerController extends Controller
         return redirect()
             ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
             ->with('success', 'File copied.');
+    }
+
+    public function compress(Request $request, Hosting $hosting): RedirectResponse
+    {
+        $validated = $request->validate([
+            'from' => 'required|string|max:4096',
+            'path' => 'nullable|string|max:4096',
+        ]);
+
+        $token = (string) Str::uuid();
+        Cache::put('file_manager_job:'.$token, [
+            'status' => 'pending',
+            'message' => 'Compress queued.',
+        ], now()->addMinutes(15));
+
+        CompressItemJob::dispatch($hosting->id, $validated['from'], $token);
+
+        return redirect()
+            ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
+            ->with('success', 'Compress queued.')
+            ->with('fm_queue_token', $token);
+    }
+
+    public function extract(Request $request, Hosting $hosting): RedirectResponse
+    {
+        $validated = $request->validate([
+            'from' => 'required|string|max:4096',
+            'path' => 'nullable|string|max:4096',
+        ]);
+
+        $token = (string) Str::uuid();
+        Cache::put('file_manager_job:'.$token, [
+            'status' => 'pending',
+            'message' => 'Extract queued.',
+        ], now()->addMinutes(15));
+
+        ExtractArchiveJob::dispatch($hosting->id, $validated['from'], $token);
+
+        return redirect()
+            ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
+            ->with('success', 'Extract queued.')
+            ->with('fm_queue_token', $token);
+    }
+
+    public function queueStatus(Request $request, Hosting $hosting): JsonResponse
+    {
+        $token = (string) $request->query('token', '');
+        if ($token === '') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Missing token.',
+            ], 422);
+        }
+
+        $data = Cache::get('file_manager_job:'.$token);
+        if (! is_array($data)) {
+            return response()->json([
+                'ok' => true,
+                'status' => 'unknown',
+                'done' => true,
+                'message' => 'No status found.',
+            ]);
+        }
+
+        $status = (string) ($data['status'] ?? 'pending');
+
+        return response()->json([
+            'ok' => true,
+            'status' => $status,
+            'done' => in_array($status, ['done', 'failed', 'unknown'], true),
+            'message' => (string) ($data['message'] ?? ''),
+        ]);
     }
 
     public function rename(Request $request, Hosting $hosting, HostFilesystemService $fs): JsonResponse
