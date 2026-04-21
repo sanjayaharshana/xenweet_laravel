@@ -25,6 +25,7 @@
             data-open-url="{{ route('hosts.files.open', $hosting) }}"
             data-edit-url="{{ route('hosts.files.edit', $hosting) }}"
             data-update-url="{{ route('hosts.files.update', $hosting) }}"
+            data-index-url="{{ route('hosts.files.index', $hosting) }}"
         >
             @if (session('success'))
                 <div class="file-manager-flash file-manager-flash--success" role="status">{{ session('success') }}</div>
@@ -107,18 +108,27 @@
             </dialog>
 
             <dialog id="fm-dialog-upload" class="file-manager-dialog">
-                <form method="post" action="{{ route('hosts.files.upload', $hosting) }}" enctype="multipart/form-data">
+                <form method="post" action="{{ route('hosts.files.upload', $hosting) }}" enctype="multipart/form-data" id="fm-form-upload">
                     @csrf
                     <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
                     <h3 class="file-manager-dialog__title"><i class="fa fa-cloud-upload" aria-hidden="true"></i> Upload file</h3>
-                    <p class="file-manager-dialog__hint subtle">Upload into the current folder.</p>
-                    <label class="file-manager-dialog__field">
-                        <span>Choose file</span>
-                        <input type="file" name="file" required>
+                    <p class="file-manager-dialog__hint subtle">Upload into the current folder. Drag and drop one or more files, or choose manually.</p>
+                    <label class="file-manager-dialog__dropzone" id="fm-upload-dropzone" for="fm-upload-file">
+                        <span class="file-manager-dialog__dropzone-icon"><i class="fa fa-upload" aria-hidden="true"></i></span>
+                        <span class="file-manager-dialog__dropzone-text">Drop files here or click to browse</span>
+                        <span class="file-manager-dialog__dropzone-file" id="fm-upload-filename">No files selected</span>
                     </label>
+                    <input type="file" name="file[]" id="fm-upload-file" class="file-manager-dialog__file-input" multiple required>
+                    <div class="file-manager-dialog__progress" id="fm-upload-progress-wrap" hidden>
+                        <div class="file-manager-dialog__progress-bar">
+                            <span id="fm-upload-progress-bar"></span>
+                        </div>
+                        <span class="file-manager-dialog__progress-text" id="fm-upload-progress-text">0%</span>
+                    </div>
+                    <p class="file-manager-dialog--edit__error" id="fm-upload-error" hidden role="alert"></p>
                     <div class="file-manager-dialog__actions">
                         <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
-                        <button type="submit" class="btn-primary">Upload</button>
+                        <button type="submit" class="btn-primary" id="fm-upload-submit">Upload</button>
                     </div>
                 </form>
             </dialog>
@@ -240,6 +250,21 @@
                                 if (e.target === dialog) dialog.close();
                             });
                         });
+                        var uploadDialog = document.getElementById('fm-dialog-upload');
+                        if (uploadDialog) {
+                            uploadDialog.addEventListener('close', function () {
+                                if (fmUploadForm) fmUploadForm.reset();
+                                if (fmUploadFilename) fmUploadFilename.textContent = 'No files selected';
+                                if (fmUploadProgressWrap) fmUploadProgressWrap.hidden = true;
+                                if (fmUploadProgressBar) fmUploadProgressBar.style.width = '0%';
+                                if (fmUploadProgressText) fmUploadProgressText.textContent = '0%';
+                                if (fmUploadError) {
+                                    fmUploadError.hidden = true;
+                                    fmUploadError.textContent = '';
+                                }
+                                if (fmUploadSubmit) fmUploadSubmit.disabled = false;
+                            });
+                        }
                         var moveForm = document.getElementById('fm-form-move');
                         if (moveForm) {
                             moveForm.addEventListener('submit', function (e) {
@@ -261,6 +286,161 @@
                             });
                         }
 
+                        var fmUploadForm = document.getElementById('fm-form-upload');
+                        var fmUploadInput = document.getElementById('fm-upload-file');
+                        var fmUploadDropzone = document.getElementById('fm-upload-dropzone');
+                        var fmUploadFilename = document.getElementById('fm-upload-filename');
+                        var fmUploadError = document.getElementById('fm-upload-error');
+                        var fmUploadSubmit = document.getElementById('fm-upload-submit');
+                        var fmUploadProgressWrap = document.getElementById('fm-upload-progress-wrap');
+                        var fmUploadProgressBar = document.getElementById('fm-upload-progress-bar');
+                        var fmUploadProgressText = document.getElementById('fm-upload-progress-text');
+
+                        function setUploadFiles(files) {
+                            if (!fmUploadInput || !files || files.length === 0) {
+                                return;
+                            }
+                            var dt = new DataTransfer();
+                            for (var i = 0; i < files.length; i++) {
+                                dt.items.add(files[i]);
+                            }
+                            fmUploadInput.files = dt.files;
+                            if (fmUploadFilename) {
+                                fmUploadFilename.textContent = files.length === 1
+                                    ? files[0].name
+                                    : files.length + ' files selected';
+                            }
+                        }
+
+                        if (fmUploadInput) {
+                            fmUploadInput.addEventListener('change', function () {
+                                var files = fmUploadInput.files ? fmUploadInput.files : null;
+                                if (!fmUploadFilename) {
+                                    return;
+                                }
+                                if (!files || files.length === 0) {
+                                    fmUploadFilename.textContent = 'No files selected';
+                                } else if (files.length === 1) {
+                                    fmUploadFilename.textContent = files[0].name;
+                                } else {
+                                    fmUploadFilename.textContent = files.length + ' files selected';
+                                }
+                            });
+                        }
+
+                        if (fmUploadDropzone) {
+                            ['dragenter', 'dragover'].forEach(function (evt) {
+                                fmUploadDropzone.addEventListener(evt, function (e) {
+                                    e.preventDefault();
+                                    fmUploadDropzone.classList.add('is-dragover');
+                                });
+                            });
+                            ['dragleave', 'drop'].forEach(function (evt) {
+                                fmUploadDropzone.addEventListener(evt, function (e) {
+                                    e.preventDefault();
+                                    fmUploadDropzone.classList.remove('is-dragover');
+                                });
+                            });
+                            fmUploadDropzone.addEventListener('drop', function (e) {
+                                var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+                                if (files && files.length > 0) {
+                                    setUploadFiles(files);
+                                }
+                            });
+                        }
+
+                        if (fmUploadForm) {
+                            fmUploadForm.addEventListener('submit', function (e) {
+                                e.preventDefault();
+                                if (!fmUploadInput || !fmUploadInput.files || fmUploadInput.files.length === 0) {
+                                    if (fmUploadError) {
+                                        fmUploadError.hidden = false;
+                                        fmUploadError.textContent = 'Choose one or more files first.';
+                                    }
+                                    return;
+                                }
+                                if (fmUploadError) {
+                                    fmUploadError.hidden = true;
+                                    fmUploadError.textContent = '';
+                                }
+                                if (fmUploadProgressWrap) {
+                                    fmUploadProgressWrap.hidden = false;
+                                }
+                                if (fmUploadProgressBar) {
+                                    fmUploadProgressBar.style.width = '0%';
+                                }
+                                if (fmUploadProgressText) {
+                                    fmUploadProgressText.textContent = '0%';
+                                }
+                                if (fmUploadSubmit) {
+                                    fmUploadSubmit.disabled = true;
+                                }
+
+                                var xhr = new XMLHttpRequest();
+                                xhr.open('POST', fmUploadForm.getAttribute('action') || '', true);
+                                xhr.setRequestHeader('Accept', 'application/json');
+                                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                                var token = csrfToken();
+                                if (token) {
+                                    xhr.setRequestHeader('X-CSRF-TOKEN', token);
+                                }
+
+                                xhr.upload.addEventListener('progress', function (ev) {
+                                    if (!ev.lengthComputable) {
+                                        return;
+                                    }
+                                    var pct = Math.max(0, Math.min(100, Math.round((ev.loaded / ev.total) * 100)));
+                                    if (fmUploadProgressBar) {
+                                        fmUploadProgressBar.style.width = pct + '%';
+                                    }
+                                    if (fmUploadProgressText) {
+                                        fmUploadProgressText.textContent = pct + '%';
+                                    }
+                                });
+
+                                xhr.onreadystatechange = function () {
+                                    if (xhr.readyState !== 4) {
+                                        return;
+                                    }
+                                    if (fmUploadSubmit) {
+                                        fmUploadSubmit.disabled = false;
+                                    }
+                                    if (xhr.status >= 200 && xhr.status < 300) {
+                                        if (fmUploadProgressBar) {
+                                            fmUploadProgressBar.style.width = '100%';
+                                        }
+                                        if (fmUploadProgressText) {
+                                            fmUploadProgressText.textContent = '100%';
+                                        }
+                                        window.location.reload();
+                                        return;
+                                    }
+                                    var msg = 'Upload failed.';
+                                    try {
+                                        var data = JSON.parse(xhr.responseText || '{}');
+                                        if (data && data.message) {
+                                            msg = data.message;
+                                        }
+                                        if (data && data.errors) {
+                                            if (data.errors.file && data.errors.file[0]) {
+                                                msg = data.errors.file[0];
+                                            } else if (data.errors['file.0'] && data.errors['file.0'][0]) {
+                                                msg = data.errors['file.0'][0];
+                                            }
+                                        }
+                                    } catch (err) {
+                                    }
+                                    if (fmUploadError) {
+                                        fmUploadError.hidden = false;
+                                        fmUploadError.textContent = msg;
+                                    }
+                                };
+
+                                var formData = new FormData(fmUploadForm);
+                                xhr.send(formData);
+                            });
+                        }
+
                         var panel = document.querySelector('.file-manager-panel[data-rename-url]');
                         var renameUrl = panel ? panel.getAttribute('data-rename-url') : '';
                         function csrfToken() {
@@ -272,6 +452,7 @@
                         var fmOpenBase = panel ? panel.getAttribute('data-open-url') : '';
                         var fmEditBase = panel ? panel.getAttribute('data-edit-url') : '';
                         var fmUpdateUrl = panel ? panel.getAttribute('data-update-url') : '';
+                        var fmIndexBase = panel ? panel.getAttribute('data-index-url') : '';
                         var fmDialogEdit = document.getElementById('fm-dialog-edit');
                         var fmEditContent = document.getElementById('fm-edit-content');
                         var fmEditPathLabel = document.getElementById('fm-edit-path-label');
@@ -281,7 +462,7 @@
                         var fmDelForm = document.getElementById('fm-form-context-delete');
                         var fmDupFrom = document.getElementById('fm-context-duplicate-from');
                         var fmDelItem = document.getElementById('fm-context-delete-item');
-                        var ctxState = { relative: '', editable: false };
+                        var ctxState = { relative: '', editable: false, type: 'file' };
                         var ctxHighlightRow = null;
 
                         function clearCtxRowHighlight() {
@@ -466,15 +647,16 @@
                             btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
                         }
 
-                        document.querySelectorAll('.file-row--file').forEach(function (row) {
+                        document.querySelectorAll('.file-row--item').forEach(function (row) {
                             row.addEventListener('contextmenu', function (e) {
                                 e.preventDefault();
-                                var rel = row.getAttribute('data-file-relative');
+                                var rel = row.getAttribute('data-item-relative');
                                 if (!rel || !fmMenu) {
                                     return;
                                 }
                                 ctxState.relative = rel;
-                                ctxState.editable = row.getAttribute('data-file-editable') === '1';
+                                ctxState.editable = row.getAttribute('data-item-editable') === '1';
+                                ctxState.type = row.getAttribute('data-item-type') || 'file';
                                 clearCtxRowHighlight();
                                 ctxHighlightRow = row;
                                 row.classList.add('file-row--menu-open');
@@ -507,7 +689,11 @@
                                         return;
                                     }
                                     if (action === 'open') {
-                                        window.open(fmUrl(fmOpenBase, rel), '_blank', 'noopener,noreferrer');
+                                        if (ctxState.type === 'dir') {
+                                            window.location.href = fmUrl(fmIndexBase, rel);
+                                        } else {
+                                            window.open(fmUrl(fmOpenBase, rel), '_blank', 'noopener,noreferrer');
+                                        }
                                     } else if (action === 'edit') {
                                         if (!ctxState.editable) {
                                             return;
@@ -519,10 +705,32 @@
                                             fmDupForm.submit();
                                         }
                                     } else if (action === 'delete') {
-                                        if (fmDelItem && fmDelForm && window.confirm('Delete this file? This cannot be undone.')) {
-                                            fmDelItem.value = rel;
-                                            fmDelForm.submit();
+                                        if (!fmDelForm || !window.confirm('Delete selected item(s)? This cannot be undone.')) {
+                                            return;
                                         }
+                                        var selected = Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked')).map(function (cb) {
+                                            return cb.value;
+                                        });
+                                        var targets = selected.length > 0 ? selected : [rel];
+                                        fmDelForm.querySelectorAll('input[name="items[]"]').forEach(function (n, idx) {
+                                            if (idx > 0) n.remove();
+                                        });
+                                        var first = fmDelForm.querySelector('input[name="items[]"]');
+                                        if (!first) {
+                                            first = document.createElement('input');
+                                            first.type = 'hidden';
+                                            first.name = 'items[]';
+                                            fmDelForm.appendChild(first);
+                                        }
+                                        first.value = targets[0] || '';
+                                        for (var i = 1; i < targets.length; i++) {
+                                            var n = document.createElement('input');
+                                            n.type = 'hidden';
+                                            n.name = 'items[]';
+                                            n.value = targets[i];
+                                            fmDelForm.appendChild(n);
+                                        }
+                                        fmDelForm.submit();
                                     }
                                 });
                             });
@@ -598,6 +806,7 @@
                                             var row = span.closest('.file-row');
                                             if (row && row.classList.contains('file-row--file')) {
                                                 row.setAttribute('data-file-relative', res.data.relative);
+                                                row.setAttribute('data-item-relative', res.data.relative);
                                                 if (typeof res.data.editable !== 'undefined') {
                                                     row.setAttribute('data-file-editable', res.data.editable ? '1' : '0');
                                                 }
@@ -691,11 +900,10 @@
                             </div>
                             @foreach ($listing['entries'] as $entry)
                                 <div
-                                    class="file-row @unless ($entry['is_dir']) file-row--file @endunless"
-                                    @unless ($entry['is_dir'])
-                                        data-file-relative="{{ $entry['relative'] }}"
-                                        data-file-editable="{{ $entry['editable'] ? '1' : '0' }}"
-                                    @endunless
+                                    class="file-row file-row--item @unless ($entry['is_dir']) file-row--file @endunless"
+                                    data-item-relative="{{ $entry['relative'] }}"
+                                    data-item-type="{{ $entry['is_dir'] ? 'dir' : 'file' }}"
+                                    data-item-editable="{{ $entry['editable'] ? '1' : '0' }}"
                                 >
                                     <span class="file-row__check">
                                         <input
@@ -731,7 +939,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="file-manager-select-hint subtle">Right-click a <strong>file</strong> for Open, Edit, Copy, or Delete. Click a file name to select; double-click to rename. Use the toolbar for bulk actions.</p>
+                        <p class="file-manager-select-hint subtle">Right-click a <strong>file or folder</strong> for quick actions (folders support Open, Copy, Delete). Click a file name to select; double-click a file name to rename. Use the toolbar for bulk actions.</p>
                     @endif
                 </div>
             </div>

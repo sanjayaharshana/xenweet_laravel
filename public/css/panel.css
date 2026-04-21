@@ -1120,6 +1120,102 @@ dialog.file-manager-dialog:not([open]) {
     padding: 1.05rem 1.15rem 1.15rem;
 }
 
+
+/* Upload modal at ~70% of viewport */
+dialog#fm-dialog-upload.file-manager-dialog[open] {
+    width: min(70vw, 98vw);
+    height: min(70vh, 92dvh);
+    max-width: min(70vw, 98vw);
+    max-height: min(70vh, 92dvh);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+dialog#fm-dialog-upload.file-manager-dialog[open] form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.file-manager-dialog__dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border: 1px dashed rgba(122, 159, 255, 0.5);
+    border-radius: 10px;
+    min-height: 10rem;
+    padding: 1rem;
+    margin: 0.2rem 0 0.5rem;
+    background: rgba(10, 16, 35, 0.5);
+    cursor: pointer;
+    text-align: center;
+}
+
+.file-manager-dialog__dropzone.is-dragover {
+    border-color: rgba(121, 205, 255, 0.9);
+    background: rgba(44, 85, 193, 0.25);
+}
+
+.file-manager-dialog__dropzone-icon {
+    font-size: 1.6rem;
+    color: #9eb6ff;
+}
+
+.file-manager-dialog__dropzone-text {
+    font-size: 0.86rem;
+    color: #dce6ff;
+}
+
+.file-manager-dialog__dropzone-file {
+    font-size: 0.75rem;
+    color: var(--muted);
+    word-break: break-all;
+}
+
+.file-manager-dialog__file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.file-manager-dialog__progress {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.2rem;
+}
+
+.file-manager-dialog__progress-bar {
+    flex: 1 1 auto;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.file-manager-dialog__progress-bar > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #5f8dff, #6fd3ff);
+    transition: width 0.12s linear;
+}
+
+.file-manager-dialog__progress-text {
+    min-width: 2.7rem;
+    text-align: right;
+    font-size: 0.78rem;
+    color: #dce6ff;
+}
+
 /* Only when open — do not set display:flex without [open] or the dialog stays visible */
 dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     width: min(70vw, 98vw);
@@ -1373,7 +1469,7 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     border-bottom-color: rgba(129, 164, 255, 0.4);
 }
 
-.file-manager-scope .file-row--file.file-row--menu-open {
+.file-manager-scope .file-row--item.file-row--menu-open {
     background: rgba(79, 124, 255, 0.12);
     box-shadow: inset 3px 0 0 0 rgba(129, 164, 255, 0.9);
     border-radius: 8px;

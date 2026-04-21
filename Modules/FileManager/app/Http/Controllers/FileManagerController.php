@@ -102,24 +102,49 @@ class FileManagerController extends Controller
             ->with('success', 'Moved selected items.');
     }
 
-    public function upload(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function upload(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
-            'file' => 'required|file|max:51200',
+            'file' => 'required',
+            'file.*' => 'file|max:51200',
         ]);
 
-        $file = $request->file('file');
-        if ($file === null) {
+        $uploaded = $request->file('file');
+        $files = is_array($uploaded) ? array_values(array_filter($uploaded)) : ($uploaded ? [$uploaded] : []);
+        if ($files === []) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'No file uploaded.',
+                ], 422);
+            }
+
             return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
                 ->withErrors(['action' => 'No file uploaded.']);
         }
 
         try {
-            $fs->upload($hosting, (string) ($validated['path'] ?? ''), $file);
+            foreach ($files as $file) {
+                $fs->upload($hosting, (string) ($validated['path'] ?? ''), $file);
+            }
         } catch (Throwable $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
                 ->withErrors(['action' => $e->getMessage()]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => count($files) > 1 ? 'Files uploaded.' : 'File uploaded.',
+            ]);
         }
 
         return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
