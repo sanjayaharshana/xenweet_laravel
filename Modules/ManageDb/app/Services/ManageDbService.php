@@ -3,6 +3,7 @@
 namespace Modules\ManageDb\Services;
 
 use App\Models\Hosting;
+use Illuminate\Support\Facades\Cache;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -118,10 +119,20 @@ class ManageDbService
 
     private function adminPdo(): PDO
     {
-        $host = (string) config('manage_db.host', env('DB_HOST', '127.0.0.1'));
-        $port = (int) config('manage_db.port', env('DB_PORT', 3306));
-        $user = (string) config('manage_db.admin_user', env('DB_USERNAME', 'root'));
-        $pass = (string) config('manage_db.admin_password', env('DB_PASSWORD', ''));
+        $settings = Cache::get('admin_settings.values', []);
+        $mysqlEnabled = (bool) ($settings['mysql_enabled'] ?? false);
+
+        if ($mysqlEnabled) {
+            $host = (string) ($settings['mysql_host'] ?? '127.0.0.1');
+            $port = (int) ($settings['mysql_port'] ?? 3306);
+            $user = (string) ($settings['mysql_username'] ?? 'root');
+            $pass = (string) ($settings['mysql_password'] ?? '');
+        } else {
+            $host = (string) config('manage_db.host', env('DB_HOST', '127.0.0.1'));
+            $port = (int) config('manage_db.port', env('DB_PORT', 3306));
+            $user = (string) config('manage_db.admin_user', env('DB_USERNAME', 'root'));
+            $pass = (string) config('manage_db.admin_password', env('DB_PASSWORD', ''));
+        }
 
         $dsn = "mysql:host={$host};port={$port};charset=utf8mb4";
         try {
