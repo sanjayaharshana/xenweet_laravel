@@ -28,7 +28,12 @@ class ManageDbController extends Controller
         try {
             $users = $db->listUsers($hosting);
         } catch (Throwable $e) {
-            $loadUsersError = $e->getMessage();
+            $message = $e->getMessage();
+            if (str_contains($message, "for table 'user'") || str_contains($message, '1142')) {
+                $loadUsersError = 'Current MySQL account cannot read the global MySQL user table. You can still manage databases, and user creation may still work if CREATE USER privilege is granted.';
+            } else {
+                $loadUsersError = $message;
+            }
         }
 
         return view('managedb::index', [
