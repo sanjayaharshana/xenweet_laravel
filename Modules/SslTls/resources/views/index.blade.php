@@ -288,7 +288,7 @@
                             </li>
                             <li>
                                 <span class="ssltls-req__ic" aria-hidden="true">✓</span>
-                                <span><code>certbot</code> installed, with passwordless <code>sudo</code> for the PHP user. If the panel shows <code>sudo: a password is required</code>, on the server run <code>sudo bash scripts/install-xenweet-certbot-sudo.sh www-data</code> (use your FPM user instead of <code>www-data</code> if different).</span>
+                                <span>Install script <code>install-xenweet-certbot-sudo.sh</code> (run as root) grants <code>certbot</code> and a small PEM read helper; both need passwordless <code>sudo</code> for the PHP user so the panel can read root-only files under <code>/etc/letsencrypt/live/</code>. If you see a password error, run <code>sudo bash scripts/install-xenweet-certbot-sudo.sh www-data</code> (use your FPM user if not <code>www-data</code>).</span>
                             </li>
                         </ul>
                     </div>

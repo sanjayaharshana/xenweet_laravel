@@ -5,12 +5,17 @@
 #   sudo bash scripts/install-xenweet-certbot-sudo.sh www-data
 #   sudo bash scripts/install-xenweet-certbot-sudo.sh www-data /usr/bin/certbot
 #
-# Grants the PHP / FPM user passwordless sudo for certbot only (same idea as
-# scripts/install-xenweet-nginx-sudo.sh). Required when the panel runs certbot as
-# `sudo -n certbot ...` and would otherwise see: "sudo: a password is required".
+# Grants the PHP / FPM user passwordless sudo for:
+#   - certbot (issues/renews in /etc/letsencrypt, root-owned)
+#   - xenweet-letsencrypt-read-pem (reads privkey.pem / fullchain.pem for the panel;
+#     those files are often mode 600 and not readable by www-data)
+#
+# Same idea as scripts/install-xenweet-nginx-sudo.sh. Required for Auto SSL in the
+# panel when the PHP user is unprivileged.
 #
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PHP_USER="${1:-www-data}"
 CERTBOT_ARG="${2:-}"
 
@@ -45,12 +50,15 @@ if [[ -z "$CERTBOT_BIN" || ! -x "$CERTBOT_BIN" ]]; then
   exit 1
 fi
 
-echo "Installing sudoers for user ${PHP_USER} -> NOPASSWD ${CERTBOT_BIN}"
+READ_HELPER="/usr/local/sbin/xenweet-letsencrypt-read-pem"
+install -m 755 -o root -g root "${ROOT}/scripts/xenweet-letsencrypt-read-pem.sh" "$READ_HELPER"
+
+echo "Installing sudoers for user ${PHP_USER} -> NOPASSWD ${CERTBOT_BIN}, ${READ_HELPER}"
 
 TMP="$(mktemp)"
 {
   echo "Defaults:${PHP_USER} !requiretty"
-  echo "${PHP_USER} ALL=(root) NOPASSWD: ${CERTBOT_BIN}"
+  echo "${PHP_USER} ALL=(root) NOPASSWD: ${CERTBOT_BIN}, ${READ_HELPER}"
 } > "$TMP"
 
 install -m 440 -o root -g root "$TMP" /etc/sudoers.d/xenweet-certbot
@@ -59,7 +67,10 @@ rm -f "$TMP"
 visudo -cf /etc/sudoers.d/xenweet-certbot
 
 echo ""
-echo "Done. Verify (should print certbot version without a password prompt):"
+echo "Done. Verify certbot (should print version without a password prompt):"
 echo "  sudo -u ${PHP_USER} sudo -n \"${CERTBOT_BIN}\" --version"
+echo "Verify read helper (if you already have a cert under live/):"
+echo "  sudo -u ${PHP_USER} sudo -n ${READ_HELPER} /etc/letsencrypt example.com fullchain  | head -1"
+echo "  (use a real live/ directory name; output should be -----BEGIN CERTIFICATE----- or similar)"
 echo ""
 echo "If the panel uses a different PHP user, re-run with that user as the first argument."

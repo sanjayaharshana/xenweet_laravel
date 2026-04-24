@@ -53,4 +53,10 @@ return [
     'letsencrypt_renew_timeout' => (int) env('SSLTLS_LETSENCRYPT_RENEW_TIMEOUT', 600),
 
     'letsencrypt_renew_schedule' => (bool) env('SSLTLS_LETSENCRYPT_RENEW_SCHEDULE', false),
+
+    /*
+    | Installed by scripts/install-xenweet-certbot-sudo.sh. Used to read root-owned PEMs
+    | under /etc/letsencrypt/live/ when the PHP user cannot (e.g. privkey mode 600).
+    */
+    'letsencrypt_read_pem' => env('SSLTLS_LETSENCRYPT_READ_PEM', '/usr/local/sbin/xenweet-letsencrypt-read-pem'),
 ];

@@ -62,13 +62,15 @@ class SslTlsLetsEncryptService
         }
 
         $liveName = $this->resolveCertbotLiveName($hosting, $primary);
-        $privPath = $this->letsEncryptLivePath($liveName, 'privkey.pem');
-        $fullchainPath = $this->letsEncryptLivePath($liveName, 'fullchain.pem');
-        if (! is_readable($privPath) || ! is_readable($fullchainPath)) {
-            throw new RuntimeException('Certbot reported success but PEM files are missing: '.$fullchainPath);
+        if (! is_dir($this->letsEncryptRoot().'/live/'.$liveName)) {
+            throw new RuntimeException(
+                'Certbot reported success but no live directory at '.$this->letsEncryptRoot().'/live/'.$liveName.'. '.
+                'If you use a custom --config-dir, set SSLTLS_LETSENCRYPT_CONFIG_DIR in .env to match.'
+            );
         }
-        $keyPem = (string) file_get_contents($privPath);
-        $fullchainPem = (string) file_get_contents($fullchainPath);
+
+        $keyPem = $this->readPemFromLiveStorage($liveName, 'privkey');
+        $fullchainPem = $this->readPemFromLiveStorage($liveName, 'fullchain');
         if (trim($keyPem) === '' || trim($fullchainPem) === '') {
             throw new RuntimeException('Read empty PEM from Let\'s Encrypt live directory.');
         }
@@ -120,13 +122,11 @@ class SslTlsLetsEncryptService
         }
         $primary = $hosting->siteHost();
         $liveName = $this->resolveCertbotLiveName($hosting, $primary);
-        $privPath = $this->letsEncryptLivePath($liveName, 'privkey.pem');
-        $fullPath = $this->letsEncryptLivePath($liveName, 'fullchain.pem');
-        if (! is_readable($privPath) || ! is_readable($fullPath)) {
-            throw new RuntimeException('No Let\'s Encrypt files in live directory for '.$liveName);
+        if (! is_dir($this->letsEncryptRoot().'/live/'.$liveName)) {
+            throw new RuntimeException('No Let\'s Encrypt live directory for '.$liveName);
         }
-        $keyPem = (string) file_get_contents($privPath);
-        $fullchainPem = (string) file_get_contents($fullPath);
+        $keyPem = $this->readPemFromLiveStorage($liveName, 'privkey');
+        $fullchainPem = $this->readPemFromLiveStorage($liveName, 'fullchain');
         [$leafPem, $chainBlockList] = $this->pems->splitFullchainPemToLeafAndChain($fullchainPem);
         $chainPem = $chainBlockList === [] ? null : (implode("\n", $chainBlockList)."\n");
 
@@ -301,15 +301,93 @@ class SslTlsLetsEncryptService
     private function resolveCertbotLiveName(Hosting $hosting, string $primary): string
     {
         $configDir = rtrim((string) config('ssltls.letsencrypt_config_dir', '/etc/letsencrypt'), '/');
-        $certName = $this->safeCertName($primary);
-        if (is_readable($configDir.'/live/'.$certName.'/fullchain.pem')) {
-            return $certName;
-        }
-        if (is_readable($configDir.'/live/'.$primary.'/fullchain.pem')) {
-            return $primary;
+        $candidates = array_unique(
+            array_filter(
+                [
+                    $this->safeCertName($primary),
+                    $primary,
+                ],
+                static fn (string $s): bool => $s !== ''
+            )
+        );
+
+        foreach ($candidates as $name) {
+            if (is_dir($configDir.'/live/'.$name)) {
+                return $name;
+            }
         }
 
-        return $certName;
+        return $this->safeCertName($primary);
+    }
+
+    /**
+     * Read a PEM from live storage. Files are often root-owned; privkey is typically mode 600, so
+     * we fall back to sudo + xenweet-letsencrypt-read-pem (see install-xenweet-certbot-sudo.sh).
+     *
+     * @param  'privkey'|'fullchain'  $which
+     */
+    private function readPemFromLiveStorage(string $liveName, string $which): string
+    {
+        if (! in_array($which, ['privkey', 'fullchain'], true)) {
+            throw new RuntimeException('Invalid PEM kind requested.');
+        }
+
+        $configDir = rtrim($this->letsEncryptRoot(), '/');
+        $file = $which === 'privkey' ? 'privkey.pem' : 'fullchain.pem';
+        $path = $configDir.'/live/'.$liveName.'/'.$file;
+        if (is_readable($path)) {
+            $content = (string) file_get_contents($path);
+            if (trim($content) !== '') {
+                return $content;
+            }
+        }
+        if (! (bool) config('ssltls.letsencrypt_use_sudo', true)) {
+            throw new RuntimeException(
+                'Cannot read '.$path.' (not readable as the PHP user). '.
+                'Set SSLTLS_LETSENCRYPT_USE_SUDO=true and run sudo bash '.base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data, or adjust file permissions/ownership.'
+            );
+        }
+
+        $installed = (string) config('ssltls.letsencrypt_read_pem', '/usr/local/sbin/xenweet-letsencrypt-read-pem');
+        $fromRepo = base_path('scripts/xenweet-letsencrypt-read-pem.sh');
+
+        if (is_executable($installed)) {
+            $command = array_merge(
+                ['sudo', '-n', $installed],
+                [$configDir, $liveName, $which]
+            );
+        } elseif (is_file($fromRepo)) {
+            $command = array_merge(
+                ['sudo', '-n', 'bash', $fromRepo],
+                [$configDir, $liveName, $which]
+            );
+        } else {
+            throw new RuntimeException(
+                'PEM read helper is not installed. Run as root: sudo bash '.base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data'
+            );
+        }
+
+        $process = new Process($command, base_path(), null, null, 30.0);
+        $process->run();
+        $out = $process->getOutput();
+        $err = trim($process->getErrorOutput()."\n".$process->getOutput());
+        if (! $process->isSuccessful()) {
+            if (str_contains(strtolower($err), 'a password is required') || str_contains(strtolower($err), 'password is required')) {
+                throw new RuntimeException(
+                    "Cannot read ${path} with sudo (password required). Re-run: sudo bash ".base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data'
+                );
+            }
+
+            throw new RuntimeException(
+                'Could not read '.$path.' (certbot data is usually root-only). '.
+                'Re-run: sudo bash '.base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data — '.$err
+            );
+        }
+        if (trim($out) === '') {
+            throw new RuntimeException('Read empty content for '.$path);
+        }
+
+        return $out;
     }
 
     public function letsEncryptRoot(): string
