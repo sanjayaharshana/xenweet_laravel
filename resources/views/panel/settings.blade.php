@@ -42,7 +42,12 @@
 
                 @php
                     $activeFields = $tabs[$activeTab]['fields'] ?? [];
+                    $tabHelp = $tabs[$activeTab]['help'] ?? null;
                 @endphp
+
+                @if (!empty($tabHelp))
+                    @include('panel.partials.settings-tab-help', ['help' => $tabHelp])
+                @endif
 
                 @if ($activeTab === 'db_management')
                     @php
@@ -217,20 +222,36 @@
 
         <div class="tips-panel tips-panel--nested">
             <h2>Settings Help</h2>
-            <p class="subtle">Quick notes for this page.</p>
-
-            <div class="tip-item">
-                <h3>Dynamic tabs</h3>
-                <p>Tabs and fields are loaded from <code>config/admin_settings.php</code>.</p>
-            </div>
-            <div class="tip-item">
-                <h3>Save behavior</h3>
-                <p>Values are stored when you click <strong>Save</strong> for the current tab.</p>
-            </div>
-            <div class="tip-item">
-                <h3>Navigation</h3>
-                <p>Switch tabs from the top bar to update only that tab's settings.</p>
-            </div>
+            @if (!empty($tabs[$activeTab]['help'] ?? null))
+                @php
+                    $sidebarHelp = $tabs[$activeTab]['help'];
+                @endphp
+                <p class="subtle">{{ $sidebarHelp['summary'] ?? 'Notes for this tab.' }}</p>
+                @foreach ($sidebarHelp['items'] ?? [] as $h)
+                    <div class="tip-item">
+                        <h3>{{ $h['title'] ?? '' }}</h3>
+                        <p>{{ $h['body'] ?? '' }}</p>
+                    </div>
+                @endforeach
+                <div class="tip-item">
+                    <h3>Configuration</h3>
+                    <p>Tab fields are defined in <code>config/admin_settings.php</code>. Save applies to the current tab only.</p>
+                </div>
+            @else
+                <p class="subtle">Quick notes for this page.</p>
+                <div class="tip-item">
+                    <h3>Dynamic tabs</h3>
+                    <p>Tabs and fields are loaded from <code>config/admin_settings.php</code>.</p>
+                </div>
+                <div class="tip-item">
+                    <h3>Save behavior</h3>
+                    <p>Values are stored when you click <strong>Save</strong> for the current tab.</p>
+                </div>
+                <div class="tip-item">
+                    <h3>Navigation</h3>
+                    <p>Switch tabs from the top bar to update only that tab's settings.</p>
+                </div>
+            @endif
         </div>
     </div>
 </div>

@@ -170,7 +170,7 @@ body {
 
 .dashboard-body {
     min-height: 100vh;
-    padding: 5.4rem 2rem 2rem;
+    padding: 5.4rem 0 2rem;
 }
 
 /* File manager: fill viewport; scroll inside tree + file list (not whole page) */
@@ -381,7 +381,8 @@ body {
 .panel-shell {
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr);
-    gap: 1rem;
+    gap: 0;
+    align-items: start;
 }
 
 /* File manager (and similar full-width tool views): no Workspace sidebar */
@@ -392,11 +393,14 @@ body {
 .left-sidebar {
     background: linear-gradient(180deg, rgba(18, 26, 51, 0.98), rgba(10, 16, 35, 0.95));
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 0;
     padding: 1rem 0.8rem;
-    height: fit-content;
+    height: auto;
     position: sticky;
     top: 4.8rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+    z-index: 5;
 }
 
 .sidebar-title {
@@ -477,6 +481,8 @@ body {
 
 .panel-content {
     min-width: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
 }
 
 .panel-content-with-sidebar {
@@ -1955,6 +1961,7 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
 
 .managedb-flash {
     margin: 0;
+    white-space: pre-line;
 }
 
 .managedb-prefix-card {
@@ -2001,8 +2008,152 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     gap: 0.8rem;
 }
 
+.managedb-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.managedb-tab {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: #c7d6ff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    padding: 0.46rem 0.62rem;
+    background: rgba(255, 255, 255, 0.03);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.managedb-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.managedb-tab.is-active {
+    background: rgba(79, 124, 255, 0.16);
+    border-color: rgba(79, 124, 255, 0.42);
+    color: #e8eeff;
+}
+
+.managedb-db-types {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 0.6rem;
+}
+
+.managedb-db-type {
+    text-decoration: none;
+    border: 1px solid rgba(117, 144, 212, 0.22);
+    background: linear-gradient(180deg, rgba(17, 24, 44, 0.85), rgba(12, 18, 34, 0.88));
+    border-radius: 14px;
+    padding: 0.7rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.52rem;
+    min-height: 178px;
+    box-shadow: 0 10px 24px rgba(3, 8, 20, 0.38);
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.managedb-db-type:hover {
+    border-color: rgba(97, 144, 255, 0.56);
+    background: linear-gradient(180deg, rgba(22, 34, 61, 0.92), rgba(14, 24, 46, 0.9));
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(6, 12, 28, 0.45);
+}
+
+.managedb-db-type.is-active {
+    border-color: rgba(109, 158, 255, 0.72);
+    background: linear-gradient(180deg, rgba(29, 47, 84, 0.95), rgba(18, 33, 62, 0.92));
+}
+
+.managedb-db-type__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.managedb-db-type__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.84rem;
+    color: #edf2ff;
+    font-weight: 700;
+}
+
+.managedb-db-type__status {
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.managedb-db-type__status.is-enabled {
+    background: rgba(64, 196, 130, 0.18);
+    color: #8cefc0;
+}
+
+.managedb-db-type__status.is-disabled {
+    background: rgba(255, 148, 148, 0.18);
+    color: #ffb2b2;
+}
+
+.managedb-db-type__desc {
+    font-size: 0.75rem;
+    color: #b8c8ea;
+    line-height: 1.45;
+    min-height: 2.2rem;
+}
+
+.managedb-db-type__meta {
+    display: grid;
+    gap: 0.16rem;
+    padding: 0.46rem 0.55rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.managedb-db-type__meta-key {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8da3d8;
+    font-weight: 700;
+}
+
+.managedb-db-type__meta-value {
+    font-size: 0.75rem;
+    color: #d8e5ff;
+    font-weight: 600;
+}
+
+.managedb-db-type__cta {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+    color: #9ec0ff;
+    font-weight: 700;
+}
+
 .managedb-grid--forms,
 .managedb-grid--lists {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+}
+
+.managedb-grid--users,
+.managedb-grid--databases {
     grid-template-columns: repeat(2, minmax(280px, 1fr));
 }
 
@@ -2087,6 +2238,34 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     justify-content: flex-end;
 }
 
+.managedb-actions--left {
+    justify-content: flex-start;
+}
+
+.managedb-scope .btn-primary,
+.managedb-scope .btn-secondary {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.78rem;
+    border-radius: 10px;
+    line-height: 1.1;
+}
+
+.managedb-wizard-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    background: linear-gradient(135deg, #4f7cff, #6ea0ff);
+    border-color: rgba(115, 156, 255, 0.75);
+    box-shadow: 0 8px 18px rgba(79, 124, 255, 0.3);
+}
+
+.managedb-wizard-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(79, 124, 255, 0.34);
+}
+
 .managedb-list {
     list-style: none;
     margin: 0;
@@ -2114,6 +2293,732 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     margin: 0;
     color: var(--muted);
     font-size: 0.8rem;
+}
+
+.managedb-card--wizard {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.managedb-card--flow {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.managedb-flow-toolbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.55rem;
+    align-items: center;
+}
+
+.managedb-flow-toolbar__group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.managedb-flow-toolbar__group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #b8c8f6;
+}
+
+.managedb-flow-toolbar__inline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem;
+}
+
+.managedb-flow-toolbar__prefix {
+    display: grid;
+    grid-template-columns: minmax(86px, auto) minmax(0, 1fr);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--card-soft);
+}
+
+.managedb-flow-toolbar__prefix input[type="text"] {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+.managedb-flow-toolbar__prefix input[readonly] {
+    color: #aebeea;
+    background: rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    cursor: default;
+}
+
+.managedb-flow-toolbar__inline input[type="text"] {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--card-soft);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 0.5rem 0.65rem;
+    outline: none;
+}
+
+.managedb-flow-toolbar__inline input[type="text"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.22);
+}
+
+.managedb-flow-toolbar__prefix:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.22);
+}
+
+.managedb-flow-toolbar__group--actions {
+    justify-content: flex-end;
+    align-items: flex-end;
+}
+
+.managedb-flow-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.managedb-flow-tool-btn {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 10px;
+    border: 1px solid rgba(137, 169, 240, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+    color: #d7e5ff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.managedb-flow-tool-btn i {
+    font-size: 0.92rem;
+}
+
+.managedb-flow-tool-btn:hover {
+    background: rgba(79, 124, 255, 0.2);
+    border-color: rgba(126, 172, 255, 0.68);
+    transform: translateY(-1px);
+}
+
+.managedb-flow-tool-btn.is-active {
+    background: rgba(79, 124, 255, 0.24);
+    border-color: rgba(132, 181, 255, 0.78);
+    color: #edf4ff;
+}
+
+.managedb-flow-tooltip {
+    position: absolute;
+    left: 2.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    min-width: 15rem;
+    max-width: 18rem;
+    padding: 0.5rem 0.58rem;
+    border-radius: 10px;
+    border: 1px solid rgba(138, 171, 245, 0.42);
+    background: rgba(16, 25, 49, 0.97);
+    color: #cfe0ff;
+    box-shadow: 0 12px 24px rgba(5, 11, 28, 0.42);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    text-align: left;
+    z-index: 14;
+}
+
+.managedb-flow-tooltip strong {
+    display: block;
+    margin-bottom: 0.15rem;
+    font-size: 0.76rem;
+    color: #ebf2ff;
+}
+
+.managedb-flow-tooltip span {
+    display: block;
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.managedb-flow-tool-btn:hover .managedb-flow-tooltip,
+.managedb-flow-tool-btn:focus-visible .managedb-flow-tooltip {
+    opacity: 1;
+}
+
+.managedb-flow-board {
+    position: relative;
+    min-height: 460px;
+    border: 1px solid rgba(132, 164, 236, 0.28);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 16% 14%, rgba(106, 149, 255, 0.18), transparent 46%),
+        linear-gradient(180deg, rgba(21, 31, 60, 0.92), rgba(15, 24, 48, 0.9));
+    overflow: hidden;
+    touch-action: none;
+}
+
+.managedb-flow-board::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.18;
+    background-image:
+        linear-gradient(to right, rgba(175, 203, 255, 0.35) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(175, 203, 255, 0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+.managedb-flow-board--grid-hidden::before {
+    display: none;
+}
+
+.managedb-flow-board__svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.managedb-flow-context-menu {
+    position: absolute;
+    z-index: 12;
+    min-width: 10rem;
+    border-radius: 10px;
+    border: 1px solid rgba(160, 188, 255, 0.4);
+    background: rgba(18, 28, 56, 0.96);
+    box-shadow: 0 14px 28px rgba(4, 10, 26, 0.45);
+    padding: 0.28rem;
+    display: grid;
+    gap: 0.2rem;
+}
+
+.managedb-flow-context-menu[hidden] {
+    display: none;
+}
+
+.managedb-flow-context-menu button {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: #d8e6ff;
+    font-size: 0.77rem;
+    text-align: left;
+    padding: 0.38rem 0.46rem;
+    cursor: pointer;
+}
+
+.managedb-flow-context-menu button:hover {
+    background: rgba(79, 124, 255, 0.2);
+    border-color: rgba(140, 177, 255, 0.45);
+}
+
+.managedb-flow-edge {
+    fill: none;
+    stroke: rgba(126, 172, 255, 0.95);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-dasharray: 6 5;
+}
+
+.managedb-flow-node {
+    position: absolute;
+    width: 190px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(180deg, rgba(20, 29, 56, 0.97), rgba(12, 17, 35, 0.96));
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    padding: 0.5rem 0.55rem;
+    cursor: grab;
+    user-select: none;
+    left: 0;
+    top: 0;
+    will-change: transform;
+}
+
+.managedb-flow-node.is-dragging {
+    cursor: grabbing;
+    opacity: 0.92;
+    border-color: rgba(124, 160, 255, 0.6);
+}
+
+.managedb-flow-node--user {
+    border-color: rgba(121, 174, 255, 0.36);
+}
+
+.managedb-flow-node--database {
+    border-color: rgba(116, 214, 164, 0.38);
+}
+
+.managedb-flow-node__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+}
+
+.managedb-flow-node__kind {
+    font-size: 0.66rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #9eb7ef;
+    font-weight: 700;
+}
+
+.managedb-flow-node__remove {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: #e9eeff;
+    border-radius: 8px;
+    width: 1.3rem;
+    height: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.managedb-flow-node__name {
+    margin: 0.35rem 0 0.55rem;
+    color: #edf2ff;
+    font-size: 0.81rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.managedb-flow-node__foot {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.managedb-flow-node__grant {
+    border: 1px solid rgba(126, 172, 255, 0.4);
+    background: rgba(79, 124, 255, 0.14);
+    color: #cfe0ff;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.managedb-flow-node__grant.is-dragging {
+    background: rgba(108, 149, 255, 0.24);
+    border-color: rgba(140, 184, 255, 0.6);
+}
+
+.managedb-flow-node__grant--target {
+    cursor: default;
+    border-color: rgba(118, 224, 167, 0.42);
+    background: rgba(88, 194, 137, 0.14);
+    color: #c6f4de;
+}
+
+.managedb-flow-help {
+    margin: 0;
+    font-size: 0.77rem;
+    color: var(--muted);
+}
+
+.managedb-modal {
+    width: min(460px, 92vw);
+    max-width: 96vw;
+    border: 1px solid rgba(160, 188, 255, 0.35);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(20, 30, 58, 0.98), rgba(12, 20, 40, 0.97));
+    color: var(--text);
+    padding: 0;
+}
+
+/* Keep tall modals in the viewport; scroll inside the form (native <dialog> top layer). */
+.managedb-scope dialog.managedb-modal[open] {
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 1.5rem));
+    width: min(460px, 96vw);
+    max-width: 96vw;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: block;
+    margin: auto;
+}
+
+.managedb-scope dialog.managedb-modal--db-details[open] {
+    width: min(540px, 96vw);
+}
+
+.managedb-scope dialog.managedb-modal[open] .managedb-modal__form {
+    max-height: 75vh;
+    max-height: min(78vh, 80dvh);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    scrollbar-gutter: stable;
+}
+
+.managedb-modal::backdrop {
+    background: rgba(4, 8, 18, 0.62);
+    backdrop-filter: blur(3px);
+}
+
+.managedb-modal__form {
+    padding: 0.9rem;
+    display: grid;
+    gap: 0.6rem;
+}
+
+.managedb-modal__form h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.managedb-modal__desc {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #bdd0ff;
+    line-height: 1.45;
+}
+
+.managedb-modal__tip {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #c9dbff;
+    line-height: 1.45;
+    border: 1px solid rgba(127, 166, 255, 0.35);
+    background: rgba(79, 124, 255, 0.12);
+    border-radius: 10px;
+    padding: 0.48rem 0.58rem;
+}
+
+.managedb-modal__tip strong {
+    color: #e8f0ff;
+}
+
+.managedb-password-strength {
+    margin: -0.2rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.managedb-password-strength-wrap {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.managedb-password-strength-bar {
+    height: 0.42rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.managedb-password-strength-fill {
+    display: block;
+    height: 100%;
+    width: 20%;
+    border-radius: inherit;
+    transition: width 0.18s ease, background 0.18s ease;
+}
+
+.managedb-password-strength.is-weak {
+    color: #ffb8b8;
+}
+
+.managedb-password-strength.is-medium {
+    color: #ffd8a3;
+}
+
+.managedb-password-strength.is-strong {
+    color: #9bf0c3;
+}
+
+.managedb-password-strength-fill.is-weak {
+    background: linear-gradient(90deg, #ff8a8a, #ff6f6f);
+}
+
+.managedb-password-strength-fill.is-medium {
+    background: linear-gradient(90deg, #ffc47a, #ffad58);
+}
+
+.managedb-password-strength-fill.is-strong {
+    background: linear-gradient(90deg, #5dd39a, #34c986);
+}
+
+.managedb-modal__form input[type="text"] {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--card-soft);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 0.58rem 0.68rem;
+    outline: none;
+}
+
+.managedb-modal__form input[type="text"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.22);
+}
+
+.managedb-modal__form input[type="password"] {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--card-soft);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 0.5rem 0.62rem;
+    outline: none;
+    font-size: 0.8rem;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.managedb-modal__form input[type="password"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.22);
+}
+
+.managedb-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.45rem;
+}
+
+.managedb-modal__kv {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.managedb-modal__kv span {
+    color: #b9cbf3;
+}
+
+.managedb-modal__kv strong {
+    color: #eef4ff;
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
+.managedb-modal__password-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.35rem;
+    width: min(100%, 18rem);
+}
+
+.managedb-modal__password-wrap input[type="password"],
+.managedb-modal__password-wrap input[type="text"] {
+    margin: 0;
+}
+
+.managedb-modal__eye-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 10px;
+    border: 1px solid rgba(137, 169, 240, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+    color: #d7e5ff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.managedb-modal__db-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 9rem;
+    overflow: auto;
+}
+
+.managedb-modal__db-list code {
+    display: block;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: 0.35rem 0.45rem;
+    font-size: 0.76rem;
+    color: #dbe8ff;
+}
+
+.managedb-modal__db-access-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: 12rem;
+    overflow: auto;
+    margin-top: 0.4rem;
+}
+
+.managedb-modal__db-access-block {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    padding: 0.45rem 0.5rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.managedb-modal__db-access-block .managedb-modal__kv--password {
+    margin-top: 0.1rem;
+}
+
+.managedb-modal__meta {
+    color: #8fa6d0;
+    font-size: 0.72em;
+    font-weight: 400;
+}
+
+.managedb-modal__dsn {
+    margin: 0.3rem 0 0.15rem;
+}
+
+.managedb-modal__dsn code {
+    display: block;
+    margin-top: 0.35rem;
+    padding: 0.4rem 0.45rem;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: #e4ecff;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(127, 166, 255, 0.2);
+    border-radius: 8px;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.managedb-modal--db-details .managedb-empty {
+    margin: 0.35rem 0 0.1rem;
+}
+
+.managedb-modal__db-access-block .managedb-modal__kv {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.2rem 0.45rem;
+}
+
+.managedb-modal__db-access-block .managedb-modal__kv > span {
+    min-width: 0;
+    flex: 0 1 auto;
+}
+
+.managedb-modal__db-access-block .managedb-modal__kv > strong {
+    min-width: 0;
+    flex: 1 1 7rem;
+    text-align: right;
+}
+
+.managedb-modal__db-access-block .managedb-modal__kv--password {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+}
+
+.managedb-modal__db-access-block .managedb-modal__kv--password .managedb-modal__password-wrap {
+    width: 100%;
+    max-width: none;
+    align-self: stretch;
+}
+
+.managedb-d3-node {
+    cursor: grab;
+    transition: opacity 0.14s ease;
+}
+
+.managedb-d3-node.is-dragging {
+    cursor: grabbing;
+}
+
+.managedb-d3-node__body {
+    fill: rgba(25, 38, 74, 0.97);
+    stroke: rgba(154, 181, 246, 0.45);
+    stroke-width: 1;
+    filter: drop-shadow(0 10px 18px rgba(6, 12, 28, 0.38));
+}
+
+.managedb-d3-node--user .managedb-d3-node__body {
+    fill: rgba(36, 56, 102, 0.98);
+    stroke: rgba(133, 190, 255, 0.86);
+}
+
+.managedb-d3-node--database .managedb-d3-node__body {
+    stroke: rgba(126, 225, 181, 0.72);
+}
+
+.managedb-d3-node--user:hover .managedb-d3-node__body {
+    stroke: rgba(165, 212, 255, 0.96);
+    filter: drop-shadow(0 12px 22px rgba(28, 72, 138, 0.33));
+}
+
+.managedb-d3-node.is-selected .managedb-d3-node__body {
+    stroke: rgba(157, 194, 255, 0.96);
+    stroke-width: 1.8;
+}
+
+.managedb-d3-node__kind {
+    font-size: 9px;
+    font-weight: 700;
+    fill: #c3d8ff;
+    letter-spacing: 0.11em;
+}
+
+.managedb-d3-node__label {
+    font-size: 12.4px;
+    font-weight: 700;
+    fill: #f5f9ff;
+}
+
+.managedb-d3-node__remove {
+    font-size: 10px;
+    font-weight: 700;
+    fill: #d9e6ff;
+    cursor: pointer;
+}
+
+.managedb-d3-node__badge {
+    fill: rgba(120, 177, 255, 0.28);
+    stroke: rgba(175, 213, 255, 0.78);
+    stroke-width: 1;
+}
+
+.managedb-d3-node__badge-text {
+    fill: #e9f2ff;
+    font-size: 10px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+
+.managedb-d3-node__connector {
+    fill: rgba(142, 190, 255, 0.96);
+    stroke: rgba(224, 237, 255, 0.94);
+    stroke-width: 1.2;
+    cursor: crosshair;
+    filter: drop-shadow(0 0 6px rgba(126, 172, 255, 0.8));
+}
+
+.managedb-flow-edge--temp {
+    stroke: rgba(153, 194, 255, 0.9);
+    stroke-dasharray: 5 4;
 }
 
 .host-form {
@@ -2532,6 +3437,79 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     display: none;
 }
 
+.settings-tab-help {
+    border: 1px solid rgba(79, 124, 255, 0.28);
+    background: rgba(79, 124, 255, 0.08);
+    border-radius: 12px;
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 0.6rem;
+    max-width: 760px;
+}
+
+.settings-tab-help__head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #b8cfff;
+    margin: 0 0 0.5rem 0;
+}
+
+.settings-tab-help__head i {
+    color: #7aa3ff;
+}
+
+.settings-tab-help__summary {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #b9c6e6;
+}
+
+.settings-tab-help__item + .settings-tab-help__item {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-tab-help__title {
+    margin: 0 0 0.3rem 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #e4ecff;
+}
+
+.settings-tab-help__body {
+    margin: 0 0 0.4rem 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #a8b8df;
+}
+
+.settings-tab-help__code {
+    margin: 0;
+    max-height: 11rem;
+    overflow: auto;
+    padding: 0.65rem 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: #d2e0ff;
+    background: #070b14;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.settings-tab-help__code code {
+    font-family: inherit;
+    color: inherit;
+    background: none;
+    padding: 0;
+}
+
 .settings-db-cards {
     display: grid;
     grid-template-columns: 1fr;
@@ -2734,8 +3712,26 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     }
 
     .managedb-grid--forms,
-    .managedb-grid--lists {
+    .managedb-grid--lists,
+    .managedb-grid--users,
+    .managedb-grid--databases {
         grid-template-columns: 1fr;
+    }
+
+    .managedb-db-types {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+
+    .managedb-flow-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .managedb-flow-toolbar__group--actions {
+        align-items: flex-start;
+    }
+
+    .managedb-flow-board {
+        min-height: 520px;
     }
 
 }

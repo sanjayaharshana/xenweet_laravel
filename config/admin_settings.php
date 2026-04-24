@@ -32,6 +32,24 @@ return [
         'db_management' => [
             'label' => 'DB Management',
             'icon' => 'fa fa-database',
+            'help' => [
+                'summary' => 'Use these values for the panel to test and use database connections (hosting tools, health checks, etc.). They are not the same as your Laravel .env file unless you choose to match them. Enter a user that can create databases and users on the target server when the panel needs that access.',
+                'items' => [
+                    [
+                        'title' => 'MySQL: password and host',
+                        'body' => 'MySQL always authenticates a user. If the mysql client works without typing a password, the password is usually in ~/.my.cnf. Host 127.0.0.1 and localhost are not always the same in MySQL (socket vs TCP); use the one that matches your server.',
+                    ],
+                    [
+                        'title' => 'Optional: new MySQL user with full privileges',
+                        'body' => 'Run the following in a MySQL client while connected as a privileged user (e.g. existing root). Change the user name, host, and password to suit your environment.',
+                        'code' => <<<'SQL'
+CREATE USER 'admin'@'localhost' IDENTIFIED BY 'YourStrongPasswordHere';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+SQL
+                    ],
+                ],
+            ],
             'fields' => [
                 ['key' => 'postgres_enabled', 'label' => 'Enable PostgreSQL', 'type' => 'boolean', 'default' => false],
                 ['key' => 'postgres_host', 'label' => 'PostgreSQL Host', 'type' => 'text', 'default' => '127.0.0.1', 'depends_on' => 'postgres_enabled'],
