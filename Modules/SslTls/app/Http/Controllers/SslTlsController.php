@@ -4,6 +4,7 @@ namespace Modules\SslTls\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hosting;
+use App\Models\HostingSslStore;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -22,7 +23,8 @@ class SslTlsController extends Controller
             $tab = 'key';
         }
 
-        $sslSan = $hosting->ssl_san_hostnames;
+        $store = $hosting->sslStore;
+        $sslSan = $store?->san_hostnames;
         if (! is_array($sslSan)) {
             $sslSan = [];
         }
@@ -32,6 +34,7 @@ class SslTlsController extends Controller
             'httpsUrl' => 'https://'.$host,
             'httpUrl' => 'http://'.$host,
             'activeToolTab' => $tab,
+            'sslStore' => $store,
             'sslSanHostnames' => $sslSan,
             'sslSanHostnamesText' => implode("\n", $sslSan),
         ]);
@@ -80,11 +83,38 @@ class SslTlsController extends Controller
         }
 
         sort($san, SORT_NATURAL | SORT_FLAG_CASE);
-        $hosting->update(['ssl_san_hostnames' => array_values($san)]);
+
+        HostingSslStore::updateOrCreate(
+            ['hosting_id' => $hosting->id],
+            ['san_hostnames' => array_values($san)]
+        );
 
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'hosts'])
-            ->with('ssltls_success', 'SSL host names (SANs) saved for this hosting account. Use them as subject alternative names when requesting or installing a certificate.');
+            ->with('ssltls_success', 'SSL host names (SANs) saved. They are stored on this account for your CSR and certificate planning.');
+    }
+
+    public function saveCertificate(Request $request, Hosting $hosting): RedirectResponse
+    {
+        $validated = $request->validate([
+            'certificate_pem' => 'nullable|string|max:524288',
+            'certificate_chain_pem' => 'nullable|string|max:524288',
+        ]);
+
+        $cert = trim((string) ($validated['certificate_pem'] ?? ''));
+        $chain = trim((string) ($validated['certificate_chain_pem'] ?? ''));
+
+        HostingSslStore::updateOrCreate(
+            ['hosting_id' => $hosting->id],
+            [
+                'certificate_pem' => $cert === '' ? null : $cert,
+                'certificate_chain_pem' => $chain === '' ? null : $chain,
+            ]
+        );
+
+        return redirect()
+            ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'cert'])
+            ->with('ssltls_success', 'Certificate and chain saved to the database. Install them on the web server in a separate step.');
     }
 
     public function generatePrivateKey(
@@ -102,10 +132,21 @@ class SslTlsController extends Controller
             return $this->sslTlsErrorRedirect($hosting, 'key', $e->getMessage());
         }
 
+        HostingSslStore::updateOrCreate(
+            ['hosting_id' => $hosting->id],
+            [
+                'private_key_pem' => $pem,
+                'key_type' => $validated['key_type'],
+                'csr_pem' => null,
+                'certificate_pem' => null,
+                'certificate_chain_pem' => null,
+            ]
+        );
+
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'key'])
             ->with('ssltls_key_pem', $pem)
-            ->with('ssltls_success', 'Private key generated. Copy and store it securely; it is not saved by the panel.');
+            ->with('ssltls_success', 'Private key generated. It is stored encrypted in the database; copy it below for a secure backup off this panel.');
     }
 
     public function generateCsr(
@@ -154,10 +195,18 @@ class SslTlsController extends Controller
             return $this->sslTlsErrorRedirect($hosting, 'csr', $e->getMessage());
         }
 
+        HostingSslStore::updateOrCreate(
+            ['hosting_id' => $hosting->id],
+            [
+                'private_key_pem' => $validated['private_key'],
+                'csr_pem' => $csrPem,
+            ]
+        );
+
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'csr'])
             ->with('ssltls_csr_pem', $csrPem)
-            ->with('ssltls_success', 'CSR generated. Send this PEM to your certificate authority or use it with ACME.');
+            ->with('ssltls_success', 'CSR generated and stored. The private key you used is saved encrypted for this host.');
     }
 
     private function sslTlsErrorRedirect(Hosting $hosting, string $tab, string $message): RedirectResponse

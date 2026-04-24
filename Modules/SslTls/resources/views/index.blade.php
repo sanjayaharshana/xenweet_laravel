@@ -33,8 +33,9 @@
         <p class="subtle ssltls-intro__lede">
             A <strong>private key</strong> stays on the server and must remain secret. A <strong>CSR</strong> is a request you (or the panel) build from
             that key and send to a certificate authority. The CA returns an <strong>SSL certificate</strong> you install so browsers trust
-            <code>{{ $hosting->siteHost() }}</code> for HTTPS. You can also create a <strong>self-signed</strong> certificate for testing,
-            but visitors will see a warning until you use a publicly trusted certificate.
+            <code>{{ $hosting->siteHost() }}</code> for HTTPS. This panel can store the key, CSR, host names, and certificate in your
+            <strong>hosting account record</strong> (the key is encrypted) so you can return and copy them; still protect the database and your login.
+            Self-signed certificates are fine for testing, but visitors will see a warning until you use a publicly trusted certificate.
         </p>
     </section>
 
@@ -114,7 +115,7 @@
                     spellcheck="false"
                     placeholder="www.{{ $hosting->siteHost() }}&#10;cdn.{{ $hosting->siteHost() }}"
                 >{{ old('san_hostnames', $sslSanHostnamesText) }}</textarea>
-                <p class="ssltls-hint">Do not repeat the primary name here. Use the same hostnames in your DNS and web server. Changes are stored on this account for reference; installing the cert on the server is still a separate step.</p>
+                <p class="ssltls-hint">Do not repeat the primary name here. These names are stored on your account with the other SSL material. Match them in DNS and on the web server. Installing the cert on the live server is still a separate step.</p>
                 <div class="managedb-actions">
                     <button type="submit" class="btn-primary">Save host names</button>
                 </div>
@@ -142,9 +143,9 @@
                         readonly
                         placeholder="Click &ldquo;Generate private key&rdquo; to create a key&hellip;"
                         spellcheck="false"
-                    >{{ session('ssltls_key_pem') }}</textarea>
+                    >{{ session('ssltls_key_pem', $sslStore?->private_key_pem) }}</textarea>
                 </div>
-                <p class="ssltls-hint">The key is shown once in your browser and is not stored by the panel. Copy it to a password manager or secure deploy path.</p>
+                <p class="ssltls-hint">The private key is stored <strong>encrypted</strong> in the database for this host. Keep a copy in a password manager or secure deploy path; do not share it or commit it to source control.</p>
                 <div class="managedb-actions">
                     <button type="submit" class="btn-primary">Generate private key</button>
                 </div>
@@ -168,7 +169,7 @@
                         required
                         placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
                         spellcheck="false"
-                    >{{ old('private_key') }}</textarea>
+                    >{{ old('private_key', $sslStore?->private_key_pem) }}</textarea>
                 </div>
                 <label for="ssltls-csr-cn">Common name (CN) &mdash; usually your site hostname</label>
                 <input id="ssltls-csr-cn" type="text" name="common_name" value="{{ old('common_name', $hosting->siteHost()) }}" required autocomplete="off" pattern="[a-zA-Z0-9.\-]+" maxlength="253">
@@ -193,9 +194,9 @@
                         readonly
                         placeholder="Run &ldquo;Generate CSR&rdquo; after pasting your private key&hellip;"
                         spellcheck="false"
-                    >{{ session('ssltls_csr_pem') }}</textarea>
+                    >{{ session('ssltls_csr_pem', $sslStore?->csr_pem) }}</textarea>
                 </div>
-                <p class="ssltls-hint">The private key is only used in this request to build the CSR and is not stored by the panel.</p>
+                <p class="ssltls-hint">After a successful request, the CSR and the private key you used are stored for this host (key encrypted) so you can copy them when you return.</p>
                 <div class="managedb-actions">
                     <button type="submit" class="btn-primary">Generate CSR</button>
                 </div>
@@ -207,19 +208,33 @@
                 <h2 id="ssltls-panel-cert-h"><i class="fa fa-certificate" aria-hidden="true"></i> SSL certificate</h2>
                 <p>Install the certificate (and any chain) returned by a CA, or create a self-signed cert for local testing. Browsers need a publicly trusted cert for production.</p>
             </div>
-            <form class="managedb-form" onsubmit="return false;">
-                <label for="ssltls-cert-mode">Source</label>
-                <select id="ssltls-cert-mode" name="cert_mode" disabled>
-                    <option value="ca">From CA (paste certificate chain)</option>
-                    <option value="self">Self-signed (testing)</option>
-                </select>
-                <label for="ssltls-cert-out">PEM (preview &mdash; install not wired yet)</label>
-                <div class="ssltls-pem-frame ssltls-pem-frame--dim">
-                    <textarea id="ssltls-cert-out" class="ssltls-textarea ssltls-textarea--pem ssltls-textarea--readonly" name="cert_pem" rows="5" readonly disabled placeholder="-----BEGIN CERTIFICATE-----&#10;..."></textarea>
+            <form class="managedb-form" method="POST" action="{{ route('hosts.ssl-tls.certificate', $hosting) }}">
+                @csrf
+                <label for="ssltls-leaf-cert">PEM (leaf / server certificate)</label>
+                <div class="ssltls-pem-frame">
+                    <textarea
+                        id="ssltls-leaf-cert"
+                        class="ssltls-textarea ssltls-textarea--pem"
+                        name="certificate_pem"
+                        rows="8"
+                        spellcheck="false"
+                        placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
+                    >{{ old('certificate_pem', $sslStore?->certificate_pem) }}</textarea>
                 </div>
-                <p class="ssltls-hint">Installing on the web server and reloading the vhost will be a separate step from generating material here.</p>
+                <label for="ssltls-cert-chain">PEM (intermediate chain &mdash; optional, append multiple certs)</label>
+                <div class="ssltls-pem-frame">
+                    <textarea
+                        id="ssltls-cert-chain"
+                        class="ssltls-textarea ssltls-textarea--pem"
+                        name="certificate_chain_pem"
+                        rows="6"
+                        spellcheck="false"
+                        placeholder="-----BEGIN CERTIFICATE-----&#10;... (intermediate CA)&#10;-----END CERTIFICATE-----"
+                    >{{ old('certificate_chain_pem', $sslStore?->certificate_chain_pem) }}</textarea>
+                </div>
+                <p class="ssltls-hint">Certificates are stored in plain text in the database; restrict access to this panel. Installing on the web server and reloading the vhost is a separate step.</p>
                 <div class="managedb-actions">
-                    <button type="button" class="btn-primary" disabled>Save certificate</button>
+                    <button type="submit" class="btn-primary">Save certificate</button>
                 </div>
             </form>
         </section>

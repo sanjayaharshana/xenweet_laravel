@@ -14,4 +14,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/hosts/{hosting}/ssl-tls/san-hostnames', [SslTlsController::class, 'updateSanHostnames'])
         ->middleware('throttle:30,1')
         ->name('hosts.ssl-tls.san-hostnames');
+    Route::post('/hosts/{hosting}/ssl-tls/certificate', [SslTlsController::class, 'saveCertificate'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.ssl-tls.certificate');
 });
