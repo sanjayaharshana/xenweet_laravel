@@ -64,13 +64,11 @@
     var input = '';
 
     function prompt() {
-        term.write('
-$ ');
+        term.write('\r\n$ ');
     }
 
     function printLine(line) {
-        term.write((line || '').replace(/
-/g, '\r\n'));
+        term.write((line || '').replace(/\r?\n/g, '\r\n'));
     }
 
     async function execute(command) {
@@ -86,15 +84,20 @@ $ ');
                 body: JSON.stringify({ command: command })
             });
 
-            var data = await resp.json();
+            var data;
+            try {
+                data = await resp.json();
+            } catch (jsonErr) {
+                data = { output: '', exit_code: 1 };
+            }
             if (data.output) {
                 term.write('\r\n');
                 printLine(String(data.output));
             }
             if (!resp.ok) {
-                term.write('\r\n[error] command failed');
+                term.write('\r\n[error] command failed (' + resp.status + ')');
             }
-            term.write('\r\n[exit ' + String(data.exit_code ?? '1') + ']');
+            term.write('\r\n[exit ' + String(typeof data.exit_code === 'number' ? data.exit_code : 1) + ']');
         } catch (e) {
             term.write('\r\n[error] request failed: ' + String(e));
         } finally {
