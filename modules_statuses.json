@@ -3,5 +3,6 @@
     "Plan": true,
     "FileManager": true,
     "ManageDb": true,
-    "SslTls": true
+    "SslTls": true,
+    "SshAccess": true
 }

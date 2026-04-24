@@ -41,6 +41,9 @@
             "Modules\\SslTls\\": "Modules/SslTls/app/",
             "Modules\\SslTls\\Database\\Factories\\": "Modules/SslTls/database/factories/",
             "Modules\\SslTls\\Database\\Seeders\\": "Modules/SslTls/database/seeders/",
+            "Modules\\SshAccess\\": "Modules/SshAccess/app/",
+            "Modules\\SshAccess\\Database\\Factories\\": "Modules/SshAccess/database/factories/",
+            "Modules\\SshAccess\\Database\\Seeders\\": "Modules/SshAccess/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

@@ -49,6 +49,7 @@ return [
                     'label' => 'SSH Access',
                     'description' => 'Shell access, authorized keys, and port settings',
                     'icon' => 'fa fa-terminal',
+                    'route' => 'hosts.ssh-access',
                 ],
                 [
                     'label' => 'IP Blocker',

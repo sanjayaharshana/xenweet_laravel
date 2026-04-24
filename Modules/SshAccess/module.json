@@ -1,0 +1,11 @@
+{
+    "name": "SshAccess",
+    "alias": "sshaccess",
+    "description": "SSH access details and quick-start commands for hostings",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\SshAccess\\Providers\\SshAccessServiceProvider"
+    ],
+    "files": []
+}
