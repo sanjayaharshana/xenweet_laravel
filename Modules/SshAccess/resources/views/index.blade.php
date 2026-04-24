@@ -15,6 +15,20 @@
         </div>
     </header>
 
+    @if (session('sshaccess_success'))
+        <div class="flash-success managedb-flash" role="status">{{ session('sshaccess_success') }}</div>
+    @endif
+    @if (session('sshaccess_error'))
+        <div class="alert error managedb-flash" role="alert">{{ session('sshaccess_error') }}</div>
+    @endif
+    @if ($errors->any())
+        <div class="alert error managedb-flash" role="alert">
+            @foreach ($errors->all() as $message)
+                <p style="margin:0 0 0.35rem;">{{ $message }}</p>
+            @endforeach
+        </div>
+    @endif
+
     <p class="ssltls-workflow-eyebrow" id="ssh-tabs-h">Host panel tabs</p>
     <nav class="managedb-tabs ssltls-tool-tabs" aria-label="Host panel tabs" aria-describedby="ssh-tabs-h">
         <a href="{{ route('hosts.panel', $hosting) }}" class="managedb-tab">
@@ -58,6 +72,50 @@
             <li>If login fails, verify the Linux user exists and has shell access.</li>
             <li>Recommended: add your public key to <code>~/.ssh/authorized_keys</code> and disable password auth.</li>
         </ul>
+    </section>
+
+    <section class="server-card" aria-labelledby="ssh-create-h" style="margin-top:0.8rem;">
+        <h2 id="ssh-create-h">Create SSH Account (jailed)</h2>
+        <p class="subtle" style="margin:0.2rem 0 0.55rem;">
+            Creates a Linux user with home under this hosting root and shell <code>/bin/rbash</code> (restricted shell).
+        </p>
+        <form method="POST" action="{{ $sshCreateUrl }}" class="managedb-form">
+            @csrf
+            <label for="ssh-acc-username">Username</label>
+            <input
+                id="ssh-acc-username"
+                type="text"
+                name="username"
+                required
+                minlength="3"
+                maxlength="32"
+                pattern="[a-z_][a-z0-9_-]{2,31}"
+                autocomplete="off"
+                value="{{ old('username') }}"
+                placeholder="clientssh"
+            >
+            <label for="ssh-acc-password">Password</label>
+            <input
+                id="ssh-acc-password"
+                type="password"
+                name="password"
+                required
+                minlength="8"
+                maxlength="128"
+                autocomplete="new-password"
+            >
+            <label for="ssh-acc-pubkey">Public key (optional)</label>
+            <textarea
+                id="ssh-acc-pubkey"
+                name="public_key"
+                rows="4"
+                spellcheck="false"
+                placeholder="ssh-ed25519 AAAAC3... user@laptop"
+            >{{ old('public_key') }}</textarea>
+            <div class="managedb-actions">
+                <button type="submit" class="btn-primary">Create jailed SSH account</button>
+            </div>
+        </form>
     </section>
 </div>
 @endsection

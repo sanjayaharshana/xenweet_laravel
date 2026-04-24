@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+USERNAME="${1:?usage: $0 <username> <password> <host_root> <web_root> [public_key_b64]}"
+PASSWORD="${2:?usage: $0 <username> <password> <host_root> <web_root> [public_key_b64]}"
+HOST_ROOT="${3:?usage: $0 <username> <password> <host_root> <web_root> [public_key_b64]}"
+WEB_ROOT="${4:?usage: $0 <username> <password> <host_root> <web_root> [public_key_b64]}"
+PUBKEY_B64="${5:-}"
+
+exec /usr/local/sbin/hosting-ssh-create-jailed.sh "$USERNAME" "$PASSWORD" "$HOST_ROOT" "$WEB_ROOT" "$PUBKEY_B64"
