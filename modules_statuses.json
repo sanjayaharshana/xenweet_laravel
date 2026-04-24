@@ -2,5 +2,6 @@
     "Hosting": true,
     "Plan": true,
     "FileManager": true,
-    "ManageDb": true
+    "ManageDb": true,
+    "SslTls": true
 }

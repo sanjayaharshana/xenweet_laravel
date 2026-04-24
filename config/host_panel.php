@@ -36,6 +36,38 @@ return [
             ],
         ],
         [
+            'id' => 'security',
+            'title' => 'Security',
+            'items' => [
+                [
+                    'label' => 'SSL',
+                    'description' => 'TLS/SSL certificates, HTTPS, and security headers for this host',
+                    'icon' => 'fa fa-lock',
+                    'route' => 'hosts.ssl-tls',
+                ],
+                [
+                    'label' => 'SSH Access',
+                    'description' => 'Shell access, authorized keys, and port settings',
+                    'icon' => 'fa fa-terminal',
+                ],
+                [
+                    'label' => 'IP Blocker',
+                    'description' => 'Allow or block visitors by IP address or CIDR range',
+                    'icon' => 'fa fa-ban',
+                ],
+                [
+                    'label' => '2FA Authentication',
+                    'description' => 'Two-factor authentication for the panel and related logins',
+                    'icon' => 'fa fa-shield',
+                ],
+                [
+                    'label' => 'Hotlink Protection',
+                    'description' => 'Prevent other sites from hotlinking your images and static files',
+                    'icon' => 'fa fa-chain-broken',
+                ],
+            ],
+        ],
+        [
             'id' => 'database',
             'title' => 'Database',
             'items' => [

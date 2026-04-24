@@ -8,6 +8,7 @@ class Hosting extends Model
 {
     protected $fillable = [
         'domain',
+        'ssl_san_hostnames',
         'server_ip',
         'host_root_path',
         'web_root_path',
@@ -27,6 +28,7 @@ class Hosting extends Model
         return [
             'panel_password' => 'encrypted',
             'provisioned_at' => 'datetime',
+            'ssl_san_hostnames' => 'array',
         ];
     }
 

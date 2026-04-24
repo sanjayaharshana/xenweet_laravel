@@ -1,0 +1,11 @@
+{
+    "name": "SslTls",
+    "alias": "ssltls",
+    "description": "SSL/TLS and HTTPS management for hostings",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\SslTls\\Providers\\SslTlsServiceProvider"
+    ],
+    "files": []
+}

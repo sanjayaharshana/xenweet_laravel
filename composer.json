@@ -38,6 +38,9 @@
             "Modules\\ManageDb\\": "Modules/ManageDb/app/",
             "Modules\\ManageDb\\Database\\Factories\\": "Modules/ManageDb/database/factories/",
             "Modules\\ManageDb\\Database\\Seeders\\": "Modules/ManageDb/database/seeders/",
+            "Modules\\SslTls\\": "Modules/SslTls/app/",
+            "Modules\\SslTls\\Database\\Factories\\": "Modules/SslTls/database/factories/",
+            "Modules\\SslTls\\Database\\Seeders\\": "Modules/SslTls/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
