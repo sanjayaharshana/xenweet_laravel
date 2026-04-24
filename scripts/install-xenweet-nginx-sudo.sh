@@ -4,7 +4,7 @@
 #   bash scripts/install-xenweet-nginx-sudo.sh
 #
 # Installs root-owned helpers under /usr/local/sbin/ and sudoers so the PHP
-# user (www-data) can run ONLY these two commands without a password.
+# user (www-data) can run ONLY these commands without a password.
 #
 set -euo pipefail
 
@@ -15,11 +15,12 @@ echo "Installing xenweet nginx helpers from ${ROOT} (sudo user: ${PHP_USER})..."
 
 sudo install -m 755 -o root -g root "${ROOT}/scripts/xenweet-nginx-activate" /usr/local/sbin/xenweet-nginx-activate
 sudo install -m 755 -o root -g root "${ROOT}/scripts/xenweet-nginx-deactivate" /usr/local/sbin/xenweet-nginx-deactivate
+sudo install -m 755 -o root -g root "${ROOT}/scripts/xenweet-nginx-install-ssl" /usr/local/sbin/xenweet-nginx-install-ssl
 
 TMP="$(mktemp)"
 {
   echo "Defaults:${PHP_USER} !requiretty"
-  echo "${PHP_USER} ALL=(root) NOPASSWD: /usr/local/sbin/xenweet-nginx-activate, /usr/local/sbin/xenweet-nginx-deactivate"
+  echo "${PHP_USER} ALL=(root) NOPASSWD: /usr/local/sbin/xenweet-nginx-activate, /usr/local/sbin/xenweet-nginx-deactivate, /usr/local/sbin/xenweet-nginx-install-ssl"
 } > "$TMP"
 
 sudo install -m 440 -o root -g root "$TMP" /etc/sudoers.d/xenweet-nginx

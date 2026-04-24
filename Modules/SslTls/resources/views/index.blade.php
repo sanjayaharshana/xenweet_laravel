@@ -232,7 +232,7 @@
                         placeholder="-----BEGIN CERTIFICATE-----&#10;... (intermediate CA)&#10;-----END CERTIFICATE-----"
                     >{{ old('certificate_chain_pem', $sslStore?->certificate_chain_pem) }}</textarea>
                 </div>
-                <p class="ssltls-hint">Certificates are stored in plain text in the database; restrict access to this panel. Installing on the web server and reloading the vhost is a separate step.</p>
+                <p class="ssltls-hint">Certificates are stored in plain text in the database; restrict access to this panel. Use <strong>Install certificate</strong> below to write PEM files, update nginx to listen on HTTPS, and reload nginx.</p>
                 <div class="managedb-actions">
                     <button type="submit" class="btn-primary">Save certificate</button>
                 </div>

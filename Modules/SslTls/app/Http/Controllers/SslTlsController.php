@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 use Modules\SslTls\Services\SslTlsOpenSslService;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 class SslTlsController extends Controller
@@ -163,13 +164,15 @@ class SslTlsController extends Controller
 
             File::put($fullchainPath, $fullchain);
             @chmod($fullchainPath, 0644);
+
+            $nginxMessage = $this->runNginxSslInstall($hosting, $sslDir, $keyPath, $fullchainPath);
         } catch (Throwable $e) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Install failed: '.$e->getMessage());
         }
 
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'cert'])
-            ->with('ssltls_success', 'Certificate installed to '.$sslDir.' (key, cert, and fullchain PEM files written).');
+            ->with('ssltls_success', 'Certificate installed to '.$sslDir.'. '.$nginxMessage);
     }
 
     public function generatePrivateKey(
@@ -285,5 +288,52 @@ class SslTlsController extends Controller
         }
 
         return $sslDir;
+    }
+
+    private function runNginxSslInstall(
+        Hosting $hosting,
+        string $sslDir,
+        string $keyPath,
+        string $fullchainPath
+    ): string {
+        $systemBin = (string) config('ssltls.nginx_ssl_system_install_bin', '');
+        $script = (string) config('ssltls.nginx_ssl_install_script', '');
+        $timeout = (float) config('ssltls.nginx_ssl_install_timeout', 90);
+
+        $command = null;
+        if ($systemBin !== '' && is_executable($systemBin)) {
+            $command = ['sudo', '-n', $systemBin, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath];
+        } elseif ($script !== '' && is_file($script)) {
+            $command = ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath];
+        }
+
+        if ($command === null) {
+            throw new RuntimeException(
+                'Nginx SSL installer is not configured. Set SSLTLS_NGINX_SSL_INSTALL_SCRIPT or SSLTLS_NGINX_SSL_SYSTEM_INSTALL_BIN.'
+            );
+        }
+
+        $process = new Process($command, base_path(), [
+            'SSL_DIR' => $sslDir,
+            'PHP_FPM_SOCKET' => $this->resolvePhpFpmSocket($hosting),
+        ], null, $timeout);
+        $process->run();
+        $out = trim($process->getOutput()."\n".$process->getErrorOutput());
+
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException('Nginx SSL activate failed: '.($out !== '' ? $out : 'no output'));
+        }
+
+        return $out !== '' ? $out : 'Nginx SSL vhost reloaded.';
+    }
+
+    private function resolvePhpFpmSocket(Hosting $hosting): string
+    {
+        $v = trim((string) $hosting->php_version);
+        if (preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
+            return '/var/run/php/php'.$m[1].'.'.$m[2].'-fpm.sock';
+        }
+
+        return '/var/run/php/php8.3-fpm.sock';
     }
 }
