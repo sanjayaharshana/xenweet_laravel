@@ -104,14 +104,42 @@ class SslTlsController extends Controller
             'certificate_chain_pem' => 'nullable|string|max:524288',
         ]);
 
-        $cert = trim((string) ($validated['certificate_pem'] ?? ''));
-        $chain = trim((string) ($validated['certificate_chain_pem'] ?? ''));
+        $certRaw = trim((string) ($validated['certificate_pem'] ?? ''));
+        $chainRaw = trim((string) ($validated['certificate_chain_pem'] ?? ''));
+
+        if ($certRaw !== '') {
+            $certBlocks = $this->extractCertificatePemBlocks($certRaw);
+            if ($certBlocks === []) {
+                return $this->sslTlsErrorRedirect(
+                    $hosting,
+                    'cert',
+                    'Leaf certificate is not valid PEM. Paste a full block from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.'
+                );
+            }
+            $cert = implode("\n", $certBlocks)."\n";
+        } else {
+            $cert = null;
+        }
+
+        if ($chainRaw !== '') {
+            $chainBlocks = $this->extractCertificatePemBlocks($chainRaw);
+            if ($chainBlocks === []) {
+                return $this->sslTlsErrorRedirect(
+                    $hosting,
+                    'cert',
+                    'Certificate chain is not valid PEM. Paste one or more full CERTIFICATE blocks.'
+                );
+            }
+            $chain = implode("\n", $chainBlocks)."\n";
+        } else {
+            $chain = null;
+        }
 
         HostingSslStore::updateOrCreate(
             ['hosting_id' => $hosting->id],
             [
-                'certificate_pem' => $cert === '' ? null : $cert,
-                'certificate_chain_pem' => $chain === '' ? null : $chain,
+                'certificate_pem' => $cert,
+                'certificate_chain_pem' => $chain,
             ]
         );
 
@@ -134,8 +162,13 @@ class SslTlsController extends Controller
         if ($privateKey === '' || ! str_contains($privateKey, 'PRIVATE KEY')) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved private key is missing or invalid.');
         }
-        if ($certificate === '' || ! str_contains($certificate, 'BEGIN CERTIFICATE')) {
+        $leafBlocks = $this->extractCertificatePemBlocks($certificate);
+        if ($leafBlocks === []) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate is missing or invalid.');
+        }
+        $chainBlocks = $chain === '' ? [] : $this->extractCertificatePemBlocks($chain);
+        if ($chain !== '' && $chainBlocks === []) {
+            return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate chain is invalid PEM.');
         }
 
         try {
@@ -150,14 +183,14 @@ class SslTlsController extends Controller
             File::put($keyPath, $privateKey."\n");
             @chmod($keyPath, 0600);
 
-            File::put($certPath, $certificate."\n");
+            File::put($certPath, implode("\n", $leafBlocks)."\n");
             @chmod($certPath, 0644);
 
-            $fullchain = $certificate."\n";
-            if ($chain !== '') {
-                File::put($chainPath, $chain."\n");
+            $fullchain = implode("\n", $leafBlocks)."\n";
+            if ($chainBlocks !== []) {
+                File::put($chainPath, implode("\n", $chainBlocks)."\n");
                 @chmod($chainPath, 0644);
-                $fullchain .= trim($chain)."\n";
+                $fullchain .= implode("\n", $chainBlocks)."\n";
             } elseif (File::exists($chainPath)) {
                 File::delete($chainPath);
             }
@@ -321,6 +354,11 @@ class SslTlsController extends Controller
         $out = trim($process->getOutput()."\n".$process->getErrorOutput());
 
         if (! $process->isSuccessful()) {
+            if (str_contains(strtolower($out), 'a password is required')) {
+                throw new RuntimeException(
+                    'Nginx SSL activate failed: sudo requires password. Run once on server: bash scripts/install-xenweet-nginx-sudo.sh www-data'
+                );
+            }
             throw new RuntimeException('Nginx SSL activate failed: '.($out !== '' ? $out : 'no output'));
         }
 
@@ -335,5 +373,27 @@ class SslTlsController extends Controller
         }
 
         return '/var/run/php/php8.3-fpm.sock';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractCertificatePemBlocks(string $pem): array
+    {
+        $matches = [];
+        preg_match_all(
+            '/-----BEGIN CERTIFICATE-----\s*[\s\S]+?\s*-----END CERTIFICATE-----/m',
+            $pem,
+            $matches
+        );
+        $blocks = [];
+        foreach (($matches[0] ?? []) as $raw) {
+            $b = trim((string) $raw);
+            if ($b !== '') {
+                $blocks[] = $b;
+            }
+        }
+
+        return $blocks;
     }
 }
