@@ -201,6 +201,19 @@
                     <button type="submit" class="btn-primary">Generate CSR</button>
                 </div>
             </form>
+            <section class="ssltls-csr-actions" aria-labelledby="ssltls-csr-actions-h">
+                <h3 id="ssltls-csr-actions-h">Submit CSR to a Certificate Authority</h3>
+                <p class="ssltls-hint">Use these inbuilt actions to send your CSR to a CA quickly.</p>
+                <div class="managedb-actions">
+                    <button type="button" class="btn-secondary" id="ssltls-copy-csr-btn">Copy CSR</button>
+                    <a class="btn-secondary" href="{{ route('hosts.ssl-tls.download-csr', $hosting) }}">Download CSR (.pem)</a>
+                </div>
+                <div class="ssltls-ca-links">
+                    <a href="https://www.digicert.com/kb/ssl-support/csr-generation-for-web-hosting.htm" target="_blank" rel="noopener noreferrer">DigiCert</a>
+                    <a href="https://www.sectigo.com/ssl-certificates-tls" target="_blank" rel="noopener noreferrer">Sectigo</a>
+                    <a href="https://letsencrypt.org/" target="_blank" rel="noopener noreferrer">Let's Encrypt (ACME)</a>
+                </div>
+            </section>
         </section>
     @else
         <section class="server-card managedb-card ssltls-tool" aria-labelledby="ssltls-panel-cert-h" role="region">
@@ -277,4 +290,31 @@
         </section>
     </div>
 </div>
+
+<script>
+    (function () {
+        var btn = document.getElementById('ssltls-copy-csr-btn');
+        var area = document.getElementById('ssltls-csr-out');
+        if (!btn || !area) {
+            return;
+        }
+        btn.addEventListener('click', async function () {
+            var value = (area.value || '').trim();
+            if (!value) {
+                btn.textContent = 'No CSR yet';
+                setTimeout(function () { btn.textContent = 'Copy CSR'; }, 1400);
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(value + '\n');
+                btn.textContent = 'Copied';
+            } catch (e) {
+                area.focus();
+                area.select();
+                btn.textContent = 'Select and copy';
+            }
+            setTimeout(function () { btn.textContent = 'Copy CSR'; }, 1400);
+        });
+    })();
+</script>
 @endsection

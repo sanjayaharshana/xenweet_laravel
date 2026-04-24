@@ -877,6 +877,22 @@ html[data-theme="light"] .ssltls-hint {
     color: #64748b;
 }
 
+html[data-theme="light"] .ssltls-csr-actions {
+    border-top-color: var(--line);
+}
+
+html[data-theme="light"] .ssltls-csr-actions h3 {
+    color: #0f172a;
+}
+
+html[data-theme="light"] .ssltls-ca-links a {
+    color: #1d4ed8;
+}
+
+html[data-theme="light"] .ssltls-ca-links a:hover {
+    color: #1e3a8a;
+}
+
 html[data-theme="light"] .ssltls-san-table-wrap {
     border-color: var(--line);
 }
@@ -3164,6 +3180,36 @@ dialog.file-manager-dialog.file-manager-dialog--edit[open] {
     color: #8a9cc4;
     margin: 0.4rem 0 0;
     line-height: 1.45;
+}
+
+.ssltls-csr-actions {
+    margin-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 0.75rem;
+}
+
+.ssltls-csr-actions h3 {
+    margin: 0 0 0.2rem;
+    font-size: 0.88rem;
+    color: #e9efff;
+}
+
+.ssltls-ca-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.45rem;
+}
+
+.ssltls-ca-links a {
+    font-size: 0.78rem;
+    color: #9cc0ff;
+    text-decoration: none;
+}
+
+.ssltls-ca-links a:hover {
+    color: #d4e3ff;
+    text-decoration: underline;
 }
 
 /* PEM blocks: framed “code” surface for keys / CSRs */

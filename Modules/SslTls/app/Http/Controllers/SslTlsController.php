@@ -300,6 +300,24 @@ class SslTlsController extends Controller
             ->with('ssltls_success', 'CSR generated and stored. The private key you used is saved encrypted for this host.');
     }
 
+    public function downloadCsr(Hosting $hosting)
+    {
+        $csr = trim((string) ($hosting->sslStore?->csr_pem ?? ''));
+        if ($csr === '' || ! str_contains($csr, 'CERTIFICATE REQUEST')) {
+            return $this->sslTlsErrorRedirect($hosting, 'csr', 'No stored CSR found. Generate CSR first.');
+        }
+
+        $filename = preg_replace('/[^a-zA-Z0-9.\-_]/', '-', $hosting->siteHost()).'.csr.pem';
+
+        return response()->streamDownload(
+            static function () use ($csr): void {
+                echo $csr."\n";
+            },
+            $filename,
+            ['Content-Type' => 'application/x-pem-file; charset=UTF-8']
+        );
+    }
+
     private function sslTlsErrorRedirect(Hosting $hosting, string $tab, string $message): RedirectResponse
     {
         return redirect()
@@ -380,16 +398,29 @@ class SslTlsController extends Controller
      */
     private function extractCertificatePemBlocks(string $pem): array
     {
+        $input = trim($pem);
+        if ($input === '') {
+            return [];
+        }
+
+        // Some providers/API payloads include literal "\n" instead of real line breaks.
+        if (! str_contains($input, "\n") && str_contains($input, '\n')) {
+            $input = str_replace('\n', "\n", $input);
+        }
+
         $matches = [];
         preg_match_all(
-            '/-----BEGIN CERTIFICATE-----\s*[\s\S]+?\s*-----END CERTIFICATE-----/m',
-            $pem,
+            '/-----BEGIN (?:TRUSTED )?CERTIFICATE-----\s*[\s\S]+?\s*-----END (?:TRUSTED )?CERTIFICATE-----/m',
+            $input,
             $matches
         );
         $blocks = [];
         foreach (($matches[0] ?? []) as $raw) {
             $b = trim((string) $raw);
             if ($b !== '') {
+                // Normalize TRUSTED CERTIFICATE wrappers to CERTIFICATE for broad compatibility.
+                $b = str_replace('BEGIN TRUSTED CERTIFICATE', 'BEGIN CERTIFICATE', $b);
+                $b = str_replace('END TRUSTED CERTIFICATE', 'END CERTIFICATE', $b);
                 $blocks[] = $b;
             }
         }

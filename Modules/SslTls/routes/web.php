@@ -11,6 +11,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/hosts/{hosting}/ssl-tls/generate-csr', [SslTlsController::class, 'generateCsr'])
         ->middleware('throttle:20,1')
         ->name('hosts.ssl-tls.generate-csr');
+    Route::get('/hosts/{hosting}/ssl-tls/download-csr', [SslTlsController::class, 'downloadCsr'])
+        ->middleware('throttle:60,1')
+        ->name('hosts.ssl-tls.download-csr');
     Route::post('/hosts/{hosting}/ssl-tls/san-hostnames', [SslTlsController::class, 'updateSanHostnames'])
         ->middleware('throttle:30,1')
         ->name('hosts.ssl-tls.san-hostnames');
