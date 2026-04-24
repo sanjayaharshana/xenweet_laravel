@@ -167,7 +167,7 @@ class SslTlsNginxPemService
 
         $process = new Process($command, base_path(), [
             'SSL_DIR' => $sslDir,
-            'PHP_FPM_SOCKET' => $this->resolvePhpFpmSocket($hosting),
+            'PHP_FPM_SOCKET' => $hosting->webPhpFpmSocketPath(),
         ], null, $timeout);
         $process->run();
         $out = trim($process->getOutput()."\n".$process->getErrorOutput());
@@ -182,15 +182,5 @@ class SslTlsNginxPemService
         }
 
         return $out !== '' ? $out : 'Nginx SSL vhost reloaded.';
-    }
-
-    private function resolvePhpFpmSocket(Hosting $hosting): string
-    {
-        $v = trim((string) $hosting->php_version);
-        if (preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
-            return '/var/run/php/php'.$m[1].'.'.$m[2].'-fpm.sock';
-        }
-
-        return '/var/run/php/php8.3-fpm.sock';
     }
 }

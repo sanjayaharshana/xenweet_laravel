@@ -4,5 +4,6 @@
     "FileManager": true,
     "ManageDb": true,
     "SslTls": true,
-    "SshAccess": true
+    "SshAccess": true,
+    "PhpVersion": true
 }

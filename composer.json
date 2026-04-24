@@ -44,6 +44,9 @@
             "Modules\\SshAccess\\": "Modules/SshAccess/app/",
             "Modules\\SshAccess\\Database\\Factories\\": "Modules/SshAccess/database/factories/",
             "Modules\\SshAccess\\Database\\Seeders\\": "Modules/SshAccess/database/seeders/",
+            "Modules\\PhpVersion\\": "Modules/PhpVersion/app/",
+            "Modules\\PhpVersion\\Database\\Factories\\": "Modules/PhpVersion/database/factories/",
+            "Modules\\PhpVersion\\Database\\Seeders\\": "Modules/PhpVersion/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

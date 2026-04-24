@@ -65,4 +65,23 @@ class Hosting extends Model
 
         return $scheme.'://'.$this->siteHost();
     }
+
+    /**
+     * Unix socket for PHP-FPM that Nginx should use for this account’s website only.
+     * Does not change the system/CLI `php` binary used in SSH or cron.
+     */
+    public function webPhpFpmSocketPath(): string
+    {
+        $override = config('hosting_provision.php_fpm_socket');
+        if (is_string($override) && $override !== '') {
+            return $override;
+        }
+
+        $v = trim((string) $this->php_version);
+        if (preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
+            return '/var/run/php/php'.$m[1].'.'.$m[2].'-fpm.sock';
+        }
+
+        return '/var/run/php/php8.3-fpm.sock';
+    }
 }

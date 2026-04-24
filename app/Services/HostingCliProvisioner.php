@@ -158,7 +158,7 @@ class HostingCliProvisioner
             base_path(),
             [
                 'HOSTING_VHOST_OUTPUT_DIR' => $outputDir,
-                'PHP_FPM_SOCKET' => $this->resolvePhpFpmSocket($hosting),
+                'PHP_FPM_SOCKET' => $hosting->webPhpFpmSocketPath(),
             ],
             null,
             (float) config('hosting_provision.timeout', 120)
@@ -403,19 +403,43 @@ class HostingCliProvisioner
         return $path;
     }
 
-    private function resolvePhpFpmSocket(Hosting $hosting): string
+    /**
+     * Re-run the nginx vhost generator for an existing host (e.g. after a PHP version change).
+     * Does not run the initial provision shell command from `hosting_provision.command`.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function reapplyWebVhost(Hosting $hosting): array
     {
-        $override = config('hosting_provision.php_fpm_socket');
-        if (is_string($override) && $override !== '') {
-            return $override;
+        $webRoot = trim((string) ($hosting->web_root_path ?? ''));
+        if ($webRoot === '' || ! is_dir($webRoot)) {
+            return [
+                'success' => false,
+                'message' => 'Web root is not set or missing on disk. Provisioning may not have completed for this account.',
+            ];
         }
 
-        $v = trim((string) $hosting->php_version);
-        if (preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
-            return '/var/run/php/php'.$m[1].'.'.$m[2].'-fpm.sock';
+        if (! config('hosting_provision.vhost_enabled')) {
+            return [
+                'success' => true,
+                'message' => 'Nginx vhost generation is disabled (set HOSTING_VHOST_ENABLED=true on the server to regenerate vhost files). Your PHP version preference is saved for this account.',
+            ];
         }
 
-        return '/var/run/php/php8.3-fpm.sock';
+        $result = $this->runVhostProvision($hosting);
+        if ($result['stopped']) {
+            return [
+                'success' => false,
+                'message' => $result['message'] ?? 'Nginx vhost update failed.',
+            ];
+        }
+
+        $msg = trim((string) ($result['message'] ?? ''));
+        if ($msg === '') {
+            $msg = 'Web server vhost was regenerated with the selected PHP-FPM socket.';
+        }
+
+        return ['success' => true, 'message' => $msg];
     }
 
     private function applyHostingPlaceholders(Hosting $hosting, string $template): string

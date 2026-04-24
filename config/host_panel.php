@@ -78,6 +78,38 @@ return [
                 ['label' => 'PgSql', 'description' => 'PostgreSQL tools', 'icon' => 'fa fa-linux'],
             ],
         ],
+        [
+            'id' => 'software',
+            'title' => 'Software',
+            'items' => [
+                [
+                    'label' => 'PHP Version',
+                    'description' => 'Select or switch the PHP version for this host',
+                    'icon' => 'fa fa-code',
+                    'route' => 'hosts.php-version',
+                ],
+                [
+                    'label' => 'Redis',
+                    'description' => 'In-memory cache and data store; enable and configure Redis',
+                    'icon' => 'fa fa-bolt',
+                ],
+                [
+                    'label' => 'App Manager',
+                    'description' => 'One-click apps and runtimes (WordPress, frameworks, and more)',
+                    'icon' => 'fa fa-th',
+                ],
+                [
+                    'label' => 'PHP PEAR',
+                    'description' => 'PEAR packages and the PEAR installer for this account',
+                    'icon' => 'fa fa-cube',
+                ],
+                [
+                    'label' => 'Web Optimizer',
+                    'description' => 'Caching, compression, and static asset performance',
+                    'icon' => 'fa fa-rocket',
+                ],
+            ],
+        ],
     ],
 
 ];

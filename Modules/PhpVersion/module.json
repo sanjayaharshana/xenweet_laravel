@@ -1,0 +1,11 @@
+{
+    "name": "PhpVersion",
+    "alias": "phpversion",
+    "description": "Choose PHP version for a hosting account (web / PHP-FPM only)",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\PhpVersion\\Providers\\PhpVersionServiceProvider"
+    ],
+    "files": []
+}
