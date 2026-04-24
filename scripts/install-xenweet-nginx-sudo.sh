@@ -30,6 +30,9 @@ sudo visudo -cf /etc/sudoers.d/xenweet-nginx
 
 echo "Done. Verify (should list the two NOPASSWD lines): sudo -u ${PHP_USER} sudo -n -l"
 echo ""
+echo "For Let's Encrypt (certbot) from the panel, also run (once, as root):"
+echo "  sudo bash ${ROOT}/scripts/install-xenweet-certbot-sudo.sh ${PHP_USER}"
+echo ""
 echo "IMPORTANT: The helper must accept <domain> <output_dir> (sudo drops env)."
 echo "After git pull, always re-run this script so /usr/local/sbin/xenweet-nginx-activate stays current:"
 echo "  bash ${ROOT}/scripts/install-xenweet-nginx-sudo.sh ${PHP_USER}"

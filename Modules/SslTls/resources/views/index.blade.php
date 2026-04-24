@@ -288,7 +288,7 @@
                             </li>
                             <li>
                                 <span class="ssltls-req__ic" aria-hidden="true">✓</span>
-                                <span><code>certbot</code> installed, with passwordless <code>sudo</code> if the panel is not running as root.</span>
+                                <span><code>certbot</code> installed, with passwordless <code>sudo</code> for the PHP user. If the panel shows <code>sudo: a password is required</code>, on the server run <code>sudo bash scripts/install-xenweet-certbot-sudo.sh www-data</code> (use your FPM user instead of <code>www-data</code> if different).</span>
                             </li>
                         </ul>
                     </div>

@@ -58,10 +58,7 @@ class SslTlsLetsEncryptService
         $process->run();
         $combined = trim($process->getOutput()."\n".$process->getErrorOutput());
         if (! $process->isSuccessful()) {
-            $hint = 'Certbot must run on the app server. Ensure certbot is installed, DNS points here, and HTTP port 80 serves /.well-known/acme-challenge/ from the web root.';
-            throw new RuntimeException(
-                'Let\'s Encrypt (certbot) failed: '.($combined !== '' ? $combined : 'no output').'. '.$hint
-            );
+            $this->throwCertbotProcessFailed($combined, (bool) config('ssltls.letsencrypt_use_sudo', true));
         }
 
         $liveName = $this->resolveCertbotLiveName($hosting, $primary);
@@ -195,8 +192,36 @@ class SslTlsLetsEncryptService
         $p->run();
         if (! $p->isSuccessful()) {
             $out = trim($p->getErrorOutput()."\n".$p->getOutput());
-            throw new RuntimeException('certbot renew failed: '.($out !== '' ? $out : 'no output'));
+            $this->throwCertbotProcessFailed($out, $useSudo);
         }
+    }
+
+    private function throwCertbotProcessFailed(string $combined, bool $usedSudo): void
+    {
+        $lower = strtolower($combined);
+        $detail = $combined !== '' ? $combined : 'no output';
+
+        if (
+            $usedSudo
+            && (
+                str_contains($lower, 'a password is required')
+                || str_contains($lower, 'password is required')
+                || str_contains($lower, 'no tty present')
+            )
+        ) {
+            $script = base_path('scripts/install-xenweet-certbot-sudo.sh');
+            throw new RuntimeException(
+                "Let's Encrypt (certbot) needs passwordless sudo for the PHP user (e.g. www-data). ".
+                "On the server, run once as root: sudo bash {$script} www-data (replace www-data with your PHP-FPM user). ".
+                "Details: {$detail}"
+            );
+        }
+
+        $hint = 'Certbot must run on the app server. Ensure certbot is installed, DNS points here, and HTTP port 80 serves /.well-known/acme-challenge/ from the web root.';
+
+        throw new RuntimeException(
+            'Let\'s Encrypt (certbot) failed: '.$detail.'. '.$hint
+        );
     }
 
     private function buildCertbotCommand(string $webRoot, string $primary, array $domains, bool $staging, string $email): array
