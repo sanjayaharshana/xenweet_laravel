@@ -61,13 +61,7 @@ class SslTlsLetsEncryptService
             $this->throwCertbotProcessFailed($combined, (bool) config('ssltls.letsencrypt_use_sudo', true));
         }
 
-        $liveName = $this->resolveCertbotLiveName($hosting, $primary);
-        if (! is_dir($this->letsEncryptRoot().'/live/'.$liveName)) {
-            throw new RuntimeException(
-                'Certbot reported success but no live directory at '.$this->letsEncryptRoot().'/live/'.$liveName.'. '.
-                'If you use a custom --config-dir, set SSLTLS_LETSENCRYPT_CONFIG_DIR in .env to match.'
-            );
-        }
+        $liveName = $this->resolveCertbotLiveName($primary, $this->buildDomainList($hosting, $primary));
 
         $keyPem = $this->readPemFromLiveStorage($liveName, 'privkey');
         $fullchainPem = $this->readPemFromLiveStorage($liveName, 'fullchain');
@@ -121,10 +115,7 @@ class SslTlsLetsEncryptService
             return 'Skipped: this host was not issued via panel Auto SSL.';
         }
         $primary = $hosting->siteHost();
-        $liveName = $this->resolveCertbotLiveName($hosting, $primary);
-        if (! is_dir($this->letsEncryptRoot().'/live/'.$liveName)) {
-            throw new RuntimeException('No Let\'s Encrypt live directory for '.$liveName);
-        }
+        $liveName = $this->resolveCertbotLiveName($primary, $this->buildDomainList($hosting, $primary));
         $keyPem = $this->readPemFromLiveStorage($liveName, 'privkey');
         $fullchainPem = $this->readPemFromLiveStorage($liveName, 'fullchain');
         [$leafPem, $chainBlockList] = $this->pems->splitFullchainPemToLeafAndChain($fullchainPem);
@@ -298,7 +289,13 @@ class SslTlsLetsEncryptService
         return $s;
     }
 
-    private function resolveCertbotLiveName(Hosting $hosting, string $primary): string
+    /**
+     * Name of the directory under live/ (matches certbot "Certificate Name"). The web user often
+     * cannot stat() that directory (root-only 0700), so we use `certbot certificates` to discover it.
+     *
+     * @param  list<string>  $domainList
+     */
+    private function resolveCertbotLiveName(string $primary, array $domainList): string
     {
         $configDir = rtrim((string) config('ssltls.letsencrypt_config_dir', '/etc/letsencrypt'), '/');
         $candidates = array_unique(
@@ -311,6 +308,11 @@ class SslTlsLetsEncryptService
             )
         );
 
+        $fromCertbot = $this->discoverLiveNameFromCertbotCertificates($configDir, $primary, $domainList);
+        if (is_string($fromCertbot) && $fromCertbot !== '') {
+            return $fromCertbot;
+        }
+
         foreach ($candidates as $name) {
             if (is_dir($configDir.'/live/'.$name)) {
                 return $name;
@@ -318,6 +320,91 @@ class SslTlsLetsEncryptService
         }
 
         return $this->safeCertName($primary);
+    }
+
+    /**
+     * @param  list<string>  $domainList
+     */
+    private function discoverLiveNameFromCertbotCertificates(string $configDir, string $primary, array $domainList): ?string
+    {
+        $workDir = (string) config('ssltls.letsencrypt_work_dir', '/var/lib/letsencrypt');
+        $logsDir = (string) config('ssltls.letsencrypt_logs_dir', '/var/log/letsencrypt');
+        $bin = (string) config('ssltls.letsencrypt_certbot', 'certbot');
+        if ($bin === '' || (! str_starts_with($bin, '/') && $bin !== 'certbot')) {
+            $bin = 'certbot';
+        }
+        $useSudo = (bool) config('ssltls.letsencrypt_use_sudo', true);
+
+        $args = array_merge(
+            $useSudo ? ['sudo', '-n'] : [],
+            [
+                $bin,
+                'certificates',
+                '--config-dir',
+                $configDir,
+                '--work-dir',
+                $workDir,
+                '--logs-dir',
+                $logsDir,
+            ]
+        );
+        $process = new Process($args, base_path(), null, null, 30.0);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            return null;
+        }
+
+        $out = $process->getOutput();
+        if (trim($out) === '') {
+            return null;
+        }
+
+        $primaryLower = mb_strtolower($primary);
+        $domainSet = [];
+        foreach ($domainList as $d) {
+            if (is_string($d) && $d !== '') {
+                $domainSet[mb_strtolower($d)] = true;
+            }
+        }
+        if ($primaryLower !== '') {
+            $domainSet[$primaryLower] = true;
+        }
+
+        $lines = preg_split("/\R/", $out) ?: [];
+        $currentName = null;
+        foreach ($lines as $line) {
+            if (preg_match('/^\s*Certificate Name:\s*(.+?)\s*$/i', $line, $m)) {
+                $currentName = trim($m[1]);
+
+                continue;
+            }
+            if ($currentName !== null && preg_match('/^\s*Domains:\s*(.+?)\s*$/i', $line, $m2)) {
+                $domainsLine = $m2[1];
+                $parts = preg_split('/[\s,]+/', $domainsLine, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                foreach ($parts as $d) {
+                    if (isset($domainSet[mb_strtolower($d)])) {
+                        return $currentName;
+                    }
+                }
+            }
+        }
+
+        $candidates = array_unique(
+            array_filter(
+                [
+                    $this->safeCertName($primary),
+                    $primary,
+                ],
+                static fn (string $s): bool => $s !== ''
+            )
+        );
+        foreach ($candidates as $c) {
+            if (preg_match('/^\s*Certificate Name:\s*'.preg_quote($c, '/').'\s*$/im', $out)) {
+                return $c;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -374,7 +461,7 @@ class SslTlsLetsEncryptService
         if (! $process->isSuccessful()) {
             if (str_contains(strtolower($err), 'a password is required') || str_contains(strtolower($err), 'password is required')) {
                 throw new RuntimeException(
-                    "Cannot read ${path} with sudo (password required). Re-run: sudo bash ".base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data'
+                    'Cannot read '.$path.' with sudo (password required). Re-run: sudo bash '.base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data'
                 );
             }
 
