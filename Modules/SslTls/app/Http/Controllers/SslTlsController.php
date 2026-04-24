@@ -116,6 +116,13 @@ class SslTlsController extends Controller
                     'Leaf certificate is not valid PEM. Paste a full block from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.'
                 );
             }
+            if (! $this->areValidX509PemBlocks($certBlocks)) {
+                return $this->sslTlsErrorRedirect(
+                    $hosting,
+                    'cert',
+                    'Leaf certificate format is invalid. Use an X.509 PEM certificate (.crt/.pem), not PKCS#7 (.p7b) or non-certificate data.'
+                );
+            }
             $cert = implode("\n", $certBlocks)."\n";
         } else {
             $cert = null;
@@ -128,6 +135,13 @@ class SslTlsController extends Controller
                     $hosting,
                     'cert',
                     'Certificate chain is not valid PEM. Paste one or more full CERTIFICATE blocks.'
+                );
+            }
+            if (! $this->areValidX509PemBlocks($chainBlocks)) {
+                return $this->sslTlsErrorRedirect(
+                    $hosting,
+                    'cert',
+                    'Certificate chain contains invalid certificate data. Use PEM X.509 intermediate certificates only.'
                 );
             }
             $chain = implode("\n", $chainBlocks)."\n";
@@ -166,9 +180,23 @@ class SslTlsController extends Controller
         if ($leafBlocks === []) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate is missing or invalid.');
         }
+        if (! $this->areValidX509PemBlocks($leafBlocks)) {
+            return $this->sslTlsErrorRedirect(
+                $hosting,
+                'cert',
+                'Saved certificate is not a valid X.509 PEM certificate. Save a valid leaf certificate and try install again.'
+            );
+        }
         $chainBlocks = $chain === '' ? [] : $this->extractCertificatePemBlocks($chain);
         if ($chain !== '' && $chainBlocks === []) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate chain is invalid PEM.');
+        }
+        if ($chainBlocks !== [] && ! $this->areValidX509PemBlocks($chainBlocks)) {
+            return $this->sslTlsErrorRedirect(
+                $hosting,
+                'cert',
+                'Saved certificate chain contains invalid X.509 certificate data.'
+            );
         }
 
         try {
@@ -426,5 +454,21 @@ class SslTlsController extends Controller
         }
 
         return $blocks;
+    }
+
+    /**
+     * @param  list<string>  $blocks
+     */
+    private function areValidX509PemBlocks(array $blocks): bool
+    {
+        foreach ($blocks as $block) {
+            $x = @openssl_x509_read($block);
+            if ($x === false) {
+                return false;
+            }
+            openssl_x509_free($x);
+        }
+
+        return true;
     }
 }
