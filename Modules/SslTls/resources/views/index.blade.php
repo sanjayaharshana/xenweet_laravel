@@ -75,6 +75,12 @@
             <i class="fa fa-file-text-o" aria-hidden="true"></i> CSR
         </a>
         <a
+            href="{{ route('hosts.ssl-tls', $hosting) }}?tab=auto"
+            class="managedb-tab {{ $activeToolTab === 'auto' ? 'is-active' : '' }}"
+        >
+            <i class="fa fa-bolt" aria-hidden="true"></i> Auto SSL
+        </a>
+        <a
             href="{{ route('hosts.ssl-tls', $hosting) }}?tab=cert"
             class="managedb-tab {{ $activeToolTab === 'cert' ? 'is-active' : '' }}"
         >
@@ -215,13 +221,119 @@
                 </div>
             </section>
         </section>
+    @elseif ($activeToolTab === 'auto')
+        <section class="server-card managedb-card ssltls-tool" aria-labelledby="ssltls-auto-h" role="region">
+            <div class="managedb-card__head">
+                <h2 id="ssltls-auto-h"><i class="fa fa-bolt" aria-hidden="true"></i> Let’s Encrypt (Auto SSL)</h2>
+                <p>Obtain a free, publicly trusted certificate on this app server with <code>certbot</code> (ACME). Same outcome as <strong>Install certificate</strong>: PEM files under the host&rsquo;s <code>ssl</code> directory and Nginx reloaded when configured.</p>
+            </div>
+
+            @if ($letsEncryptEnabled ?? false)
+                <div class="ssltls-auto">
+                    <div class="ssltls-auto__head">
+                        <div class="ssltls-auto__icon" aria-hidden="true">
+                            <i class="fa fa-shield" aria-hidden="true"></i>
+                        </div>
+                        <div class="ssltls-auto__head-text">
+                            <h3 class="ssltls-auto__title">One-click request</h3>
+                            <p class="ssltls-auto__lede subtle">
+                                Uses HTTP validation on port 80. <a href="{{ route('hosts.ssl-tls', $hosting) }}?tab=hosts" class="ssltls-auto__link">Manage SSL Hosts</a> to add <abbr title="Subject Alternative Name">SAN</abbr> names.
+                            </p>
+                            <div class="ssltls-auto__meta">
+                                @if ($letsEncryptStagingConfig)
+                                    <span class="ssltls-pill ssltls-pill--amber" title="Panel .env: SSLTLS_LETSENCRYPT_STAGING">Staging CA</span>
+                                @endif
+                                @if ($sslStore?->letsencrypt_issued_at)
+                                    <span class="ssltls-pill ssltls-pill--ok" role="status">
+                                        Issued {{ $sslStore->letsencrypt_issued_at->toDayDateTimeString() }}
+                                        @if ($sslStore->letsencrypt_staging)
+                                            (staging)
+                                        @endif
+                                    </span>
+                                @else
+                                    <span class="ssltls-pill">Not issued yet</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ssltls-auto__section">
+                        <h4 class="ssltls-auto__h4">Hostnames on this certificate</h4>
+                        <ul class="ssltls-auto-domains" role="list">
+                            @foreach ($letsEncryptDomainList as $d)
+                                <li>
+                                    <code>{{ $d }}</code>
+                                    @if ($d === $hosting->siteHost())
+                                        <span class="ssltls-auto-domains__tag">primary</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+
+                    <div class="ssltls-auto__section">
+                        <h4 class="ssltls-auto__h4">Server checks</h4>
+                        <ul class="ssltls-req" role="list">
+                            <li>
+                                <span class="ssltls-req__ic" aria-hidden="true">✓</span>
+                                <span>DNS for each name resolves to <strong>this</strong> server (the panel machine).</span>
+                            </li>
+                            <li>
+                                <span class="ssltls-req__ic" aria-hidden="true">✓</span>
+                                <span>Document root: @if ($webRootPath !== '')<code class="ssltls-code-clip">{{ $webRootPath }}</code>@else<em>not set</em> (set on the hosting account)@endif — certbot will place the ACME response under <code>/.well-known/acme-challenge/</code> here.</span>
+                            </li>
+                            <li>
+                                <span class="ssltls-req__ic" aria-hidden="true">✓</span>
+                                <span>Port 80 (HTTP) serves that path before redirecting to HTTPS; the bundled Nginx SSL script does this for new installs.</span>
+                            </li>
+                            <li>
+                                <span class="ssltls-req__ic" aria-hidden="true">✓</span>
+                                <span><code>certbot</code> installed, with passwordless <code>sudo</code> if the panel is not running as root.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <form class="ssltls-auto-form" id="ssltls-le-form" method="POST" action="{{ route('hosts.ssl-tls.lets-encrypt', $hosting) }}">
+                        @csrf
+                        <div class="managedb-actions ssltls-auto-actions">
+                            <button type="submit" class="btn-primary ssltls-btn-primary" id="ssltls-le-submit">
+                                <i class="fa fa-lock" aria-hidden="true"></i>
+                                Request &amp; install certificate
+                            </button>
+                        </div>
+                    </form>
+
+                    <p class="ssltls-auto-foot subtle">
+                        Renewals: run <code>php artisan ssltls:letsencrypt-renew</code> (cron) or <code>SSLTLS_LETSENCRYPT_RENEW_SCHEDULE=true</code> with Laravel&rsquo;s scheduler.
+                    </p>
+                </div>
+            @else
+                <div class="ssltls-off" role="note">
+                    <p class="ssltls-off__title">Auto SSL is turned off in configuration</p>
+                    <p class="ssltls-off__body subtle">Set <code>SSLTLS_LETSENCRYPT_ENABLED=true</code> and a valid <code>SSLTLS_LETSENCRYPT_EMAIL=you@example.com</code> in the panel&rsquo;s <code>.env</code>, then restart PHP or clear config cache (<code>php artisan config:clear</code>).</p>
+                </div>
+            @endif
+        </section>
     @else
         <section class="server-card managedb-card ssltls-tool" aria-labelledby="ssltls-panel-cert-h" role="region">
             <div class="managedb-card__head">
                 <h2 id="ssltls-panel-cert-h"><i class="fa fa-certificate" aria-hidden="true"></i> SSL certificate</h2>
                 <p>Install the certificate (and any chain) returned by a CA, or create a self-signed cert for local testing. Browsers need a publicly trusted cert for production.</p>
             </div>
-            <form class="managedb-form" method="POST" action="{{ route('hosts.ssl-tls.certificate', $hosting) }}">
+            <div class="ssltls-cert-cta">
+                @if ($letsEncryptEnabled ?? false)
+                    <p class="ssltls-cert-cta__line subtle">
+                        Want a free certificate from Let&rsquo;s Encrypt?
+                        <a href="{{ route('hosts.ssl-tls', $hosting) }}?tab=auto" class="ssltls-auto__link">Open Auto SSL</a>
+                    </p>
+                @else
+                    <p class="ssltls-cert-cta__line subtle" role="note">
+                        For automatic Let&rsquo;s Encrypt on the server, enable <code>SSLTLS_LETSENCRYPT_ENABLED</code> in <code>.env</code> and use the <strong>Auto SSL</strong> tab.
+                    </p>
+                @endif
+            </div>
+            <p class="ssltls-manual-eyebrow" id="ssltls-manual-h">Upload manually</p>
+            <form class="managedb-form" method="POST" action="{{ route('hosts.ssl-tls.certificate', $hosting) }}" aria-describedby="ssltls-manual-h">
                 @csrf
                 <label for="ssltls-leaf-cert">PEM (leaf / server certificate)</label>
                 <div class="ssltls-pem-frame">
@@ -317,4 +429,24 @@
         });
     })();
 </script>
+@if ($activeToolTab === 'auto')
+    <script>
+        (function () {
+            var form = document.getElementById('ssltls-le-form');
+            var btn = document.getElementById('ssltls-le-submit');
+            if (!form || !btn) { return; }
+            form.addEventListener('submit', function () {
+                if (btn.getAttribute('aria-disabled') === 'true') { return; }
+                btn.setAttribute('aria-disabled', 'true');
+                btn.disabled = true;
+                var label = (btn.getAttribute('data-label-busy') || 'Requesting…');
+                if (!btn.getAttribute('data-label-restore')) {
+                    btn.setAttribute('data-label-restore', btn.textContent.replace(/\s+/g, ' ').trim());
+                }
+                var ic = '<i class="fa fa-lock" aria-hidden="true"></i> ';
+                btn.innerHTML = ic + label;
+            });
+        })();
+    </script>
+@endif
 @endsection

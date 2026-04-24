@@ -33,7 +33,16 @@ server {
     listen 80;
     listen [::]:80;
     server_name ${DOMAIN};
-    return 301 https://\$host\$request_uri;
+
+    # Let's Encrypt HTTP-01 (certbot) — must stay on plain HTTP
+    location ^~ /.well-known/acme-challenge/ {
+        root ${WEB_ROOT};
+        default_type "text/plain";
+    }
+
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
 }
 
 server {

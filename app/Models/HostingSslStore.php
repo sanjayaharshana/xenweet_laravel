@@ -15,6 +15,8 @@ class HostingSslStore extends Model
         'certificate_pem',
         'certificate_chain_pem',
         'san_hostnames',
+        'letsencrypt_issued_at',
+        'letsencrypt_staging',
     ];
 
     /**
@@ -25,6 +27,8 @@ class HostingSslStore extends Model
         return [
             'private_key_pem' => 'encrypted',
             'san_hostnames' => 'array',
+            'letsencrypt_issued_at' => 'datetime',
+            'letsencrypt_staging' => 'boolean',
         ];
     }
 

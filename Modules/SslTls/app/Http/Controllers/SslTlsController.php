@@ -7,16 +7,19 @@ use App\Models\Hosting;
 use App\Models\HostingSslStore;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
+use Modules\SslTls\Services\SslTlsLetsEncryptService;
+use Modules\SslTls\Services\SslTlsNginxPemService;
 use Modules\SslTls\Services\SslTlsOpenSslService;
-use RuntimeException;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 class SslTlsController extends Controller
 {
-    public const TOOL_TABS = ['hosts', 'key', 'csr', 'cert'];
+    public const TOOL_TABS = ['hosts', 'key', 'csr', 'auto', 'cert'];
+
+    public function __construct(
+        private readonly SslTlsNginxPemService $pems
+    ) {}
 
     public function index(Request $request, Hosting $hosting): View
     {
@@ -32,6 +35,9 @@ class SslTlsController extends Controller
             $sslSan = [];
         }
 
+        $letsEncryptDomains = $this->buildLetsEncryptDomainPreviewList($host, $sslSan);
+        $webRootPath = trim((string) ($hosting->web_root_path ?? ''));
+
         return view('ssltls::index', [
             'hosting' => $hosting,
             'httpsUrl' => 'https://'.$host,
@@ -40,7 +46,38 @@ class SslTlsController extends Controller
             'sslStore' => $store,
             'sslSanHostnames' => $sslSan,
             'sslSanHostnamesText' => implode("\n", $sslSan),
+            'letsEncryptEnabled' => (bool) config('ssltls.letsencrypt_enabled', false),
+            'letsEncryptDomainList' => $letsEncryptDomains,
+            'letsEncryptStagingConfig' => (bool) config('ssltls.letsencrypt_staging', false),
+            'webRootPath' => $webRootPath,
         ]);
+    }
+
+    /**
+     * @param  list<string>  $sslSan
+     * @return list<string>
+     */
+    private function buildLetsEncryptDomainPreviewList(string $primaryHost, array $sslSan): array
+    {
+        $seen = [mb_strtolower($primaryHost) => true];
+        $out = [$primaryHost];
+        foreach ($sslSan as $h) {
+            if (! is_string($h) || $h === '') {
+                continue;
+            }
+            $n = Hosting::normalizeDomainName($h);
+            if ($n === '' || ! preg_match('/^[a-zA-Z0-9.\-]+$/', $n)) {
+                continue;
+            }
+            $k = mb_strtolower($n);
+            if (isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $out[] = $n;
+        }
+
+        return $out;
     }
 
     public function updateSanHostnames(Request $request, Hosting $hosting): RedirectResponse
@@ -108,7 +145,7 @@ class SslTlsController extends Controller
         $chainRaw = trim((string) ($validated['certificate_chain_pem'] ?? ''));
 
         if ($certRaw !== '') {
-            $certBlocks = $this->extractCertificatePemBlocks($certRaw);
+            $certBlocks = $this->pems->extractCertificatePemBlocks($certRaw);
             if ($certBlocks === []) {
                 return $this->sslTlsErrorRedirect(
                     $hosting,
@@ -116,7 +153,7 @@ class SslTlsController extends Controller
                     'Leaf certificate is not valid PEM. Paste a full block from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.'
                 );
             }
-            if (! $this->areValidX509PemBlocks($certBlocks)) {
+            if (! $this->pems->areValidX509PemBlocks($certBlocks)) {
                 return $this->sslTlsErrorRedirect(
                     $hosting,
                     'cert',
@@ -129,7 +166,7 @@ class SslTlsController extends Controller
         }
 
         if ($chainRaw !== '') {
-            $chainBlocks = $this->extractCertificatePemBlocks($chainRaw);
+            $chainBlocks = $this->pems->extractCertificatePemBlocks($chainRaw);
             if ($chainBlocks === []) {
                 return $this->sslTlsErrorRedirect(
                     $hosting,
@@ -137,7 +174,7 @@ class SslTlsController extends Controller
                     'Certificate chain is not valid PEM. Paste one or more full CERTIFICATE blocks.'
                 );
             }
-            if (! $this->areValidX509PemBlocks($chainBlocks)) {
+            if (! $this->pems->areValidX509PemBlocks($chainBlocks)) {
                 return $this->sslTlsErrorRedirect(
                     $hosting,
                     'cert',
@@ -176,22 +213,22 @@ class SslTlsController extends Controller
         if ($privateKey === '' || ! str_contains($privateKey, 'PRIVATE KEY')) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved private key is missing or invalid.');
         }
-        $leafBlocks = $this->extractCertificatePemBlocks($certificate);
+        $leafBlocks = $this->pems->extractCertificatePemBlocks($certificate);
         if ($leafBlocks === []) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate is missing or invalid.');
         }
-        if (! $this->areValidX509PemBlocks($leafBlocks)) {
+        if (! $this->pems->areValidX509PemBlocks($leafBlocks)) {
             return $this->sslTlsErrorRedirect(
                 $hosting,
                 'cert',
                 'Saved certificate is not a valid X.509 PEM certificate. Save a valid leaf certificate and try install again.'
             );
         }
-        $chainBlocks = $chain === '' ? [] : $this->extractCertificatePemBlocks($chain);
+        $chainBlocks = $chain === '' ? [] : $this->pems->extractCertificatePemBlocks($chain);
         if ($chain !== '' && $chainBlocks === []) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate chain is invalid PEM.');
         }
-        if ($chainBlocks !== [] && ! $this->areValidX509PemBlocks($chainBlocks)) {
+        if ($chainBlocks !== [] && ! $this->pems->areValidX509PemBlocks($chainBlocks)) {
             return $this->sslTlsErrorRedirect(
                 $hosting,
                 'cert',
@@ -200,33 +237,13 @@ class SslTlsController extends Controller
         }
 
         try {
-            $sslDir = $this->resolveSslInstallDirectory($hosting);
-            $base = preg_replace('/[^a-zA-Z0-9.\-_]/', '-', $hosting->siteHost()) ?: 'host-'.$hosting->id;
-
-            $keyPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.key.pem';
-            $certPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.cert.pem';
-            $chainPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.chain.pem';
-            $fullchainPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.fullchain.pem';
-
-            File::put($keyPath, $privateKey."\n");
-            @chmod($keyPath, 0600);
-
-            File::put($certPath, implode("\n", $leafBlocks)."\n");
-            @chmod($certPath, 0644);
-
-            $fullchain = implode("\n", $leafBlocks)."\n";
-            if ($chainBlocks !== []) {
-                File::put($chainPath, implode("\n", $chainBlocks)."\n");
-                @chmod($chainPath, 0644);
-                $fullchain .= implode("\n", $chainBlocks)."\n";
-            } elseif (File::exists($chainPath)) {
-                File::delete($chainPath);
-            }
-
-            File::put($fullchainPath, $fullchain);
-            @chmod($fullchainPath, 0644);
-
-            $nginxMessage = $this->runNginxSslInstall($hosting, $sslDir, $keyPath, $fullchainPath);
+            $sslDir = rtrim((string) ($hosting->host_root_path ?? ''), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'ssl';
+            $nginxMessage = $this->pems->materializePemToDiskAndReloadNginx(
+                $hosting,
+                $privateKey,
+                $leafBlocks,
+                $chainBlocks
+            );
         } catch (Throwable $e) {
             return $this->sslTlsErrorRedirect($hosting, 'cert', 'Install failed: '.$e->getMessage());
         }
@@ -234,6 +251,21 @@ class SslTlsController extends Controller
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'cert'])
             ->with('ssltls_success', 'Certificate installed to '.$sslDir.'. '.$nginxMessage);
+    }
+
+    public function requestLetsEncrypt(
+        Hosting $hosting,
+        SslTlsLetsEncryptService $letsEncrypt
+    ): RedirectResponse {
+        try {
+            $message = $letsEncrypt->issueAndInstallAutoSsl($hosting);
+        } catch (Throwable $e) {
+            return $this->sslTlsErrorRedirect($hosting, 'auto', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'auto'])
+            ->with('ssltls_success', $message);
     }
 
     public function generatePrivateKey(
@@ -351,124 +383,5 @@ class SslTlsController extends Controller
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => $tab])
             ->with('ssltls_error', $message);
-    }
-
-    private function resolveSslInstallDirectory(Hosting $hosting): string
-    {
-        $root = trim((string) ($hosting->host_root_path ?? ''));
-        if ($root === '') {
-            throw new RuntimeException('Host root path is not set for this hosting account.');
-        }
-
-        $sslDir = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'ssl';
-        File::ensureDirectoryExists($sslDir);
-        if (! is_writable($sslDir)) {
-            throw new RuntimeException('SSL directory is not writable: '.$sslDir);
-        }
-
-        return $sslDir;
-    }
-
-    private function runNginxSslInstall(
-        Hosting $hosting,
-        string $sslDir,
-        string $keyPath,
-        string $fullchainPath
-    ): string {
-        $systemBin = (string) config('ssltls.nginx_ssl_system_install_bin', '');
-        $script = (string) config('ssltls.nginx_ssl_install_script', '');
-        $timeout = (float) config('ssltls.nginx_ssl_install_timeout', 90);
-
-        $command = null;
-        if ($systemBin !== '' && is_executable($systemBin)) {
-            $command = ['sudo', '-n', $systemBin, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath];
-        } elseif ($script !== '' && is_file($script)) {
-            $command = ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath];
-        }
-
-        if ($command === null) {
-            throw new RuntimeException(
-                'Nginx SSL installer is not configured. Set SSLTLS_NGINX_SSL_INSTALL_SCRIPT or SSLTLS_NGINX_SSL_SYSTEM_INSTALL_BIN.'
-            );
-        }
-
-        $process = new Process($command, base_path(), [
-            'SSL_DIR' => $sslDir,
-            'PHP_FPM_SOCKET' => $this->resolvePhpFpmSocket($hosting),
-        ], null, $timeout);
-        $process->run();
-        $out = trim($process->getOutput()."\n".$process->getErrorOutput());
-
-        if (! $process->isSuccessful()) {
-            if (str_contains(strtolower($out), 'a password is required')) {
-                throw new RuntimeException(
-                    'Nginx SSL activate failed: sudo requires password. Run once on server: bash scripts/install-xenweet-nginx-sudo.sh www-data'
-                );
-            }
-            throw new RuntimeException('Nginx SSL activate failed: '.($out !== '' ? $out : 'no output'));
-        }
-
-        return $out !== '' ? $out : 'Nginx SSL vhost reloaded.';
-    }
-
-    private function resolvePhpFpmSocket(Hosting $hosting): string
-    {
-        $v = trim((string) $hosting->php_version);
-        if (preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
-            return '/var/run/php/php'.$m[1].'.'.$m[2].'-fpm.sock';
-        }
-
-        return '/var/run/php/php8.3-fpm.sock';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function extractCertificatePemBlocks(string $pem): array
-    {
-        $input = trim($pem);
-        if ($input === '') {
-            return [];
-        }
-
-        // Some providers/API payloads include literal "\n" instead of real line breaks.
-        if (! str_contains($input, "\n") && str_contains($input, '\n')) {
-            $input = str_replace('\n', "\n", $input);
-        }
-
-        $matches = [];
-        preg_match_all(
-            '/-----BEGIN (?:TRUSTED )?CERTIFICATE-----\s*[\s\S]+?\s*-----END (?:TRUSTED )?CERTIFICATE-----/m',
-            $input,
-            $matches
-        );
-        $blocks = [];
-        foreach (($matches[0] ?? []) as $raw) {
-            $b = trim((string) $raw);
-            if ($b !== '') {
-                // Normalize TRUSTED CERTIFICATE wrappers to CERTIFICATE for broad compatibility.
-                $b = str_replace('BEGIN TRUSTED CERTIFICATE', 'BEGIN CERTIFICATE', $b);
-                $b = str_replace('END TRUSTED CERTIFICATE', 'END CERTIFICATE', $b);
-                $blocks[] = $b;
-            }
-        }
-
-        return $blocks;
-    }
-
-    /**
-     * @param  list<string>  $blocks
-     */
-    private function areValidX509PemBlocks(array $blocks): bool
-    {
-        foreach ($blocks as $block) {
-            $x = @openssl_x509_read($block);
-            if ($x === false) {
-                return false;
-            }
-            openssl_x509_free($x);
-        }
-
-        return true;
     }
 }

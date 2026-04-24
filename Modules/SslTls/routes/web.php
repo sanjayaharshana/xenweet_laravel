@@ -23,4 +23,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/hosts/{hosting}/ssl-tls/certificate/install', [SslTlsController::class, 'installCertificate'])
         ->middleware('throttle:20,1')
         ->name('hosts.ssl-tls.certificate.install');
+    Route::post('/hosts/{hosting}/ssl-tls/lets-encrypt', [SslTlsController::class, 'requestLetsEncrypt'])
+        ->middleware('throttle:5,1')
+        ->name('hosts.ssl-tls.lets-encrypt');
 });
