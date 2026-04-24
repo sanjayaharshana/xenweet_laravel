@@ -7,8 +7,10 @@ use App\Models\Hosting;
 use App\Models\HostingSslStore;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 use Modules\SslTls\Services\SslTlsOpenSslService;
+use RuntimeException;
 use Throwable;
 
 class SslTlsController extends Controller
@@ -117,6 +119,59 @@ class SslTlsController extends Controller
             ->with('ssltls_success', 'Certificate and chain saved to the database. Install them on the web server in a separate step.');
     }
 
+    public function installCertificate(Hosting $hosting): RedirectResponse
+    {
+        $store = $hosting->sslStore;
+        if (! $store) {
+            return $this->sslTlsErrorRedirect($hosting, 'cert', 'No SSL data found for this hosting account.');
+        }
+
+        $privateKey = trim((string) ($store->private_key_pem ?? ''));
+        $certificate = trim((string) ($store->certificate_pem ?? ''));
+        $chain = trim((string) ($store->certificate_chain_pem ?? ''));
+
+        if ($privateKey === '' || ! str_contains($privateKey, 'PRIVATE KEY')) {
+            return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved private key is missing or invalid.');
+        }
+        if ($certificate === '' || ! str_contains($certificate, 'BEGIN CERTIFICATE')) {
+            return $this->sslTlsErrorRedirect($hosting, 'cert', 'Saved certificate is missing or invalid.');
+        }
+
+        try {
+            $sslDir = $this->resolveSslInstallDirectory($hosting);
+            $base = preg_replace('/[^a-zA-Z0-9.\-_]/', '-', $hosting->siteHost()) ?: 'host-'.$hosting->id;
+
+            $keyPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.key.pem';
+            $certPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.cert.pem';
+            $chainPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.chain.pem';
+            $fullchainPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.fullchain.pem';
+
+            File::put($keyPath, $privateKey."\n");
+            @chmod($keyPath, 0600);
+
+            File::put($certPath, $certificate."\n");
+            @chmod($certPath, 0644);
+
+            $fullchain = $certificate."\n";
+            if ($chain !== '') {
+                File::put($chainPath, $chain."\n");
+                @chmod($chainPath, 0644);
+                $fullchain .= trim($chain)."\n";
+            } elseif (File::exists($chainPath)) {
+                File::delete($chainPath);
+            }
+
+            File::put($fullchainPath, $fullchain);
+            @chmod($fullchainPath, 0644);
+        } catch (Throwable $e) {
+            return $this->sslTlsErrorRedirect($hosting, 'cert', 'Install failed: '.$e->getMessage());
+        }
+
+        return redirect()
+            ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => 'cert'])
+            ->with('ssltls_success', 'Certificate installed to '.$sslDir.' (key, cert, and fullchain PEM files written).');
+    }
+
     public function generatePrivateKey(
         Request $request,
         Hosting $hosting,
@@ -214,5 +269,21 @@ class SslTlsController extends Controller
         return redirect()
             ->route('hosts.ssl-tls', ['hosting' => $hosting, 'tab' => $tab])
             ->with('ssltls_error', $message);
+    }
+
+    private function resolveSslInstallDirectory(Hosting $hosting): string
+    {
+        $root = trim((string) ($hosting->host_root_path ?? ''));
+        if ($root === '') {
+            throw new RuntimeException('Host root path is not set for this hosting account.');
+        }
+
+        $sslDir = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'ssl';
+        File::ensureDirectoryExists($sslDir);
+        if (! is_writable($sslDir)) {
+            throw new RuntimeException('SSL directory is not writable: '.$sslDir);
+        }
+
+        return $sslDir;
     }
 }

@@ -237,6 +237,13 @@
                     <button type="submit" class="btn-primary">Save certificate</button>
                 </div>
             </form>
+            <form class="managedb-form" method="POST" action="{{ route('hosts.ssl-tls.certificate.install', $hosting) }}">
+                @csrf
+                <p class="ssltls-hint">Install writes PEM files from saved SSL data to <code>{{ rtrim((string) $hosting->host_root_path, DIRECTORY_SEPARATOR) }}/ssl</code>.</p>
+                <div class="managedb-actions">
+                    <button type="submit" class="btn-secondary">Install certificate</button>
+                </div>
+            </form>
         </section>
     @endif
 
