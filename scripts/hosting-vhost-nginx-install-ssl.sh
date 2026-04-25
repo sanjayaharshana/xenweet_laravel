@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 #
 # Configure an nginx site for HTTPS and reload nginx.
-# Usage: hosting-vhost-nginx-install-ssl.sh <domain> <web_root> <key_pem_path> <fullchain_pem_path>
+# Usage: hosting-vhost-nginx-install-ssl.sh <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]
+#
+# 5th arg: PHP-FPM unix socket (required when invoked via "sudo" helpers — env PHP_FPM_SOCKET is not forwarded).
+# Optional env: PHP_FPM_SOCKET (used when 5th arg is omitted; default php8.3)
 #
 # Requires sudo -n permissions for cp/nginx/systemctl when not running as root.
 #
 set -euo pipefail
 
-DOMAIN="${1:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-WEB_ROOT="${2:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-KEY_PATH="${3:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-FULLCHAIN_PATH="${4:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-PHP_SOCK="${PHP_FPM_SOCKET:-/var/run/php/php8.3-fpm.sock}"
+DOMAIN="${1:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]}"
+WEB_ROOT="${2:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]}"
+KEY_PATH="${3:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]}"
+FULLCHAIN_PATH="${4:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]}"
+PHP_SOCK="${5:-${PHP_FPM_SOCKET:-/var/run/php/php8.3-fpm.sock}}"
 
 SAFE_NAME="${DOMAIN//[^a-zA-Z0-9._-]/_}"
 DEST="/etc/nginx/sites-available/${SAFE_NAME}.conf"
@@ -53,6 +56,8 @@ server {
     root ${WEB_ROOT};
     index index.php index.html index.htm;
 
+    client_max_body_size 64m;
+
     ssl_certificate ${FULLCHAIN_PATH};
     ssl_certificate_key ${KEY_PATH};
     ssl_session_cache shared:SSL:10m;
@@ -65,10 +70,13 @@ server {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
-    location ~ \.php$ {
+    location ~ \.php\$ {
         include fastcgi_params;
-        fastcgi_pass unix:${PHP_SOCK};
+        fastcgi_index index.php;
+        fastcgi_param HTTPS on;
+        fastcgi_param REQUEST_SCHEME \$scheme;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_pass unix:${PHP_SOCK};
     }
 
     location ~ /\.ht {

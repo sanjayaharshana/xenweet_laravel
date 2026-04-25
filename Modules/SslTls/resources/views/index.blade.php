@@ -225,7 +225,7 @@
         <section class="server-card managedb-card ssltls-tool" aria-labelledby="ssltls-auto-h" role="region">
             <div class="managedb-card__head">
                 <h2 id="ssltls-auto-h"><i class="fa fa-bolt" aria-hidden="true"></i> Let’s Encrypt (Auto SSL)</h2>
-                <p>Obtain a free, publicly trusted certificate on this app server with <code>certbot</code> (ACME). Same outcome as <strong>Install certificate</strong>: PEM files under the host&rsquo;s <code>ssl</code> directory and Nginx reloaded when configured.</p>
+                <p>Obtain a free, publicly trusted certificate on this app server with <code>certbot</code> (ACME). Same outcome as <strong>Install certificate</strong>: PEM files under the host&rsquo;s <code>ssl</code> directory, then the same Nginx install step (HTTPS vhost, correct PHP-FPM for this site&rsquo;s <code>php_version</code>) and reload when configured.</p>
             </div>
 
             @if ($letsEncryptEnabled ?? false)
@@ -289,6 +289,10 @@
                             <li>
                                 <span class="ssltls-req__ic" aria-hidden="true">✓</span>
                                 <span>Install script <code>install-xenweet-certbot-sudo.sh</code> (run as root) grants <code>certbot</code> and a small PEM read helper; both need passwordless <code>sudo</code> for the PHP user so the panel can read root-only files under <code>/etc/letsencrypt/live/</code>. If you see a password error, run <code>sudo bash scripts/install-xenweet-certbot-sudo.sh www-data</code> (use your FPM user if not <code>www-data</code>).</span>
+                            </li>
+                            <li>
+                                <span class="ssltls-req__ic" aria-hidden="true">✓</span>
+                                <span>After certbot finishes, the panel runs the <strong>same Nginx install as &ldquo;Install certificate&rdquo;</strong>: HTTPS vhost for this host&rsquo;s <code>php_version</code> (PHP-FPM for the <strong>website</strong> only). The <code>sudo</code> helper does not see <code>PHP_FPM_SOCKET</code> in the environment, so the app passes the socket as a <strong>5th argument</strong> &mdash; keep <code>/usr/local/sbin/xenweet-nginx-install-ssl</code> in sync: <code>sudo bash scripts/install-xenweet-nginx-sudo.sh www-data</code> (use your FPM user if not <code>www-data</code>). If you still get 502 on HTTPS after an upgrade, run that and click <strong>Request &amp; install certificate</strong> again.</span>
                             </li>
                         </ul>
                     </div>

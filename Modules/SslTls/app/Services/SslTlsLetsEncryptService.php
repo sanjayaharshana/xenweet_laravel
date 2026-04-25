@@ -76,6 +76,8 @@ class SslTlsLetsEncryptService
             throw new RuntimeException('Could not parse issued certificate chain: '.$e->getMessage());
         }
 
+        // Same as manual "Install certificate": Nginx vhost (HTTPS) with correct PHP-FPM pool — see
+        // SslTlsNginxPemService::runNginxSslInstall (5th arg for sudo helpers; env is not forwarded by sudo).
         $nginxMsg = $this->pems->materializePemToDiskAndReloadNginx(
             $hosting,
             $keyPem,
@@ -121,6 +123,7 @@ class SslTlsLetsEncryptService
         [$leafPem, $chainBlockList] = $this->pems->splitFullchainPemToLeafAndChain($fullchainPem);
         $chainPem = $chainBlockList === [] ? null : (implode("\n", $chainBlockList)."\n");
 
+        // Reapply Nginx vhost (HTTPS + same PHP-FPM args as initial Auto SSL) after certbot renew.
         $msg = $this->pems->materializePemToDiskAndReloadNginx(
             $hosting,
             $keyPem,

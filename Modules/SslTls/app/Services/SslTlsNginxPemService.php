@@ -152,11 +152,14 @@ class SslTlsNginxPemService
         $script = (string) config('ssltls.nginx_ssl_install_script', '');
         $timeout = (float) config('ssltls.nginx_ssl_install_timeout', 90);
 
+        $phpSock = $hosting->webPhpFpmSocketPath();
+
         $command = null;
         if ($systemBin !== '' && is_executable($systemBin)) {
-            $command = ['sudo', '-n', $systemBin, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath];
+            // Pass socket as 5th argv: `sudo` resets the environment, so PHP_FPM_SOCKET would be lost to the root helper.
+            $command = ['sudo', '-n', $systemBin, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath, $phpSock];
         } elseif ($script !== '' && is_file($script)) {
-            $command = ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath];
+            $command = ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath, $phpSock];
         }
 
         if ($command === null) {
@@ -167,7 +170,7 @@ class SslTlsNginxPemService
 
         $process = new Process($command, base_path(), [
             'SSL_DIR' => $sslDir,
-            'PHP_FPM_SOCKET' => $hosting->webPhpFpmSocketPath(),
+            'PHP_FPM_SOCKET' => $phpSock,
         ], null, $timeout);
         $process->run();
         $out = trim($process->getOutput()."\n".$process->getErrorOutput());

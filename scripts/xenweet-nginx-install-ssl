@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 #
 # Installed to /usr/local/sbin/ — runs as root via:
-#   sudo -n /usr/local/sbin/xenweet-nginx-install-ssl <domain> <web_root> <key_pem_path> <fullchain_pem_path>
+#   sudo -n /usr/local/sbin/xenweet-nginx-install-ssl <domain> <web_root> <key_pem_path> <fullchain_pem_path> <php_fpm_socket>
+#
+# 5th arg: PHP-FPM socket path. The panel must pass it on the command line: sudo does not
+# forward PHP_FPM_SOCKET from the environment to this helper.
+#
+# Optional env: PHP_FPM_SOCKET (if 5th arg empty; default php8.3)
 #
 set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-DOMAIN="${1:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-WEB_ROOT="${2:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-KEY_PATH="${3:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-FULLCHAIN_PATH="${4:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>}"
-PHP_SOCK="${PHP_FPM_SOCKET:-/var/run/php/php8.3-fpm.sock}"
+DOMAIN="${1:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> <php_fpm_socket>}"
+WEB_ROOT="${2:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> <php_fpm_socket>}"
+KEY_PATH="${3:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> <php_fpm_socket>}"
+FULLCHAIN_PATH="${4:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> <php_fpm_socket>}"
+PHP_SOCK="${5:-${PHP_FPM_SOCKET:-/var/run/php/php8.3-fpm.sock}}"
 
 SAFE_NAME="${DOMAIN//[^a-zA-Z0-9._-]/_}"
 DEST="/etc/nginx/sites-available/${SAFE_NAME}.conf"
@@ -26,7 +31,16 @@ server {
     listen 80;
     listen [::]:80;
     server_name ${DOMAIN};
-    return 301 https://\$host\$request_uri;
+
+    # Let's Encrypt HTTP-01 (certbot) — must stay on plain HTTP
+    location ^~ /.well-known/acme-challenge/ {
+        root ${WEB_ROOT};
+        default_type "text/plain";
+    }
+
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
 }
 
 server {
@@ -36,6 +50,8 @@ server {
 
     root ${WEB_ROOT};
     index index.php index.html index.htm;
+
+    client_max_body_size 64m;
 
     ssl_certificate ${FULLCHAIN_PATH};
     ssl_certificate_key ${KEY_PATH};
@@ -49,10 +65,13 @@ server {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
-    location ~ \.php$ {
+    location ~ \.php\$ {
         include fastcgi_params;
-        fastcgi_pass unix:${PHP_SOCK};
+        fastcgi_index index.php;
+        fastcgi_param HTTPS on;
+        fastcgi_param REQUEST_SCHEME \$scheme;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_pass unix:${PHP_SOCK};
     }
 
     location ~ /\.ht {
