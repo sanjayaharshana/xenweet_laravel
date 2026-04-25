@@ -148,6 +148,16 @@ class HostFilesystemService
             $failureReason = '';
             if (! $this->renameOrRelocate($fromAbs, $toAbs, $failureReason)) {
                 $why = $failureReason !== '' ? $failureReason : (string) (error_get_last()['message'] ?? '');
+                if ($why === '') {
+                    $why = sprintf(
+                        'move failed (source_exists=%s, source_readable=%s, source_writable=%s, target_dir_exists=%s, target_dir_writable=%s)',
+                        file_exists($fromAbs) ? 'yes' : 'no',
+                        is_readable($fromAbs) ? 'yes' : 'no',
+                        is_writable($fromAbs) ? 'yes' : 'no',
+                        is_dir(dirname($toAbs)) ? 'yes' : 'no',
+                        is_writable(dirname($toAbs)) ? 'yes' : 'no'
+                    );
+                }
                 $msg = 'Could not move: '.$baseName.($why !== '' ? ' ('.$why.')' : '');
                 Log::error('FileManager move failed', [
                     'hosting_id' => $hosting->id,
@@ -211,8 +221,8 @@ class HostFilesystemService
 
                 return false;
             }
-            // Source cleanup fallback: some environments deny direct unlink but allow filesystem abstraction.
-            if (@unlink($fromAbs) || File::delete($fromAbs)) {
+            // Source cleanup fallback: some environments deny direct unlink but allow chmod+retry.
+            if ($this->deleteFileWithFallback($fromAbs)) {
                 return true;
             }
             if (is_file($toAbs)) {
@@ -225,6 +235,19 @@ class HostFilesystemService
         $failureReason = 'source path is neither regular file nor directory';
 
         return false;
+    }
+
+    private function deleteFileWithFallback(string $path): bool
+    {
+        if (@unlink($path) || File::delete($path)) {
+            return true;
+        }
+
+        // Common case on mounted volumes: file mode blocks unlink until writable bit is set.
+        @chmod($path, 0644);
+        clearstatcache(true, $path);
+
+        return @unlink($path) || File::delete($path);
     }
 
     public function upload(Hosting $hosting, string $targetDirRelative, UploadedFile $file): void
