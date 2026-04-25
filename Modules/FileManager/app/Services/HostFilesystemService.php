@@ -5,6 +5,7 @@ namespace Modules\FileManager\Services;
 use App\Models\Hosting;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -144,9 +145,23 @@ class HostFilesystemService
                 throw new RuntimeException('Destination already contains: '.$baseName);
             }
 
-            if (! $this->renameOrRelocate($fromAbs, $toAbs)) {
-                $why = (string) (error_get_last()['message'] ?? '');
+            $failureReason = '';
+            if (! $this->renameOrRelocate($fromAbs, $toAbs, $failureReason)) {
+                $why = $failureReason !== '' ? $failureReason : (string) (error_get_last()['message'] ?? '');
                 $msg = 'Could not move: '.$baseName.($why !== '' ? ' ('.$why.')' : '');
+                Log::error('FileManager move failed', [
+                    'hosting_id' => $hosting->id,
+                    'item_relative' => (string) $relative,
+                    'from_abs' => $fromAbs,
+                    'to_abs' => $toAbs,
+                    'destination_relative' => $destinationDirRelative,
+                    'reason' => $why !== '' ? $why : 'unknown',
+                    'from_exists' => file_exists($fromAbs),
+                    'to_exists' => file_exists($toAbs),
+                    'from_readable' => is_readable($fromAbs),
+                    'from_writable' => is_writable($fromAbs),
+                    'target_dir_writable' => is_writable(dirname($toAbs)),
+                ]);
 
                 throw new RuntimeException($msg);
             }
@@ -157,16 +172,19 @@ class HostFilesystemService
      * Same-volume rename, or copy+delete when rename fails (e.g. EXDEV across mounts / Docker volumes).
      * If the copy succeeded but removing the source failed, the destination is removed to avoid a duplicate.
      */
-    private function renameOrRelocate(string $fromAbs, string $toAbs): bool
+    private function renameOrRelocate(string $fromAbs, string $toAbs, string &$failureReason = ''): bool
     {
+        $failureReason = '';
         if (@rename($fromAbs, $toAbs)) {
             return true;
         }
+        $failureReason = 'rename failed: '.((string) (error_get_last()['message'] ?? 'unknown'));
         if (is_dir($fromAbs)) {
             if (! File::copyDirectory($fromAbs, $toAbs)) {
                 if (is_dir($toAbs)) {
                     File::deleteDirectory($toAbs);
                 }
+                $failureReason = 'copyDirectory failed';
 
                 return false;
             }
@@ -177,6 +195,7 @@ class HostFilesystemService
             if (is_dir($toAbs)) {
                 File::deleteDirectory($toAbs);
             }
+            $failureReason = 'copied directory but could not delete source directory';
 
             return false;
         }
@@ -188,6 +207,7 @@ class HostFilesystemService
                 if (is_file($toAbs)) {
                     @unlink($toAbs);
                 }
+                $failureReason = 'file copy fallback failed: '.((string) (error_get_last()['message'] ?? 'unknown'));
 
                 return false;
             }
@@ -198,9 +218,11 @@ class HostFilesystemService
             if (is_file($toAbs)) {
                 @unlink($toAbs);
             }
+            $failureReason = 'copied file but could not delete source file';
 
             return false;
         }
+        $failureReason = 'source path is neither regular file nor directory';
 
         return false;
     }
