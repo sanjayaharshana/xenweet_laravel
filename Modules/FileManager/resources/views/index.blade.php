@@ -247,11 +247,16 @@
                 document.addEventListener('DOMContentLoaded', function () {
                     (function () {
                         const bulkId = 'file-manager-bulk';
+                        function checkedItemCheckboxes() {
+                            return Array.prototype.slice.call(
+                                document.querySelectorAll('.file-row--item input[type="checkbox"]:checked')
+                            );
+                        }
                         function selectedCount() {
-                            return document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').length;
+                            return checkedItemCheckboxes().length;
                         }
                         function selectedPaths() {
-                            return Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked')).map(function (cb) {
+                            return checkedItemCheckboxes().map(function (cb) {
                                 var row = cb.closest('.file-row--item');
                                 return (row && row.getAttribute('data-item-relative')) || cb.value;
                             }).filter(function (v) { return !!v; });
@@ -870,9 +875,7 @@
                                         if (!fmDelForm || !window.confirm('Delete selected item(s)? This cannot be undone.')) {
                                             return;
                                         }
-                                        var selected = Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked')).map(function (cb) {
-                                            return cb.value;
-                                        });
+                                        var selected = selectedPaths();
                                         var targets = selected.length > 0 ? selected : [rel];
                                         fmDelForm.querySelectorAll('input[name="items_json"], input[name="items[]"]').forEach(function (n) { n.remove(); });
                                         var fd = new FormData(fmDelForm);
@@ -1015,7 +1018,7 @@
                         });
 
                         var fmSelectAll = document.getElementById('fm-select-all');
-                        var fmItemChecks = Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]'));
+                        var fmItemChecks = Array.prototype.slice.call(document.querySelectorAll('.file-row--item input[type="checkbox"]'));
 
                         function syncSelectAll() {
                             if (!fmSelectAll) {
@@ -1045,7 +1048,7 @@
 
                         var dragState = { items: [] };
                         function selectedItems() {
-                            return Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked')).map(function (cb) {
+                            return checkedItemCheckboxes().map(function (cb) {
                                 return cb.value;
                             });
                         }
