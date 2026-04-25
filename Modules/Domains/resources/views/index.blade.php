@@ -51,19 +51,27 @@
         <h2 class="host-sidebar-meta-title" style="margin-top:0;">Additional domains</h2>
         @if (isset($hostDomains) && $hostDomains->isNotEmpty())
             <div class="file-manager-main__sticky-head" style="margin:0.5rem 0; border-radius:8px;">
-                <div class="file-row file-row-head" style="grid-template-columns: 1.2fr 0.5fr 0.5fr 1.2fr;">
+                <div class="file-row file-row-head" style="grid-template-columns: 1.2fr 0.5fr 0.5fr 1.2fr 0.5fr;">
                     <span>Domain</span>
                     <span>Type</span>
                     <span>Root mode</span>
                     <span>Document root path</span>
+                    <span>Action</span>
                 </div>
             </div>
             @foreach ($hostDomains as $row)
-                <div class="file-row" style="grid-template-columns: 1.2fr 0.5fr 0.5fr 1.2fr;">
+                <div class="file-row" style="grid-template-columns: 1.2fr 0.5fr 0.5fr 1.2fr 0.5fr;">
                     <span><strong>{{ $row->domain }}</strong></span>
                     <span class="subtle">{{ $row->type === 'registered' ? 'Registered' : 'Temporary' }}</span>
                     <span class="subtle">{{ $row->share_document_root ? 'Shared' : 'Custom' }}</span>
                     <span class="subtle">{{ $row->share_document_root ? $hosting->web_root_path : ($row->document_root ?: '-') }}</span>
+                    <span>
+                        <form method="post" action="{{ route('hosts.domains.destroy', [$hosting, $row]) }}" onsubmit="return confirm('Delete domain {{ $row->domain }}? This will also reapply Nginx.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn-secondary compact" style="border-color: rgba(220, 38, 38, 0.45); color: #fecaca;">Delete</button>
+                        </form>
+                    </span>
                 </div>
             @endforeach
         @else

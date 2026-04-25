@@ -8,4 +8,7 @@ Route::middleware(['host.access'])->group(function () {
     Route::post('/hosts/{hosting}/domains', [DomainsController::class, 'store'])
         ->middleware('throttle:30,1')
         ->name('hosts.domains.store');
+    Route::delete('/hosts/{hosting}/domains/{hostDomain}', [DomainsController::class, 'destroy'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.domains.destroy');
 });

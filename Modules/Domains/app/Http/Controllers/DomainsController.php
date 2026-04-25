@@ -128,6 +128,38 @@ class DomainsController extends Controller
             ->with('success', $msg);
     }
 
+    public function destroy(Hosting $hosting, HostDomain $hostDomain): RedirectResponse
+    {
+        if (! Schema::hasTable('host_domains')) {
+            return redirect()
+                ->route('hosts.domains.index', $hosting)
+                ->with('error', 'Database is not ready. Run migrations: php artisan migrate');
+        }
+
+        if ((int) $hostDomain->hosting_id !== (int) $hosting->id) {
+            return redirect()
+                ->route('hosts.domains.index', $hosting)
+                ->with('error', 'The selected domain does not belong to this hosting account.');
+        }
+
+        $name = (string) $hostDomain->domain;
+        $hostDomain->delete();
+
+        $vhost = $this->provisioner->reapplyWebVhost($hosting->refresh());
+        if (! $vhost['success']) {
+            return redirect()
+                ->route('hosts.domains.index', $hosting)
+                ->with('success', 'Domain removed: '.$name)
+                ->with('error', 'Nginx was not updated after delete: '.$vhost['message']);
+        }
+
+        $msg = 'Domain removed: '.$name.'. '.trim((string) ($vhost['message'] ?? ''), '.');
+
+        return redirect()
+            ->route('hosts.domains.index', $hosting)
+            ->with('success', $msg);
+    }
+
     private function generateTemporaryDomain(Hosting $hosting): string
     {
         $base = $hosting->siteHost();
