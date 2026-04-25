@@ -161,7 +161,7 @@
                         <span>Destination folder</span>
                         <input type="text" name="destination" maxlength="4096" autocomplete="off" placeholder="e.g. public_html or backups/sub" required>
                     </label>
-                    <p class="file-manager-dialog__hint subtle">Selected items are submitted with this request.</p>
+                    <p class="file-manager-dialog__hint subtle">Uses the checkboxes in the file list (same as toolbar). All checked rows are moved in one request.</p>
                     <div class="file-manager-dialog__actions">
                         <button type="button" class="btn-secondary" data-close-dialog>Cancel</button>
                         <button type="submit" class="btn-primary">Move</button>
@@ -299,13 +299,11 @@
                                 e.preventDefault();
                                 moveForm.querySelectorAll('input.fm-move-sync, input[name="items_json"]').forEach(function (n) { n.remove(); });
                                 var paths = [];
-                                document.querySelectorAll('.file-row--item').forEach(function (row) {
-                                    var cb = row.querySelector('input[type="checkbox"][name="items[]"]');
-                                    if (cb && cb.checked) {
-                                        var rel = row.getAttribute('data-item-relative');
-                                        if (rel) {
-                                            paths.push(rel);
-                                        }
+                                document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').forEach(function (cb) {
+                                    var row = cb.closest('.file-row--item');
+                                    var rel = (row && row.getAttribute('data-item-relative')) || cb.value;
+                                    if (rel) {
+                                        paths.push(rel);
                                     }
                                 });
                                 if (paths.length === 0) {
