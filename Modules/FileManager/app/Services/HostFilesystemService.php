@@ -181,14 +181,18 @@ class HostFilesystemService
             return false;
         }
         if (is_file($fromAbs)) {
-            if (! File::copy($fromAbs, $toAbs)) {
+            // Cross-device or wrapper move fallback for files.
+            // Try Laravel helper first, then native copy for environments where File::copy may fail.
+            $copied = File::copy($fromAbs, $toAbs) || @copy($fromAbs, $toAbs);
+            if (! $copied) {
                 if (is_file($toAbs)) {
                     @unlink($toAbs);
                 }
 
                 return false;
             }
-            if (@unlink($fromAbs)) {
+            // Source cleanup fallback: some environments deny direct unlink but allow filesystem abstraction.
+            if (@unlink($fromAbs) || File::delete($fromAbs)) {
                 return true;
             }
             if (is_file($toAbs)) {
