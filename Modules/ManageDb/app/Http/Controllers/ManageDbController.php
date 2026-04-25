@@ -4,13 +4,13 @@ namespace Modules\ManageDb\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hosting;
+use App\Support\ModuleSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
 use Modules\ManageDb\Models\HostingMysqlUserSecret;
 use Modules\ManageDb\Services\ManageDbService;
-use Modules\ManageSetting\Support\Settings;
 use Throwable;
 
 class ManageDbController extends Controller
@@ -231,7 +231,7 @@ class ManageDbController extends Controller
                 'key' => 'mysql',
                 'label' => 'MySQL',
                 'icon' => 'fa fa-server',
-                'enabled' => Settings::bool('mysql_enabled', true),
+                'enabled' => ModuleSettings::bool('mysql_enabled', true),
                 'description' => 'Full management tools with create wizard, users, and prefixed database lists.',
                 'feature' => 'Production host DB management',
                 'cta' => 'Open MySQL tools',
@@ -240,7 +240,7 @@ class ManageDbController extends Controller
                 'key' => 'postgres',
                 'label' => 'PostgreSQL',
                 'icon' => 'fa fa-database',
-                'enabled' => Settings::bool('postgres_enabled', false),
+                'enabled' => ModuleSettings::bool('postgres_enabled', false),
                 'description' => 'Dedicated PostgreSQL management area with settings-ready integration.',
                 'feature' => 'Connection profile via settings tab',
                 'cta' => 'Open PostgreSQL section',
@@ -249,7 +249,7 @@ class ManageDbController extends Controller
                 'key' => 'sqlite',
                 'label' => 'SQLite',
                 'icon' => 'fa fa-file-text-o',
-                'enabled' => Settings::bool('sqlite_enabled', false),
+                'enabled' => ModuleSettings::bool('sqlite_enabled', false),
                 'description' => 'Lightweight single-file database option for local and utility workloads.',
                 'feature' => 'Best for compact app storage',
                 'cta' => 'Open SQLite section',
@@ -258,7 +258,7 @@ class ManageDbController extends Controller
                 'key' => 'central_db',
                 'label' => 'Central DB',
                 'icon' => 'fa fa-sitemap',
-                'enabled' => Settings::bool('central_db_enabled', false),
+                'enabled' => ModuleSettings::bool('central_db_enabled', false),
                 'description' => 'Centralized database profile for shared platform-level services.',
                 'feature' => 'Cross-host shared data layer',
                 'cta' => 'Open Central DB section',

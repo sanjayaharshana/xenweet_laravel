@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Modules\ManageSetting\Database\Seeders\ManageSettingDatabaseSeeder;
+use Nwidart\Modules\Facades\Module;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,7 +17,11 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AdminUserSeeder::class,
-            ManageSettingDatabaseSeeder::class,
         ]);
+
+        $manageSettingSeeder = 'Modules\\ManageSetting\\Database\\Seeders\\ManageSettingDatabaseSeeder';
+        if (Module::isEnabled('ManageSetting') && class_exists($manageSettingSeeder)) {
+            $this->call($manageSettingSeeder);
+        }
     }
 }

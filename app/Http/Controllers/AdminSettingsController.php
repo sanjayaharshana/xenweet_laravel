@@ -2,17 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ModuleSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Modules\ManageSetting\Services\ManageSettingService;
 use PDO;
 use Throwable;
 
 class AdminSettingsController extends Controller
 {
-    public function __construct(private readonly ManageSettingService $settingsService) {}
-
     public function index(Request $request): View
     {
         $tabs = config('admin_settings.tabs', []);
@@ -139,7 +137,7 @@ class AdminSettingsController extends Controller
      */
     private function loadStoredSettings(): array
     {
-        return $this->settingsService->all();
+        return ModuleSettings::all();
     }
 
     /**
@@ -147,7 +145,7 @@ class AdminSettingsController extends Controller
      */
     private function persistSettings(array $values): void
     {
-        $this->settingsService->upsertMany($values);
+        ModuleSettings::upsertMany($values);
     }
 
     /**

@@ -2,8 +2,8 @@
 
 namespace Modules\ManageDb\Repositories;
 
+use App\Support\ModuleSettings;
 use Modules\ManageDb\Contracts\MysqlAdminPdoFactoryInterface;
-use Modules\ManageSetting\Support\Settings;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -15,13 +15,13 @@ class MysqlAdminPdoFactory implements MysqlAdminPdoFactoryInterface
      */
     private function adminParams(): array
     {
-        $mysqlEnabled = Settings::bool('mysql_enabled', false);
+        $mysqlEnabled = ModuleSettings::bool('mysql_enabled', false);
 
         if ($mysqlEnabled) {
-            $host = (string) Settings::get('mysql_host', '127.0.0.1');
-            $port = (int) Settings::get('mysql_port', 3306);
-            $user = (string) Settings::get('mysql_username', 'root');
-            $pass = (string) Settings::get('mysql_password', '');
+            $host = (string) ModuleSettings::get('mysql_host', '127.0.0.1');
+            $port = (int) ModuleSettings::get('mysql_port', 3306);
+            $user = (string) ModuleSettings::get('mysql_username', 'root');
+            $pass = (string) ModuleSettings::get('mysql_password', '');
         } else {
             $host = (string) config('manage_db.host', env('DB_HOST', '127.0.0.1'));
             $port = (int) config('manage_db.port', env('DB_PORT', 3306));
