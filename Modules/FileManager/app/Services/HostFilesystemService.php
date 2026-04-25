@@ -134,14 +134,56 @@ class HostFilesystemService
                 throw new RuntimeException('Cannot move a folder into itself.');
             }
 
+            $fromReal = realpath($fromAbs);
             if (file_exists($toAbs)) {
+                $toReal = realpath($toAbs);
+                if ($fromReal !== false && $toReal !== false && $fromReal === $toReal) {
+                    // Already at destination (e.g. "move" to current parent) — not an error
+                    continue;
+                }
                 throw new RuntimeException('Destination already contains: '.$baseName);
             }
 
-            if (! @rename($fromAbs, $toAbs)) {
-                throw new RuntimeException('Could not move: '.$baseName);
+            if (! $this->renameOrRelocate($fromAbs, $toAbs)) {
+                $why = (string) (error_get_last()['message'] ?? '');
+                $msg = 'Could not move: '.$baseName.($why !== '' ? ' ('.$why.')' : '');
+
+                throw new RuntimeException($msg);
             }
         }
+    }
+
+    /**
+     * Same-volume rename, or copy+delete when rename fails (e.g. EXDEV across mounts / Docker volumes).
+     */
+    private function renameOrRelocate(string $fromAbs, string $toAbs): bool
+    {
+        if (@rename($fromAbs, $toAbs)) {
+            return true;
+        }
+        if (is_dir($fromAbs)) {
+            if (File::copyDirectory($fromAbs, $toAbs) && File::deleteDirectory($fromAbs)) {
+                return true;
+            }
+
+            if (is_dir($toAbs)) {
+                File::deleteDirectory($toAbs);
+            }
+
+            return false;
+        }
+        if (is_file($fromAbs)) {
+            if (File::copy($fromAbs, $toAbs) && @unlink($fromAbs)) {
+                return true;
+            }
+            if (is_file($toAbs)) {
+                @unlink($toAbs);
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     public function upload(Hosting $hosting, string $targetDirRelative, UploadedFile $file): void
