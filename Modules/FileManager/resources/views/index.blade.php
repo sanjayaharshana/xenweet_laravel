@@ -83,7 +83,7 @@
             </div>
 
             <dialog id="fm-dialog-mkdir" class="file-manager-dialog">
-                <form method="post" action="{{ route('hosts.files.mkdir', $hosting) }}">
+                <form method="post" action="{{ route('hosts.files.mkdir', $hosting) }}" id="fm-form-mkdir">
                     @csrf
                     <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
                     <h3 class="file-manager-dialog__title"><i class="fa fa-folder-o" aria-hidden="true"></i> New folder</h3>
@@ -100,7 +100,7 @@
             </dialog>
 
             <dialog id="fm-dialog-file" class="file-manager-dialog">
-                <form method="post" action="{{ route('hosts.files.touch', $hosting) }}">
+                <form method="post" action="{{ route('hosts.files.touch', $hosting) }}" id="fm-form-touch">
                     @csrf
                     <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
                     <h3 class="file-manager-dialog__title"><i class="fa fa-file-o" aria-hidden="true"></i> New file</h3>
@@ -250,6 +250,70 @@
                         function selectedCount() {
                             return document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').length;
                         }
+                        function selectedPaths() {
+                            return Array.prototype.slice.call(document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked')).map(function (cb) {
+                                var row = cb.closest('.file-row--item');
+                                return (row && row.getAttribute('data-item-relative')) || cb.value;
+                            }).filter(function (v) { return !!v; });
+                        }
+                        function ajaxErrorMessage(payload, fallback) {
+                            if (!payload || typeof payload !== 'object') {
+                                return fallback;
+                            }
+                            if (payload.message) {
+                                return payload.message;
+                            }
+                            if (payload.errors && typeof payload.errors === 'object') {
+                                var firstKey = Object.keys(payload.errors)[0];
+                                var first = firstKey ? payload.errors[firstKey] : null;
+                                if (Array.isArray(first) && first.length > 0) {
+                                    return first[0];
+                                }
+                            }
+                            return fallback;
+                        }
+                        function closeParentDialog(form) {
+                            var dialog = form.closest('dialog');
+                            if (dialog && typeof dialog.close === 'function') {
+                                dialog.close();
+                            }
+                        }
+                        function submitActionForm(form, opts) {
+                            var options = opts || {};
+                            var fd = options.formData instanceof FormData ? options.formData : new FormData(form);
+                            var submitBtn = options.submitButton || null;
+                            if (submitBtn) {
+                                submitBtn.disabled = true;
+                            }
+                            fetch(form.action, {
+                                method: (form.method || 'POST').toUpperCase(),
+                                credentials: 'same-origin',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: fd
+                            }).then(function (res) {
+                                return res.json().catch(function () { return null; }).then(function (data) {
+                                    return { ok: res.ok, data: data };
+                                });
+                            }).then(function (result) {
+                                if (!result.ok || !result.data || result.data.ok === false) {
+                                    throw new Error(ajaxErrorMessage(result.data, 'Action failed.'));
+                                }
+                                if (typeof options.onSuccess === 'function') {
+                                    options.onSuccess(result.data);
+                                    return;
+                                }
+                                window.location.reload();
+                            }).catch(function (err) {
+                                window.alert(err && err.message ? err.message : 'Action failed.');
+                            }).finally(function () {
+                                if (submitBtn) {
+                                    submitBtn.disabled = false;
+                                }
+                            });
+                        }
                         document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
                             btn.addEventListener('click', function () {
                                 if (btn.getAttribute('data-requires-selection') && selectedCount() === 0) {
@@ -297,26 +361,22 @@
                                     return;
                                 }
                                 e.preventDefault();
-                                moveForm.querySelectorAll('input.fm-move-sync, input[name="items_json"]').forEach(function (n) { n.remove(); });
-                                var paths = [];
-                                document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').forEach(function (cb) {
-                                    var row = cb.closest('.file-row--item');
-                                    var rel = (row && row.getAttribute('data-item-relative')) || cb.value;
-                                    if (rel) {
-                                        paths.push(rel);
-                                    }
-                                });
+                                var paths = selectedPaths();
                                 if (paths.length === 0) {
                                     window.alert('Select one or more items, or use drag and drop to move them.');
                                     return;
                                 }
-                                var h = document.createElement('input');
-                                h.type = 'hidden';
-                                h.name = 'items_json';
-                                h.value = JSON.stringify(paths);
-                                h.className = 'fm-move-sync';
-                                moveForm.appendChild(h);
-                                moveForm.submit();
+                                var fd = new FormData(moveForm);
+                                fd.set('items_json', JSON.stringify(paths));
+                                fd.delete('items[]');
+                                submitActionForm(moveForm, {
+                                    formData: fd,
+                                    submitButton: e.submitter || null,
+                                    onSuccess: function () {
+                                        closeParentDialog(moveForm);
+                                        window.location.reload();
+                                    }
+                                });
                             });
                         }
 
@@ -324,33 +384,35 @@
                         if (bulkForm) {
                             bulkForm.addEventListener('submit', function (e) {
                                 e.preventDefault();
-                                var paths = [];
-                                document.querySelectorAll('.file-row--item').forEach(function (row) {
-                                    var cb = row.querySelector('input[type="checkbox"][name="items[]"]');
-                                    if (cb && cb.checked) {
-                                        var rel = row.getAttribute('data-item-relative');
-                                        if (rel) {
-                                            paths.push(rel);
-                                        }
-                                    }
-                                });
+                                var paths = selectedPaths();
                                 if (paths.length === 0) {
                                     window.alert('No items selected.');
                                     return;
                                 }
-                                document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]').forEach(function (cb) {
-                                    cb.removeAttribute('name');
+                                var fd = new FormData(bulkForm);
+                                fd.set('items_json', JSON.stringify(paths));
+                                fd.delete('items[]');
+                                submitActionForm(bulkForm, {
+                                    formData: fd,
+                                    submitButton: e.submitter || null
                                 });
-                                bulkForm.querySelectorAll('input[name="items_json"].fm-bulk-payload').forEach(function (n) { n.remove(); });
-                                var p = document.createElement('input');
-                                p.type = 'hidden';
-                                p.name = 'items_json';
-                                p.value = JSON.stringify(paths);
-                                p.className = 'fm-bulk-payload';
-                                bulkForm.appendChild(p);
-                                HTMLFormElement.prototype.submit.call(bulkForm);
                             });
                         }
+
+                        ['fm-form-mkdir', 'fm-form-touch'].forEach(function (id) {
+                            var form = document.getElementById(id);
+                            if (!form) return;
+                            form.addEventListener('submit', function (e) {
+                                e.preventDefault();
+                                submitActionForm(form, {
+                                    submitButton: e.submitter || null,
+                                    onSuccess: function () {
+                                        closeParentDialog(form);
+                                        window.location.reload();
+                                    }
+                                });
+                            });
+                        });
 
                         var fmUploadForm = document.getElementById('fm-form-upload');
                         var fmUploadInput = document.getElementById('fm-upload-file');
@@ -779,12 +841,17 @@
                                     } else if (action === 'copy') {
                                         if (fmDupFrom && fmDupForm) {
                                             fmDupFrom.value = rel;
-                                            fmDupForm.submit();
+                                            submitActionForm(fmDupForm);
                                         }
                                     } else if (action === 'compress') {
                                         if (fmCompressFrom && fmCompressForm) {
                                             fmCompressFrom.value = rel;
-                                            fmCompressForm.submit();
+                                            submitActionForm(fmCompressForm, {
+                                                onSuccess: function (data) {
+                                                    if (data && data.message) window.alert(data.message);
+                                                    window.location.reload();
+                                                }
+                                            });
                                         }
                                     } else if (action === 'extract') {
                                         if (!ctxState.extractable) {
@@ -792,7 +859,12 @@
                                         }
                                         if (fmExtractFrom && fmExtractForm) {
                                             fmExtractFrom.value = rel;
-                                            fmExtractForm.submit();
+                                            submitActionForm(fmExtractForm, {
+                                                onSuccess: function (data) {
+                                                    if (data && data.message) window.alert(data.message);
+                                                    window.location.reload();
+                                                }
+                                            });
                                         }
                                     } else if (action === 'delete') {
                                         if (!fmDelForm || !window.confirm('Delete selected item(s)? This cannot be undone.')) {
@@ -803,12 +875,11 @@
                                         });
                                         var targets = selected.length > 0 ? selected : [rel];
                                         fmDelForm.querySelectorAll('input[name="items_json"], input[name="items[]"]').forEach(function (n) { n.remove(); });
-                                        var j = document.createElement('input');
-                                        j.type = 'hidden';
-                                        j.name = 'items_json';
-                                        j.value = JSON.stringify(targets);
-                                        fmDelForm.appendChild(j);
-                                        fmDelForm.submit();
+                                        var fd = new FormData(fmDelForm);
+                                        fd.set('items_json', JSON.stringify(targets));
+                                        submitActionForm(fmDelForm, {
+                                            formData: fd
+                                        });
                                     }
                                 });
                             });
@@ -990,15 +1061,13 @@
                             if (!dest) {
                                 return;
                             }
-                            moveForm.querySelectorAll('input.fm-move-sync, input[name="items_json"]').forEach(function (n) { n.remove(); });
-                            dest.value = destination;
-                            var h = document.createElement('input');
-                            h.type = 'hidden';
-                            h.name = 'items_json';
-                            h.value = JSON.stringify(items);
-                            h.className = 'fm-move-sync';
-                            moveForm.appendChild(h);
-                            moveForm.submit();
+                            var fd = new FormData(moveForm);
+                            fd.set('destination', destination);
+                            fd.set('items_json', JSON.stringify(items));
+                            fd.delete('items[]');
+                            submitActionForm(moveForm, {
+                                formData: fd
+                            });
                         }
                         document.querySelectorAll('.file-row--item').forEach(function (row) {
                             row.setAttribute('draggable', 'true');

@@ -33,43 +33,43 @@ class FileManagerController extends Controller
         ]);
     }
 
-    public function mkdir(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function mkdir(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
             'name' => 'required|string|max:255',
         ]);
 
+        $path = (string) ($validated['path'] ?? '');
+
         try {
-            $fs->createDirectory($hosting, (string) ($validated['path'] ?? ''), trim($validated['name']));
+            $fs->createDirectory($hosting, $path, trim($validated['name']));
         } catch (Throwable $e) {
-            return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
-            ->with('success', 'Folder created.');
+        return $this->actionSuccess($request, $hosting, $path, 'Folder created.');
     }
 
-    public function touch(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function touch(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
             'name' => 'required|string|max:255',
         ]);
 
+        $path = (string) ($validated['path'] ?? '');
+
         try {
-            $fs->createFile($hosting, (string) ($validated['path'] ?? ''), trim($validated['name']));
+            $fs->createFile($hosting, $path, trim($validated['name']));
         } catch (Throwable $e) {
-            return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
-            ->with('success', 'File created.');
+        return $this->actionSuccess($request, $hosting, $path, 'File created.');
     }
 
-    public function destroy(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function destroy(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -83,27 +83,23 @@ class FileManagerController extends Controller
         try {
             $items = $this->resolveBulkItemPaths($request);
         } catch (InvalidArgumentException $e) {
-            return $this->redirectBack($hosting, $path)
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
         if ($items === []) {
-            return $this->redirectBack($hosting, $path)
-                ->withErrors(['action' => 'Select at least one item.']);
+            return $this->actionError($request, $hosting, $path, 'Select at least one item.');
         }
 
         try {
             $fs->deleteItems($hosting, $items);
         } catch (Throwable $e) {
-            return $this->redirectBack($hosting, $path)
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->redirectBack($hosting, $path)
-            ->with('success', 'Deleted selected items.');
+        return $this->actionSuccess($request, $hosting, $path, 'Deleted selected items.');
     }
 
-    public function move(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function move(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -118,24 +114,20 @@ class FileManagerController extends Controller
         try {
             $items = $this->resolveBulkItemPaths($request);
         } catch (InvalidArgumentException $e) {
-            return $this->redirectBack($hosting, $path)
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
         if ($items === []) {
-            return $this->redirectBack($hosting, $path)
-                ->withErrors(['action' => 'Select at least one item.']);
+            return $this->actionError($request, $hosting, $path, 'Select at least one item.');
         }
 
         try {
             $fs->moveItems($hosting, $items, trim($validated['destination']));
         } catch (Throwable $e) {
-            return $this->redirectBack($hosting, $path)
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->redirectBack($hosting, $path)
-            ->with('success', 'Moved selected items.');
+        return $this->actionSuccess($request, $hosting, $path, 'Moved selected items.');
     }
 
     public function upload(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
@@ -269,27 +261,25 @@ class FileManagerController extends Controller
             ->with('success', 'File saved.');
     }
 
-    public function duplicate(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse
+    public function duplicate(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
             'path' => 'nullable|string|max:4096',
         ]);
 
+        $path = (string) ($validated['path'] ?? '');
+
         try {
             $fs->duplicateFile($hosting, $validated['from']);
         } catch (Throwable $e) {
-            return redirect()
-                ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
-                ->withErrors(['action' => $e->getMessage()]);
+            return $this->actionError($request, $hosting, $path, $e->getMessage());
         }
 
-        return redirect()
-            ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
-            ->with('success', 'File copied.');
+        return $this->actionSuccess($request, $hosting, $path, 'File copied.');
     }
 
-    public function compress(Request $request, Hosting $hosting): RedirectResponse
+    public function compress(Request $request, Hosting $hosting): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
@@ -304,13 +294,24 @@ class FileManagerController extends Controller
 
         CompressItemJob::dispatch($hosting->id, $validated['from'], $token);
 
+        $path = (string) ($validated['path'] ?? '');
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Compress queued.',
+                'queue_token' => $token,
+                'queue_status_url' => route('hosts.files.queue-status', $hosting),
+                'reload_url' => route('hosts.files.index', $this->listingParams($hosting, $path)),
+            ]);
+        }
+
         return redirect()
-            ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
+            ->route('hosts.files.index', $this->listingParams($hosting, $path))
             ->with('success', 'Compress queued.')
             ->with('fm_queue_token', $token);
     }
 
-    public function extract(Request $request, Hosting $hosting): RedirectResponse
+    public function extract(Request $request, Hosting $hosting): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
@@ -325,8 +326,19 @@ class FileManagerController extends Controller
 
         ExtractArchiveJob::dispatch($hosting->id, $validated['from'], $token);
 
+        $path = (string) ($validated['path'] ?? '');
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Extract queued.',
+                'queue_token' => $token,
+                'queue_status_url' => route('hosts.files.queue-status', $hosting),
+                'reload_url' => route('hosts.files.index', $this->listingParams($hosting, $path)),
+            ]);
+        }
+
         return redirect()
-            ->route('hosts.files.index', $this->listingParams($hosting, (string) ($validated['path'] ?? '')))
+            ->route('hosts.files.index', $this->listingParams($hosting, $path))
             ->with('success', 'Extract queued.')
             ->with('fm_queue_token', $token);
     }
@@ -390,6 +402,31 @@ class FileManagerController extends Controller
     private function redirectBack(Hosting $hosting, string $path): RedirectResponse
     {
         return redirect()->route('hosts.files.index', $this->listingParams($hosting, $path));
+    }
+
+    private function actionSuccess(Request $request, Hosting $hosting, string $path, string $message): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'reload_url' => route('hosts.files.index', $this->listingParams($hosting, $path)),
+            ]);
+        }
+
+        return $this->redirectBack($hosting, $path)->with('success', $message);
+    }
+
+    private function actionError(Request $request, Hosting $hosting, string $path, string $message): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => false,
+                'message' => $message,
+            ], 422);
+        }
+
+        return $this->redirectBack($hosting, $path)->withErrors(['action' => $message]);
     }
 
     /**
