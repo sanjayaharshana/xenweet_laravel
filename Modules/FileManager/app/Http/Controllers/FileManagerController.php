@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use InvalidArgumentException;
+use JsonException;
 use Modules\FileManager\Jobs\CompressItemJob;
 use Modules\FileManager\Jobs\ExtractArchiveJob;
 use Modules\FileManager\Services\HostFilesystemService;
@@ -71,18 +73,33 @@ class FileManagerController extends Controller
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
-            'items' => 'required|array|min:1',
-            'items.*' => 'required|string|max:4096',
+            'items_json' => 'nullable|string|max:1048576',
+            'items' => 'nullable|array',
+            'items.*' => 'nullable|string|max:4096',
         ]);
 
+        $path = (string) ($validated['path'] ?? '');
+
         try {
-            $fs->deleteItems($hosting, $validated['items']);
-        } catch (Throwable $e) {
-            return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+            $items = $this->resolveBulkItemPaths($request);
+        } catch (InvalidArgumentException $e) {
+            return $this->redirectBack($hosting, $path)
                 ->withErrors(['action' => $e->getMessage()]);
         }
 
-        return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+        if ($items === []) {
+            return $this->redirectBack($hosting, $path)
+                ->withErrors(['action' => 'Select at least one item.']);
+        }
+
+        try {
+            $fs->deleteItems($hosting, $items);
+        } catch (Throwable $e) {
+            return $this->redirectBack($hosting, $path)
+                ->withErrors(['action' => $e->getMessage()]);
+        }
+
+        return $this->redirectBack($hosting, $path)
             ->with('success', 'Deleted selected items.');
     }
 
@@ -90,19 +107,34 @@ class FileManagerController extends Controller
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
-            'items' => 'required|array|min:1',
-            'items.*' => 'required|string|max:4096',
+            'items_json' => 'nullable|string|max:1048576',
+            'items' => 'nullable|array',
+            'items.*' => 'nullable|string|max:4096',
             'destination' => 'required|string|max:4096',
         ]);
 
+        $path = (string) ($validated['path'] ?? '');
+
         try {
-            $fs->moveItems($hosting, $validated['items'], trim($validated['destination']));
-        } catch (Throwable $e) {
-            return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+            $items = $this->resolveBulkItemPaths($request);
+        } catch (InvalidArgumentException $e) {
+            return $this->redirectBack($hosting, $path)
                 ->withErrors(['action' => $e->getMessage()]);
         }
 
-        return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+        if ($items === []) {
+            return $this->redirectBack($hosting, $path)
+                ->withErrors(['action' => 'Select at least one item.']);
+        }
+
+        try {
+            $fs->moveItems($hosting, $items, trim($validated['destination']));
+        } catch (Throwable $e) {
+            return $this->redirectBack($hosting, $path)
+                ->withErrors(['action' => $e->getMessage()]);
+        }
+
+        return $this->redirectBack($hosting, $path)
             ->with('success', 'Moved selected items.');
     }
 
@@ -381,5 +413,65 @@ class FileManagerController extends Controller
         }
 
         return dirname($p);
+    }
+
+    private const BULK_PATHS_MAX = 5000;
+
+    /**
+     * Paths from a single `items_json` (preferred) or legacy `items` array, avoiding many POST vars
+     * that are truncated by PHP’s max_input_vars.
+     *
+     * @return array<int, string>
+     */
+    private function resolveBulkItemPaths(Request $request): array
+    {
+        $rawJson = $request->input('items_json');
+        if (is_string($rawJson) && $rawJson !== '') {
+            try {
+                $decoded = json_decode($rawJson, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                throw new InvalidArgumentException('Invalid item list (JSON).');
+            }
+            if (! is_array($decoded)) {
+                throw new InvalidArgumentException('Invalid item list format.');
+            }
+            if (count($decoded) > self::BULK_PATHS_MAX) {
+                throw new InvalidArgumentException('Too many items selected (max '.self::BULK_PATHS_MAX.').');
+            }
+            $out = [];
+            foreach ($decoded as $one) {
+                if (! is_string($one) && ! is_int($one) && ! is_float($one)) {
+                    continue;
+                }
+                $p = trim((string) $one);
+                if ($p === '' || strlen($p) > 4096) {
+                    throw new InvalidArgumentException('Each path must be 1 to 4,096 characters.');
+                }
+                $out[] = $p;
+            }
+
+            return $out;
+        }
+
+        $items = $request->input('items', []);
+        if (! is_array($items) || $items === []) {
+            return [];
+        }
+        if (count($items) > self::BULK_PATHS_MAX) {
+            throw new InvalidArgumentException('Too many items selected (max '.self::BULK_PATHS_MAX.').');
+        }
+        $out = [];
+        foreach ($items as $one) {
+            if (! is_string($one) && ! is_int($one) && ! is_float($one)) {
+                continue;
+            }
+            $p = trim((string) $one);
+            if ($p === '' || strlen($p) > 4096) {
+                throw new InvalidArgumentException('Each path must be 1 to 4,096 characters.');
+            }
+            $out[] = $p;
+        }
+
+        return $out;
     }
 }

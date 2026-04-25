@@ -220,7 +220,6 @@
             <form id="fm-form-context-delete" method="post" action="{{ route('hosts.files.destroy', $hosting) }}" hidden aria-hidden="true">
                 @csrf
                 <input type="hidden" name="path" value="{{ $listing['relativePath'] }}">
-                <input type="hidden" name="items[]" id="fm-context-delete-item" value="">
             </form>
 
             <form id="fm-form-context-compress" method="post" action="{{ route('hosts.files.compress', $hosting) }}" hidden aria-hidden="true">
@@ -297,25 +296,61 @@
                                     window.alert('Enter a destination folder.');
                                     return;
                                 }
-                                // Drag-reorder path: items[] were just appended in submitDragMove; do not remove them
-                                if (moveForm.getAttribute('data-drag-submit') === '1') {
-                                    moveForm.removeAttribute('data-drag-submit');
+                                e.preventDefault();
+                                moveForm.querySelectorAll('input.fm-move-sync, input[name="items_json"]').forEach(function (n) { n.remove(); });
+                                var paths = [];
+                                document.querySelectorAll('.file-row--item').forEach(function (row) {
+                                    var cb = row.querySelector('input[type="checkbox"][name="items[]"]');
+                                    if (cb && cb.checked) {
+                                        var rel = row.getAttribute('data-item-relative');
+                                        if (rel) {
+                                            paths.push(rel);
+                                        }
+                                    }
+                                });
+                                if (paths.length === 0) {
+                                    window.alert('Select one or more items, or use drag and drop to move them.');
                                     return;
                                 }
-                                moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
-                                document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').forEach(function (cb) {
-                                    var hidden = document.createElement('input');
-                                    hidden.type = 'hidden';
-                                    hidden.name = 'items[]';
-                                    hidden.value = cb.value;
-                                    hidden.className = 'fm-move-sync';
-                                    moveForm.appendChild(hidden);
+                                var h = document.createElement('input');
+                                h.type = 'hidden';
+                                h.name = 'items_json';
+                                h.value = JSON.stringify(paths);
+                                h.className = 'fm-move-sync';
+                                moveForm.appendChild(h);
+                                moveForm.submit();
+                            });
+                        }
+
+                        var bulkForm = document.getElementById('file-manager-bulk');
+                        if (bulkForm) {
+                            bulkForm.addEventListener('submit', function (e) {
+                                e.preventDefault();
+                                var paths = [];
+                                document.querySelectorAll('.file-row--item').forEach(function (row) {
+                                    var cb = row.querySelector('input[type="checkbox"][name="items[]"]');
+                                    if (cb && cb.checked) {
+                                        var rel = row.getAttribute('data-item-relative');
+                                        if (rel) {
+                                            paths.push(rel);
+                                        }
+                                    }
                                 });
-                                var nItems = moveForm.querySelectorAll('input.fm-move-sync[name="items[]"]').length;
-                                if (nItems === 0) {
-                                    e.preventDefault();
-                                    window.alert('Select one or more items, or use drag and drop to move them.');
+                                if (paths.length === 0) {
+                                    window.alert('No items selected.');
+                                    return;
                                 }
+                                document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]').forEach(function (cb) {
+                                    cb.removeAttribute('name');
+                                });
+                                bulkForm.querySelectorAll('input[name="items_json"].fm-bulk-payload').forEach(function (n) { n.remove(); });
+                                var p = document.createElement('input');
+                                p.type = 'hidden';
+                                p.name = 'items_json';
+                                p.value = JSON.stringify(paths);
+                                p.className = 'fm-bulk-payload';
+                                bulkForm.appendChild(p);
+                                HTMLFormElement.prototype.submit.call(bulkForm);
                             });
                         }
 
@@ -769,24 +804,12 @@
                                             return cb.value;
                                         });
                                         var targets = selected.length > 0 ? selected : [rel];
-                                        fmDelForm.querySelectorAll('input[name="items[]"]').forEach(function (n, idx) {
-                                            if (idx > 0) n.remove();
-                                        });
-                                        var first = fmDelForm.querySelector('input[name="items[]"]');
-                                        if (!first) {
-                                            first = document.createElement('input');
-                                            first.type = 'hidden';
-                                            first.name = 'items[]';
-                                            fmDelForm.appendChild(first);
-                                        }
-                                        first.value = targets[0] || '';
-                                        for (var i = 1; i < targets.length; i++) {
-                                            var n = document.createElement('input');
-                                            n.type = 'hidden';
-                                            n.name = 'items[]';
-                                            n.value = targets[i];
-                                            fmDelForm.appendChild(n);
-                                        }
+                                        fmDelForm.querySelectorAll('input[name="items_json"], input[name="items[]"]').forEach(function (n) { n.remove(); });
+                                        var j = document.createElement('input');
+                                        j.type = 'hidden';
+                                        j.name = 'items_json';
+                                        j.value = JSON.stringify(targets);
+                                        fmDelForm.appendChild(j);
                                         fmDelForm.submit();
                                     }
                                 });
@@ -969,17 +992,14 @@
                             if (!dest) {
                                 return;
                             }
-                            moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
+                            moveForm.querySelectorAll('input.fm-move-sync, input[name="items_json"]').forEach(function (n) { n.remove(); });
                             dest.value = destination;
-                            items.forEach(function (rel) {
-                                var hidden = document.createElement('input');
-                                hidden.type = 'hidden';
-                                hidden.name = 'items[]';
-                                hidden.value = rel;
-                                hidden.className = 'fm-move-sync';
-                                moveForm.appendChild(hidden);
-                            });
-                            moveForm.setAttribute('data-drag-submit', '1');
+                            var h = document.createElement('input');
+                            h.type = 'hidden';
+                            h.name = 'items_json';
+                            h.value = JSON.stringify(items);
+                            h.className = 'fm-move-sync';
+                            moveForm.appendChild(h);
                             moveForm.submit();
                         }
                         document.querySelectorAll('.file-row--item').forEach(function (row) {
