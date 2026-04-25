@@ -5,4 +5,7 @@ use Modules\Domains\Http\Controllers\DomainsController;
 
 Route::middleware(['host.access'])->group(function () {
     Route::get('/hosts/{hosting}/domains', [DomainsController::class, 'index'])->name('hosts.domains.index');
+    Route::post('/hosts/{hosting}/domains', [DomainsController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.domains.store');
 });

@@ -4,6 +4,16 @@
 
 @section('content')
 <div class="host-panel-scope managedb-scope">
+    @if (session('success'))
+        <div class="server-card" style="border-left:4px solid var(--success-border, #16a34a); margin-bottom:1rem;">
+            <p class="subtle" style="margin:0; color: inherit;">{{ session('success') }}</p>
+        </div>
+    @endif
+    @if (session('error'))
+        <div class="server-card" style="border-left:4px solid var(--danger-border, #dc2626); margin-bottom:1rem;">
+            <p class="subtle" style="margin:0; color: inherit;">{{ session('error') }}</p>
+        </div>
+    @endif
     <header class="topbar">
         <div>
             <p class="eyebrow">Domains</p>
@@ -25,15 +35,37 @@
     </nav>
 
     <section class="server-card">
-        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Primary Domain</h2>
+        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Primary domain</h2>
         <div class="meta meta--sidebar">
             <div><span>Domain</span><strong>{{ $hosting->domain }}</strong></div>
             <div><span>Hostname</span><strong>{{ $hosting->siteHost() }}</strong></div>
             <div><span>Public URL</span><strong>{{ $hosting->publicSiteUrl() }}</strong></div>
         </div>
         <p class="subtle" style="margin-top:0.75rem; margin-bottom:0;">
-            Domain integrations are ready in this module. You can now wire each tab to route-specific tools.
+            Add extra domains for this account below. They are stored in the <code>host_domains</code> table.
         </p>
+    </section>
+
+    <section class="server-card" style="margin-top:1rem;">
+        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Additional domains</h2>
+        @if (isset($hostDomains) && $hostDomains->isNotEmpty())
+            <div class="file-manager-main__sticky-head" style="margin:0.5rem 0; border-radius:8px;">
+                <div class="file-row file-row-head" style="grid-template-columns: 1.2fr 0.5fr 0.5fr;">
+                    <span>Domain</span>
+                    <span>Type</span>
+                    <span>Shared root</span>
+                </div>
+            </div>
+            @foreach ($hostDomains as $row)
+                <div class="file-row" style="grid-template-columns: 1.2fr 0.5fr 0.5fr;">
+                    <span><strong>{{ $row->domain }}</strong></span>
+                    <span class="subtle">{{ $row->type === 'registered' ? 'Registered' : 'Temporary' }}</span>
+                    <span class="subtle">{{ $row->share_document_root ? 'Yes' : 'No' }}</span>
+                </div>
+            @endforeach
+        @else
+            <p class="subtle" style="margin:0;">No additional domains yet. Use <strong>Add Domain</strong> to create one.</p>
+        @endif
     </section>
 
     <section class="server-card" style="margin-top:1rem;">
@@ -61,7 +93,10 @@
     </section>
 </div>
 
-<div id="add-domain-modal" class="domains-modal" hidden>
+@php
+    $openAddDomainModal = $errors->any() && old('_context') === 'add_domain';
+@endphp
+<div id="add-domain-modal" class="domains-modal" @if (! $openAddDomainModal) hidden @endif>
     <div class="domains-modal__backdrop" data-close-add-domain-modal></div>
     <div class="domains-modal__panel" role="dialog" aria-modal="true" aria-labelledby="add-domain-modal-title">
         <div class="domains-modal__head">
@@ -75,19 +110,21 @@
             <button type="button" class="btn-secondary compact" data-close-add-domain-modal>Close</button>
         </div>
 
-        <form class="domains-modal__body" id="add-domain-form">
+        <form class="domains-modal__body" id="add-domain-form" method="post" action="{{ route('hosts.domains.store', $hosting) }}">
+            @csrf
+            <input type="hidden" name="_context" value="add_domain">
             <div class="domains-modal__field">
                 <p class="domains-modal__label">Select the type of domain to create</p>
                 <div class="domains-type-grid">
                     <label class="domains-type-card">
-                        <input type="radio" name="domain_type" value="temporary" checked>
+                        <input type="radio" name="domain_type" value="temporary" @checked(old('domain_type', 'temporary') === 'temporary')>
                         <span class="domains-type-card__content">
                             <strong>Temporary Domain</strong>
                             <small>Quick setup with generated domain</small>
                         </span>
                     </label>
                     <label class="domains-type-card">
-                        <input type="radio" name="domain_type" value="registered">
+                        <input type="radio" name="domain_type" value="registered" @checked(old('domain_type') === 'registered')>
                         <span class="domains-type-card__content">
                             <strong>Registered Domain</strong>
                             <small>Use your own purchased domain</small>
@@ -108,16 +145,20 @@
                         class="domains-input"
                         name="domain_name"
                         type="text"
+                        value="{{ old('domain_name') }}"
                         inputmode="url"
                         autocomplete="off"
                         placeholder="www.example.com"
                     >
                 </div>
+                @error('domain_name')
+                    <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.45rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="domains-modal__field domains-modal__field--checkbox">
                 <label class="checkbox-row" style="margin: 0;">
-                    <input type="checkbox" id="share_document_root" name="share_document_root" value="1">
+                    <input type="checkbox" id="share_document_root" name="share_document_root" value="1" @checked(old('share_document_root'))>
                     <span>Share document root</span>
                 </label>
                 <p class="subtle" style="margin:0;">Keep this domain on the same web root path as the primary host.</p>
@@ -445,12 +486,6 @@
             }
         });
 
-        if (form) {
-            form.addEventListener('submit', function (event) {
-                event.preventDefault();
-                closeModal();
-            });
-        }
     })();
 </script>
 @endsection
