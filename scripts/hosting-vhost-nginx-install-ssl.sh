@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
 # Configure an nginx site for HTTPS and reload nginx.
-# Usage: hosting-vhost-nginx-install-ssl.sh <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]
+# Usage: hosting-vhost-nginx-install-ssl.sh <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket] [extra_server_names]
 #
 # 5th arg: PHP-FPM unix socket (required when invoked via "sudo" helpers — env PHP_FPM_SOCKET is not forwarded).
+# 6th arg: extra server_name values (space-separated; optional). sudo helpers do not forward
+#   NGINX_EXTRA_SERVER_NAMES, so the panel should pass 6th argv. Env NGINX_EXTRA_SERVER_NAMES is
+#   used if 6th is empty.
 # Optional env: PHP_FPM_SOCKET (used when 5th arg is omitted; default php8.3)
 #
 # Requires sudo -n permissions for cp/nginx/systemctl when not running as root.
@@ -15,6 +18,11 @@ WEB_ROOT="${2:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path>
 KEY_PATH="${3:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]}"
 FULLCHAIN_PATH="${4:?Usage: $0 <domain> <web_root> <key_pem_path> <fullchain_pem_path> [php_fpm_socket]}"
 PHP_SOCK="${5:-${PHP_FPM_SOCKET:-/var/run/php/php8.3-fpm.sock}}"
+EXTRA_NAMES="${6:-${NGINX_EXTRA_SERVER_NAMES:-}}"
+SERVER_NAMES="$DOMAIN"
+if [[ -n "$EXTRA_NAMES" ]]; then
+  SERVER_NAMES="$DOMAIN $EXTRA_NAMES"
+fi
 
 SAFE_NAME="${DOMAIN//[^a-zA-Z0-9._-]/_}"
 DEST="/etc/nginx/sites-available/${SAFE_NAME}.conf"
@@ -35,7 +43,7 @@ cat > "$TMP_CONF" <<EOF
 server {
     listen 80;
     listen [::]:80;
-    server_name ${DOMAIN};
+    server_name ${SERVER_NAMES};
 
     # Let's Encrypt HTTP-01 (certbot) — must stay on plain HTTP
     location ^~ /.well-known/acme-challenge/ {
@@ -51,7 +59,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ${DOMAIN};
+    server_name ${SERVER_NAMES};
 
     root ${WEB_ROOT};
     index index.php index.html index.htm;

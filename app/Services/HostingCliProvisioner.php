@@ -159,13 +159,19 @@ class HostingCliProvisioner
         $outputDir = storage_path('app/hosting-vhosts');
         File::ensureDirectoryExists($outputDir);
 
+        $vhostEnv = [
+            'HOSTING_VHOST_OUTPUT_DIR' => $outputDir,
+            'PHP_FPM_SOCKET' => $hosting->webPhpFpmSocketPath(),
+        ];
+        $extraNames = HostingWebAliasDomains::nginxExtraServerNamesString($hosting);
+        if ($extraNames !== '') {
+            $vhostEnv['NGINX_EXTRA_SERVER_NAMES'] = $extraNames;
+        }
+
         $process = new Process(
             ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path],
             base_path(),
-            [
-                'HOSTING_VHOST_OUTPUT_DIR' => $outputDir,
-                'PHP_FPM_SOCKET' => $hosting->webPhpFpmSocketPath(),
-            ],
+            $vhostEnv,
             null,
             (float) config('hosting_provision.timeout', 120)
         );

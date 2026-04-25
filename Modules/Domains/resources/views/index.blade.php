@@ -40,6 +40,7 @@
             <div><span>Domain</span><strong>{{ $hosting->domain }}</strong></div>
             <div><span>Hostname</span><strong>{{ $hosting->siteHost() }}</strong></div>
             <div><span>Public URL</span><strong>{{ $hosting->publicSiteUrl() }}</strong></div>
+            <div><span>Document Root</span><strong>{{ $hosting->web_root_path }}</strong></div>
         </div>
         <p class="subtle" style="margin-top:0.75rem; margin-bottom:0;">
             Add extra domains for this account below. They are stored in the <code>host_domains</code> table.
@@ -50,17 +51,19 @@
         <h2 class="host-sidebar-meta-title" style="margin-top:0;">Additional domains</h2>
         @if (isset($hostDomains) && $hostDomains->isNotEmpty())
             <div class="file-manager-main__sticky-head" style="margin:0.5rem 0; border-radius:8px;">
-                <div class="file-row file-row-head" style="grid-template-columns: 1.2fr 0.5fr 0.5fr;">
+                <div class="file-row file-row-head" style="grid-template-columns: 1.2fr 0.5fr 0.5fr 1.2fr;">
                     <span>Domain</span>
                     <span>Type</span>
-                    <span>Shared root</span>
+                    <span>Root mode</span>
+                    <span>Document root path</span>
                 </div>
             </div>
             @foreach ($hostDomains as $row)
-                <div class="file-row" style="grid-template-columns: 1.2fr 0.5fr 0.5fr;">
+                <div class="file-row" style="grid-template-columns: 1.2fr 0.5fr 0.5fr 1.2fr;">
                     <span><strong>{{ $row->domain }}</strong></span>
                     <span class="subtle">{{ $row->type === 'registered' ? 'Registered' : 'Temporary' }}</span>
-                    <span class="subtle">{{ $row->share_document_root ? 'Yes' : 'No' }}</span>
+                    <span class="subtle">{{ $row->share_document_root ? 'Shared' : 'Custom' }}</span>
+                    <span class="subtle">{{ $row->share_document_root ? $hosting->web_root_path : ($row->document_root ?: '-') }}</span>
                 </div>
             @endforeach
         @else
@@ -156,12 +159,47 @@
                 @enderror
             </div>
 
-            <div class="domains-modal__field domains-modal__field--checkbox">
-                <label class="checkbox-row" style="margin: 0;">
-                    <input type="checkbox" id="share_document_root" name="share_document_root" value="1" @checked(old('share_document_root'))>
-                    <span>Share document root</span>
-                </label>
-                <p class="subtle" style="margin:0;">Keep this domain on the same web root path as the primary host.</p>
+            <div class="domains-modal__field">
+                <p class="domains-modal__label">Document root mode</p>
+                <div class="domains-type-grid">
+                    <label class="domains-type-card">
+                        <input type="radio" name="root_mode" value="shared" @checked(old('root_mode', 'shared') === 'shared')>
+                        <span class="domains-type-card__content">
+                            <strong>Shared Root</strong>
+                            <small>Use the same root path as the primary host</small>
+                        </span>
+                    </label>
+                    <label class="domains-type-card">
+                        <input type="radio" name="root_mode" value="custom" @checked(old('root_mode') === 'custom')>
+                        <span class="domains-type-card__content">
+                            <strong>Custom Root</strong>
+                            <small>Use your own absolute path for this domain</small>
+                        </span>
+                    </label>
+                </div>
+                <p class="subtle" style="margin:0.5rem 0 0;">Primary root path: <code>{{ $hosting->web_root_path }}</code></p>
+            </div>
+
+            <div id="custom-root-wrap" class="domains-modal__field domains-modal__field--domain" hidden>
+                <div class="domains-input-header">
+                    <label for="document_root" class="domains-modal__label">Custom root path</label>
+                    <span class="domains-input-hint">Absolute server path starting with <code>/</code></span>
+                </div>
+                <div class="domains-input-group">
+                    <span class="domains-input-group__prefix" aria-hidden="true"><i class="fa fa-folder-open"></i></span>
+                    <input
+                        id="document_root"
+                        class="domains-input"
+                        name="document_root"
+                        type="text"
+                        value="{{ old('document_root') }}"
+                        autocomplete="off"
+                        placeholder="{{ $hosting->web_root_path }}"
+                    >
+                </div>
+                @error('document_root')
+                    <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.45rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="domains-modal__actions">
@@ -437,8 +475,11 @@
         var modal = document.getElementById('add-domain-modal');
         var closeBtns = document.querySelectorAll('[data-close-add-domain-modal]');
         var typeInputs = document.querySelectorAll('input[name="domain_type"]');
+        var rootModeInputs = document.querySelectorAll('input[name="root_mode"]');
         var registeredWrap = document.getElementById('registered-domain-wrap');
         var domainInput = document.getElementById('domain_name');
+        var customRootWrap = document.getElementById('custom-root-wrap');
+        var customRootInput = document.getElementById('document_root');
         var form = document.getElementById('add-domain-form');
 
         function selectedType() {
@@ -456,10 +497,26 @@
             }
         }
 
+        function selectedRootMode() {
+            var checked = document.querySelector('input[name="root_mode"]:checked');
+            return checked ? checked.value : 'shared';
+        }
+
+        function syncRootUi() {
+            var isCustom = selectedRootMode() === 'custom';
+            if (customRootWrap) {
+                customRootWrap.hidden = !isCustom;
+            }
+            if (customRootInput) {
+                customRootInput.required = !!isCustom;
+            }
+        }
+
         function openModal() {
             if (!modal) return;
             modal.hidden = false;
             syncTypeUi();
+            syncRootUi();
         }
 
         function closeModal() {
@@ -478,7 +535,11 @@
         typeInputs.forEach(function (input) {
             input.addEventListener('change', syncTypeUi);
         });
+        rootModeInputs.forEach(function (input) {
+            input.addEventListener('change', syncRootUi);
+        });
         syncTypeUi();
+        syncRootUi();
 
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && modal && !modal.hidden) {

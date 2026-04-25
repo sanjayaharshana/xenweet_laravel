@@ -193,13 +193,15 @@ class SslTlsNginxPemService
         $timeout = (float) config('ssltls.nginx_ssl_install_timeout', 90);
 
         $phpSock = $hosting->webPhpFpmSocketPath();
+        $extraNames = \App\Services\HostingWebAliasDomains::nginxExtraServerNamesString($hosting);
 
         $command = null;
         if ($systemBin !== '' && is_executable($systemBin)) {
             // Pass socket as 5th argv: `sudo` resets the environment, so PHP_FPM_SOCKET would be lost to the root helper.
-            $command = ['sudo', '-n', $systemBin, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath, $phpSock];
+            // 6th argv: extra server_name values (same reason — sudo does not forward NGINX_EXTRA_SERVER_NAMES).
+            $command = ['sudo', '-n', $systemBin, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath, $phpSock, $extraNames];
         } elseif ($script !== '' && is_file($script)) {
-            $command = ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath, $phpSock];
+            $command = ['bash', $script, $hosting->siteHost(), (string) $hosting->web_root_path, $keyPath, $fullchainPath, $phpSock, $extraNames];
         }
 
         if ($command === null) {
@@ -208,10 +210,15 @@ class SslTlsNginxPemService
             );
         }
 
-        $process = new Process($command, base_path(), [
+        $sslEnv = [
             'SSL_DIR' => $sslDir,
             'PHP_FPM_SOCKET' => $phpSock,
-        ], null, $timeout);
+        ];
+        if ($extraNames !== '') {
+            $sslEnv['NGINX_EXTRA_SERVER_NAMES'] = $extraNames;
+        }
+
+        $process = new Process($command, base_path(), $sslEnv, null, $timeout);
         $process->run();
         $out = trim($process->getOutput()."\n".$process->getErrorOutput());
 

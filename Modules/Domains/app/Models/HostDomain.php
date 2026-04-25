@@ -13,6 +13,7 @@ class HostDomain extends Model
         'type',
         'domain',
         'share_document_root',
+        'document_root',
     ];
 
     protected function casts(): array

@@ -4,6 +4,7 @@ namespace Modules\Domains\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hosting;
+use App\Services\HostingCliProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,10 @@ use Modules\Domains\Models\HostDomain;
 
 class DomainsController extends Controller
 {
+    public function __construct(
+        private readonly HostingCliProvisioner $provisioner
+    ) {}
+
     public function index(Hosting $hosting): View
     {
         $hostDomains = collect();
@@ -37,16 +42,35 @@ class DomainsController extends Controller
                 ->route('hosts.domains.index', $hosting)
                 ->with('error', 'Database is not ready. Run migrations: php artisan migrate');
         }
+        $hasDocumentRootColumn = Schema::hasColumn('host_domains', 'document_root');
 
         $validated = $request->validate([
             'domain_type' => ['required', 'string', Rule::in(['temporary', 'registered'])],
             'domain_name' => ['required_if:domain_type,registered', 'nullable', 'string', 'max:255'],
-            'share_document_root' => ['nullable', 'boolean'],
+            'root_mode' => ['nullable', 'string', Rule::in(['shared', 'custom'])],
+            'document_root' => ['nullable', 'string', 'max:2048'],
             '_context' => ['nullable', 'string', 'in:add_domain'],
         ]);
 
         $type = $validated['domain_type'];
-        $share = $request->boolean('share_document_root');
+        $rootMode = (string) ($validated['root_mode'] ?? 'shared');
+        $documentRoot = trim((string) ($validated['document_root'] ?? ''));
+        if ($rootMode !== 'custom') {
+            $documentRoot = '';
+        }
+        if ($rootMode === 'custom' && $documentRoot === '') {
+            return redirect()
+                ->route('hosts.domains.index', $hosting)
+                ->withErrors(['document_root' => 'Please enter a custom root path.'])
+                ->withInput();
+        }
+        if ($rootMode === 'custom' && ! str_starts_with($documentRoot, '/')) {
+            return redirect()
+                ->route('hosts.domains.index', $hosting)
+                ->withErrors(['document_root' => 'Root path must start with "/" (absolute path).'])
+                ->withInput();
+        }
+        $share = $rootMode !== 'custom';
 
         if ($type === 'registered') {
             $name = Hosting::normalizeDomainName((string) ($validated['domain_name'] ?? ''));
@@ -76,16 +100,32 @@ class DomainsController extends Controller
                 ->withInput();
         }
 
-        HostDomain::query()->create([
+        $payload = [
             'hosting_id' => $hosting->id,
             'type' => $type,
             'domain' => $name,
             'share_document_root' => $share,
-        ]);
+        ];
+        if ($hasDocumentRootColumn) {
+            $payload['document_root'] = $share ? null : $documentRoot;
+        }
+
+        HostDomain::query()->create($payload);
+
+        $vhost = $this->provisioner->reapplyWebVhost($hosting->refresh());
+
+        if (! $vhost['success']) {
+            return redirect()
+                ->route('hosts.domains.index', $hosting)
+                ->with('success', 'Domain saved: '.$name)
+                ->with('error', 'Nginx was not updated so the new hostname may not be served yet: '.$vhost['message']);
+        }
+
+        $msg = 'Domain added: '.$name.'. '.trim((string) ($vhost['message'] ?? ''), '.');
 
         return redirect()
             ->route('hosts.domains.index', $hosting)
-            ->with('success', 'Domain added: '.$name);
+            ->with('success', $msg);
     }
 
     private function generateTemporaryDomain(Hosting $hosting): string
