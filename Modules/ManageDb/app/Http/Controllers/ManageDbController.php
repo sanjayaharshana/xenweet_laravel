@@ -7,10 +7,10 @@ use App\Models\Hosting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use Modules\ManageDb\Models\HostingMysqlUserSecret;
 use Modules\ManageDb\Services\ManageDbService;
+use Modules\ManageSetting\Support\Settings;
 use Throwable;
 
 class ManageDbController extends Controller
@@ -184,7 +184,7 @@ class ManageDbController extends Controller
             $edges = is_array($decoded['edges'] ?? null) ? $decoded['edges'] : [];
 
             $result = $db->applyAccessGraph($hosting, $nodes, $edges);
-            $parts = ["Access graph applied successfully."];
+            $parts = ['Access graph applied successfully.'];
             $parts[] = "Total users in graph: {$result['users']}";
             $parts[] = "Granted access links: {$result['grants']}";
             $parts[] = "Created databases: {$result['created_databases']}";
@@ -226,14 +226,12 @@ class ManageDbController extends Controller
      */
     private function dbCards(): array
     {
-        $settings = (array) Cache::get('admin_settings.values', []);
-
         return [
             [
                 'key' => 'mysql',
                 'label' => 'MySQL',
                 'icon' => 'fa fa-server',
-                'enabled' => (bool) ($settings['mysql_enabled'] ?? true),
+                'enabled' => Settings::bool('mysql_enabled', true),
                 'description' => 'Full management tools with create wizard, users, and prefixed database lists.',
                 'feature' => 'Production host DB management',
                 'cta' => 'Open MySQL tools',
@@ -242,7 +240,7 @@ class ManageDbController extends Controller
                 'key' => 'postgres',
                 'label' => 'PostgreSQL',
                 'icon' => 'fa fa-database',
-                'enabled' => (bool) ($settings['postgres_enabled'] ?? false),
+                'enabled' => Settings::bool('postgres_enabled', false),
                 'description' => 'Dedicated PostgreSQL management area with settings-ready integration.',
                 'feature' => 'Connection profile via settings tab',
                 'cta' => 'Open PostgreSQL section',
@@ -251,7 +249,7 @@ class ManageDbController extends Controller
                 'key' => 'sqlite',
                 'label' => 'SQLite',
                 'icon' => 'fa fa-file-text-o',
-                'enabled' => (bool) ($settings['sqlite_enabled'] ?? false),
+                'enabled' => Settings::bool('sqlite_enabled', false),
                 'description' => 'Lightweight single-file database option for local and utility workloads.',
                 'feature' => 'Best for compact app storage',
                 'cta' => 'Open SQLite section',
@@ -260,7 +258,7 @@ class ManageDbController extends Controller
                 'key' => 'central_db',
                 'label' => 'Central DB',
                 'icon' => 'fa fa-sitemap',
-                'enabled' => (bool) ($settings['central_db_enabled'] ?? false),
+                'enabled' => Settings::bool('central_db_enabled', false),
                 'description' => 'Centralized database profile for shared platform-level services.',
                 'feature' => 'Cross-host shared data layer',
                 'cta' => 'Open Central DB section',

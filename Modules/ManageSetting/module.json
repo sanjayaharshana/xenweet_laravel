@@ -1,0 +1,12 @@
+{
+    "name": "ManageSetting",
+    "alias": "managesetting",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ManageSetting\\Providers\\ManageSettingServiceProvider"
+    ],
+    "files": []
+}
+

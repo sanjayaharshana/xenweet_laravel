@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
+use Modules\ManageSetting\Services\ManageSettingService;
 use PDO;
 use Throwable;
 
 class AdminSettingsController extends Controller
 {
+    public function __construct(private readonly ManageSettingService $settingsService) {}
+
     public function index(Request $request): View
     {
         $tabs = config('admin_settings.tabs', []);
@@ -53,7 +55,7 @@ class AdminSettingsController extends Controller
         $validated = $request->validate($rules);
         $incoming = $validated['settings'] ?? [];
 
-        $stored = Cache::get('admin_settings.values', []);
+        $stored = $this->loadStoredSettings();
 
         foreach ($tabs[$tab]['fields'] ?? [] as $field) {
             $key = (string) ($field['key'] ?? '');
@@ -64,6 +66,7 @@ class AdminSettingsController extends Controller
             $type = (string) ($field['type'] ?? 'text');
             if ($type === 'boolean') {
                 $stored[$key] = $request->boolean("settings.{$key}");
+
                 continue;
             }
 
@@ -72,7 +75,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        Cache::forever('admin_settings.values', $stored);
+        $this->persistSettings($stored);
 
         return redirect()
             ->route('panel.settings', ['tab' => $tab])
@@ -115,7 +118,7 @@ class AdminSettingsController extends Controller
      */
     private function loadSettings(array $tabs): array
     {
-        $stored = Cache::get('admin_settings.values', []);
+        $stored = $this->loadStoredSettings();
         $out = [];
 
         foreach ($tabs as $tab) {
@@ -129,6 +132,22 @@ class AdminSettingsController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function loadStoredSettings(): array
+    {
+        return $this->settingsService->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     */
+    private function persistSettings(array $values): void
+    {
+        $this->settingsService->upsertMany($values);
     }
 
     /**

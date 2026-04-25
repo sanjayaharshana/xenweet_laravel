@@ -47,6 +47,9 @@
             "Modules\\PhpVersion\\": "Modules/PhpVersion/app/",
             "Modules\\PhpVersion\\Database\\Factories\\": "Modules/PhpVersion/database/factories/",
             "Modules\\PhpVersion\\Database\\Seeders\\": "Modules/PhpVersion/database/seeders/",
+            "Modules\\ManageSetting\\": "Modules/ManageSetting/app/",
+            "Modules\\ManageSetting\\Database\\Factories\\": "Modules/ManageSetting/database/factories/",
+            "Modules\\ManageSetting\\Database\\Seeders\\": "Modules/ManageSetting/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
