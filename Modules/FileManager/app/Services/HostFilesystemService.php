@@ -155,6 +155,7 @@ class HostFilesystemService
 
     /**
      * Same-volume rename, or copy+delete when rename fails (e.g. EXDEV across mounts / Docker volumes).
+     * If the copy succeeded but removing the source failed, the destination is removed to avoid a duplicate.
      */
     private function renameOrRelocate(string $fromAbs, string $toAbs): bool
     {
@@ -162,10 +163,17 @@ class HostFilesystemService
             return true;
         }
         if (is_dir($fromAbs)) {
-            if (File::copyDirectory($fromAbs, $toAbs) && File::deleteDirectory($fromAbs)) {
+            if (! File::copyDirectory($fromAbs, $toAbs)) {
+                if (is_dir($toAbs)) {
+                    File::deleteDirectory($toAbs);
+                }
+
+                return false;
+            }
+            if (File::deleteDirectory($fromAbs)) {
                 return true;
             }
-
+            // Source could not be removed: roll back the copy so we do not keep two full trees
             if (is_dir($toAbs)) {
                 File::deleteDirectory($toAbs);
             }
@@ -173,7 +181,14 @@ class HostFilesystemService
             return false;
         }
         if (is_file($fromAbs)) {
-            if (File::copy($fromAbs, $toAbs) && @unlink($fromAbs)) {
+            if (! File::copy($fromAbs, $toAbs)) {
+                if (is_file($toAbs)) {
+                    @unlink($toAbs);
+                }
+
+                return false;
+            }
+            if (@unlink($fromAbs)) {
                 return true;
             }
             if (is_file($toAbs)) {

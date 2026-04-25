@@ -297,11 +297,12 @@
                                     window.alert('Enter a destination folder.');
                                     return;
                                 }
-                                moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
+                                // Drag-reorder path: items[] were just appended in submitDragMove; do not remove them
                                 if (moveForm.getAttribute('data-drag-submit') === '1') {
                                     moveForm.removeAttribute('data-drag-submit');
                                     return;
                                 }
+                                moveForm.querySelectorAll('input.fm-move-sync').forEach(function (n) { n.remove(); });
                                 document.querySelectorAll('input[form="' + bulkId + '"][name="items[]"]:checked').forEach(function (cb) {
                                     var hidden = document.createElement('input');
                                     hidden.type = 'hidden';
@@ -310,6 +311,11 @@
                                     hidden.className = 'fm-move-sync';
                                     moveForm.appendChild(hidden);
                                 });
+                                var nItems = moveForm.querySelectorAll('input.fm-move-sync[name="items[]"]').length;
+                                if (nItems === 0) {
+                                    e.preventDefault();
+                                    window.alert('Select one or more items, or use drag and drop to move them.');
+                                }
                             });
                         }
 
