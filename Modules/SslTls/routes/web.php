@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\SslTls\Http\Controllers\SslTlsController;
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['host.access'])->group(function () {
     Route::get('/hosts/{hosting}/ssl-tls', [SslTlsController::class, 'index'])->name('hosts.ssl-tls');
     Route::post('/hosts/{hosting}/ssl-tls/generate-key', [SslTlsController::class, 'generatePrivateKey'])
         ->middleware('throttle:20,1')

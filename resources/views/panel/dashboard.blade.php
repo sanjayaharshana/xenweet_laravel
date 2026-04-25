@@ -70,7 +70,7 @@
 
                 <div class="hosting-card__footer">
                     <div class="hosting-card__actions">
-                        <a class="hosting-card__btn btn-secondary" href="{{ route('hosts.panel', $hosting) }}">Open Panel</a>
+                        <a class="hosting-card__btn btn-secondary" href="{{ route('hosts.panel', $hosting) }}" target="_blank" rel="noopener noreferrer">Open Panel</a>
                         <a class="hosting-card__btn btn-secondary" href="{{ $hosting->publicSiteUrl() }}" target="_blank" rel="noopener noreferrer">Open Site</a>
                         <a class="hosting-card__btn btn-secondary hosting-card__btn--muted" href="http://{{ $hosting->server_ip }}" target="_blank" rel="noopener noreferrer" title="Direct IP (default vhost)">Open IP</a>
                         <form method="POST" action="{{ route('hosts.destroy', $hosting) }}" class="hosting-card__remove-form" onsubmit="return confirm('Remove this hosting account? This cannot be undone.');">

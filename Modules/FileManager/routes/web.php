@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\FileManager\Http\Controllers\FileManagerController;
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['host.access'])->group(function () {
     Route::get('/hosts/{hosting}/files', [FileManagerController::class, 'index'])->name('hosts.files.index');
     Route::post('/hosts/{hosting}/files/mkdir', [FileManagerController::class, 'mkdir'])->name('hosts.files.mkdir');
     Route::post('/hosts/{hosting}/files/touch', [FileManagerController::class, 'touch'])->name('hosts.files.touch');

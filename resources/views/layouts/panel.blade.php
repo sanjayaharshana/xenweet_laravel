@@ -92,9 +92,16 @@
                     <a href="{{ route('panel.logs') }}" class="{{ request()->routeIs('panel.logs') ? 'active' : '' }}">
                         <i class="fa fa-file-text-o" aria-hidden="true"></i><span>Logs</span>
                     </a>
-                    <a href="{{ route('panel.settings') }}" class="{{ request()->routeIs('panel.settings*') ? 'active' : '' }}">
-                        <i class="fa fa-cog" aria-hidden="true"></i><span>Settings</span>
-                    </a>
+                    <div class="sidebar-submenu {{ request()->routeIs('panel.settings*') ? 'is-active' : '' }}">
+                        <button type="button" class="sidebar-submenu__toggle" aria-expanded="true">
+                            <i class="fa fa-cog" aria-hidden="true"></i><span>Settings</span>
+                        </button>
+                        <div class="sidebar-submenu__items">
+                            <a href="{{ route('panel.settings') }}" class="{{ request()->routeIs('panel.settings*') ? 'active' : '' }}">
+                                <i class="fa fa-sliders" aria-hidden="true"></i><span>Platform Settings</span>
+                            </a>
+                        </div>
+                    </div>
                     <a href="#">
                         <i class="fa fa-shield" aria-hidden="true"></i><span>Account Security</span>
                     </a>

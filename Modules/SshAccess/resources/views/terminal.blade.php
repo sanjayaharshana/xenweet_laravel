@@ -1,4 +1,4 @@
-@extends('layouts.panel')
+@extends('layouts.host')
 
 @section('title', 'Terminal - Xenweet')
 

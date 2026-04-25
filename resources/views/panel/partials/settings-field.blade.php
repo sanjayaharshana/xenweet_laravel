@@ -7,6 +7,9 @@
 
 <div class="settings-field" @if (! empty($field['depends_on'])) data-depends-on="{{ $field['depends_on'] }}" @endif>
     <label for="{{ $fieldId }}">{{ $field['label'] ?? $fieldKey }}</label>
+    @if (! empty($field['description']))
+        <p class="subtle">{{ $field['description'] }}</p>
+    @endif
     @if ($fieldType === 'boolean')
         <label class="settings-switch">
             <input id="{{ $fieldId }}" type="checkbox" name="settings[{{ $fieldKey }}]" value="1" @checked((bool) $fieldValue)>

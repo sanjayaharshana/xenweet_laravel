@@ -1,4 +1,4 @@
-@extends('layouts.panel')
+@extends('layouts.host')
 
 @section('title', 'Host Panel - Xenweet')
 
@@ -11,7 +11,6 @@
             <p class="subtle">Applications and tools for this hosting account.</p>
         </div>
         <div class="topbar-actions">
-            <a class="btn-secondary" href="{{ route('panel') }}">Back to Hosting List</a>
             <a class="btn-secondary compact" href="{{ $hosting->publicSiteUrl() }}" target="_blank" rel="noopener noreferrer">Open Site</a>
             <a class="btn-secondary compact subtle-link" href="http://{{ $hosting->server_ip }}" target="_blank" rel="noopener noreferrer" title="Direct IP">Open IP</a>
         </div>

@@ -1,4 +1,4 @@
-@extends('layouts.panel')
+@extends('layouts.host')
 
 @section('title', 'SSL / TLS Manager - Xenweet')
 

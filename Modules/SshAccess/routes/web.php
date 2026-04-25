@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\SshAccess\Http\Controllers\SshAccessController;
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['host.access'])->group(function () {
     Route::get('/hosts/{hosting}/ssh-access', [SshAccessController::class, 'index'])
         ->name('hosts.ssh-access');
     Route::post('/hosts/{hosting}/ssh-access/create-account', [SshAccessController::class, 'createJailedAccount'])
