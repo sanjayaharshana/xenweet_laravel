@@ -32,9 +32,10 @@
         <p><code>{{ $fpmSocket }}</code></p>
         <p class="subtle" style="margin-top:0.5rem;">Nginx vhost regeneration: <strong>{{ $vhostEnabled ? 'enabled' : 'disabled' }}</strong>
             @unless ($vhostEnabled)
-                (set <code>HOSTING_VHOST_ENABLED=true</code> to apply vhost on save.)
+                (set <code>HOSTING_VHOST_ENABLED=true</code> to apply the <strong>HTTP-only</strong> vhost on save, when you are not using SSL from this panel.)
             @endunless
         </p>
+        <p class="subtle" style="margin-top:0.75rem; margin-bottom:0;">If you use <strong>HTTPS</strong> (PEM files under this account&rsquo;s <code>ssl/</code> from Auto SSL or <strong>Install certificate</strong>), saving here re-applies the <strong>full</strong> Nginx config (port 80 + 443) so the PHP pool matches and HTTPS keeps working. Only plain-HTTP sites use the HTTP-only vhost script.</p>
     </section>
 
     <section class="server-card" style="margin-top:1.25rem;">

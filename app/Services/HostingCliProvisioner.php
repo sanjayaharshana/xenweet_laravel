@@ -7,10 +7,16 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Modules\SslTls\Services\SslTlsNginxPemService;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class HostingCliProvisioner
 {
+    public function __construct(
+        private readonly SslTlsNginxPemService $sslTlsNginxPemService
+    ) {}
+
     public function run(Hosting $hosting): void
     {
         [$hostRootPath, $webRootPath, $folderNote] = $this->ensureHostFolders($hosting);
@@ -419,6 +425,30 @@ class HostingCliProvisioner
             ];
         }
 
+        // If this host has SSL material on disk, re-run the full SSL vhost (HTTP+HTTPS). The HTTP-only
+        // vhost script would otherwise replace the active nginx config and remove :443 / break PHP.
+        try {
+            $sslMessage = $this->sslTlsNginxPemService->reapplyNginxWhenMaterializedSslOnDisk($hosting);
+        } catch (Throwable $e) {
+            Log::warning('reapply_nginx_ssl_vhost', [
+                'hosting_id' => $hosting->id,
+                'site' => $hosting->siteHost(),
+                'message' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Could not update Nginx for SSL (`.key.pem` and `.fullchain.pem` in ssl/ need the SSL install script in config): '.$e->getMessage(),
+            ];
+        }
+
+        if ($sslMessage !== null) {
+            return [
+                'success' => true,
+                'message' => $sslMessage,
+            ];
+        }
+
         if (! config('hosting_provision.vhost_enabled')) {
             return [
                 'success' => true,
@@ -506,7 +536,7 @@ class HostingCliProvisioner
             if (is_writable($configuredRoot)) {
                 return [$configuredRoot, null];
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // fall through to fallback
         }
 

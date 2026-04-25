@@ -126,6 +126,46 @@ class SslTlsNginxPemService
         return $this->runNginxSslInstall($hosting, $sslDir, $keyPath, $fullchainPath);
     }
 
+    /**
+     * When the host has key + fullchain on disk (Auto SSL or manual install), re-run the SSL-aware
+     * Nginx vhost (HTTP + ACME on :80, HTTPS on :443) with the current PHP-FPM socket.
+     * Call this from PHP version changes: the HTTP-only vhost script would otherwise overwrite the
+     * :443 block and break HTTPS/PHP.
+     */
+    public function reapplyNginxWhenMaterializedSslOnDisk(Hosting $hosting): ?string
+    {
+        $paths = $this->materializedSslPemFilePathsIfPresent($hosting);
+        if ($paths === null) {
+            return null;
+        }
+        [$keyPath, $fullchainPath, $sslDir] = $paths;
+
+        return $this->runNginxSslInstall($hosting, $sslDir, $keyPath, $fullchainPath);
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string}|null key, fullchain, sslDir
+     */
+    private function materializedSslPemFilePathsIfPresent(Hosting $hosting): ?array
+    {
+        $root = trim((string) ($hosting->host_root_path ?? ''));
+        if ($root === '') {
+            return null;
+        }
+        $base = preg_replace('/[^a-zA-Z0-9.\-_]/', '-', $hosting->siteHost()) ?: 'host-'.$hosting->id;
+        $sslDir = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'ssl';
+        $keyPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.key.pem';
+        $fullchainPath = $sslDir.DIRECTORY_SEPARATOR.$base.'.fullchain.pem';
+        if (! is_file($keyPath) || ! is_file($fullchainPath)) {
+            return null;
+        }
+        if (! is_readable($keyPath) || ! is_readable($fullchainPath)) {
+            return null;
+        }
+
+        return [$keyPath, $fullchainPath, $sslDir];
+    }
+
     private function resolveSslInstallDirectory(Hosting $hosting): string
     {
         $root = trim((string) ($hosting->host_root_path ?? ''));
