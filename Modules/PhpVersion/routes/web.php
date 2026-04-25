@@ -8,4 +8,10 @@ Route::middleware(['host.access'])->group(function () {
     Route::post('/hosts/{hosting}/php-version', [PhpVersionController::class, 'update'])
         ->middleware('throttle:30,1')
         ->name('hosts.php-version.update');
+    Route::post('/hosts/{hosting}/php-version/extensions', [PhpVersionController::class, 'updateExtensions'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.php-version.extensions.update');
+    Route::post('/hosts/{hosting}/php-version/options', [PhpVersionController::class, 'updateIniOptions'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.php-version.options.update');
 });

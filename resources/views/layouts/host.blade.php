@@ -23,8 +23,8 @@
 </head>
 @php
     $isFileManager = request()->routeIs('hosts.files.*');
-    $showHostQuickSidebar = request()->routeIs('hosts.panel');
-    $hasRightSidebar = view()->hasSection('right_sidebar') || isset($hosting);
+    $showHostQuickSidebar = isset($hosting) && ! $isFileManager;
+    $hasRightSidebar = ! $isFileManager && (view()->hasSection('right_sidebar') || isset($hosting));
     $moduleEnabled = function (string $name): bool {
         if (! class_exists(\Nwidart\Modules\Facades\Module::class)) {
             return false;

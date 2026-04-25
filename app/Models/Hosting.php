@@ -27,6 +27,8 @@ class Hosting extends Model
     {
         return [
             'panel_password' => 'encrypted',
+            'php_extensions' => 'array',
+            'php_ini_options' => 'array',
             'provisioned_at' => 'datetime',
         ];
     }

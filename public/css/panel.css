@@ -1951,6 +1951,12 @@ html[data-theme="light"] .host-left-quicklinks__item:hover {
     grid-template-columns: minmax(0, 1.92fr) minmax(150px, 0.58fr);
 }
 
+/* Host layout: use one consistent right sidebar width on all host pages */
+.dashboard-body--host .panel-content-with-sidebar {
+    gap: 0.55rem;
+    grid-template-columns: minmax(0, 1.92fr) minmax(150px, 0.58fr);
+}
+
 .panel-main-content {
     min-width: 0;
 }
@@ -5902,7 +5908,7 @@ a.ssltls-auto__link:focus {
     }
 
     /* Host panel: always keep details/tips on right column */
-    .dashboard-body--host .panel-content-with-sidebar.panel-content-with-sidebar--compact {
+    .dashboard-body--host .panel-content-with-sidebar {
         grid-template-columns: minmax(0, 1.92fr) minmax(150px, 0.58fr);
     }
 
