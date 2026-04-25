@@ -2508,6 +2508,7 @@ html[data-theme="light"] .host-left-quicklinks__item:hover {
     padding: 0.34rem 0.48rem;
     font-size: 0.74rem;
     border-radius: 8px;
+    margin-top: 4vh;
     white-space: nowrap;
 }
 

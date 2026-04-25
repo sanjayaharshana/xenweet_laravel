@@ -1,0 +1,11 @@
+{
+    "name": "Domains",
+    "alias": "domains",
+    "description": "Host domain tools panel",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Domains\\Providers\\DomainsServiceProvider"
+    ],
+    "files": []
+}

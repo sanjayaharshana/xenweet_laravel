@@ -79,6 +79,16 @@ return [
             ],
         ],
         [
+            'id' => 'domains',
+            'title' => 'Domains',
+            'items' => [
+                ['label' => 'Domain', 'description' => 'Primary domain and domain management', 'icon' => 'fa fa-globe', 'route' => 'hosts.domains.index'],
+                ['label' => 'Redirects', 'description' => 'URL and domain redirects', 'icon' => 'fa fa-random'],
+                ['label' => 'Zone Editor', 'description' => 'DNS zone records and settings', 'icon' => 'fa fa-sitemap'],
+                ['label' => 'Dynamic DNS', 'description' => 'Manage dynamic DNS host updates', 'icon' => 'fa fa-refresh'],
+            ],
+        ],
+        [
             'id' => 'software',
             'title' => 'Software',
             'items' => [

@@ -6,5 +6,6 @@
     "SslTls": true,
     "SshAccess": true,
     "PhpVersion": true,
-    "ManageSetting": true
+    "ManageSetting": true,
+    "Domains": true
 }

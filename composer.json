@@ -50,6 +50,9 @@
             "Modules\\ManageSetting\\": "Modules/ManageSetting/app/",
             "Modules\\ManageSetting\\Database\\Factories\\": "Modules/ManageSetting/database/factories/",
             "Modules\\ManageSetting\\Database\\Seeders\\": "Modules/ManageSetting/database/seeders/",
+            "Modules\\Domains\\": "Modules/Domains/app/",
+            "Modules\\Domains\\Database\\Factories\\": "Modules/Domains/database/factories/",
+            "Modules\\Domains\\Database\\Seeders\\": "Modules/Domains/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
