@@ -582,6 +582,92 @@ html[data-theme="light"] .fm-context-menu__item {
     color: #1e293b;
 }
 
+/* File manager — Explore tree + panel (light): match main list typography & colors */
+html[data-theme="light"] .file-manager-tree-panel {
+    background: var(--card-soft);
+    border-right-color: var(--line);
+}
+
+html[data-theme="light"] .file-manager-scope .file-manager-panel .file-manager-main {
+    background: #ffffff;
+}
+
+html[data-theme="light"] .file-manager-tree-panel__title {
+    color: #0f172a;
+    letter-spacing: 0.06em;
+}
+
+html[data-theme="light"] .file-manager-tree-panel__hint,
+html[data-theme="light"] .file-tree__empty,
+html[data-theme="light"] .file-tree__limit {
+    color: #64748b;
+}
+
+html[data-theme="light"] .file-tree__root {
+    border-bottom-color: var(--line);
+}
+
+html[data-theme="light"] .file-tree__root-link {
+    color: #0f172a;
+}
+
+html[data-theme="light"] .file-tree__root-link:hover {
+    color: #1e3a8a;
+}
+
+html[data-theme="light"] .file-tree__root-link.is-active {
+    color: #1d4ed8;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+html[data-theme="light"] .file-tree__list--nested {
+    border-left-color: rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .file-tree__caret {
+    color: #64748b;
+}
+
+html[data-theme="light"] .file-tree__link {
+    color: #1e3a8a;
+}
+
+html[data-theme="light"] .file-tree__link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+html[data-theme="light"] .file-tree__link.is-active {
+    color: #0f172a;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 1px 0 0 rgba(59, 91, 219, 0.5);
+}
+
+html[data-theme="light"] .file-tree__trunc-note {
+    color: #94a3b8;
+}
+
+html[data-theme="light"] .file-manager-scope .file-toolbar h2 {
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+html[data-theme="light"] .file-manager-scope .file-toolbar h2 .subtle {
+    color: #64748b;
+    font-weight: 500;
+}
+
+html[data-theme="light"] .file-manager-scope .file-row__icon {
+    color: #3b5bdb;
+}
+
+html[data-theme="light"] .file-manager-scope .file-row__name-text--file:hover {
+    border-bottom-color: rgba(37, 99, 235, 0.45);
+}
+
 /* Manage DB */
 html[data-theme="light"] .managedb-tab {
     color: #334155;

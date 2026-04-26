@@ -4,7 +4,11 @@
 
 @section('content')
 @php
-    $activeTab = request('tab') === 'redirects' ? 'redirects' : 'domain';
+    $activeTab = match (request('tab')) {
+        'redirects' => 'redirects',
+        'zone' => 'zone',
+        default => 'domain',
+    };
     $openAddDomainModal = $errors->any() && old('_context') === 'add_domain';
     $openRedirectModal = $errors->any() && old('_context') === 'add_redirect';
     $hasFileManagerRoute = \Nwidart\Modules\Facades\Module::isEnabled('FileManager') && \Illuminate\Support\Facades\Route::has('hosts.files.index');
@@ -47,6 +51,7 @@
             ->unique()
             ->values();
     }
+    $zoneDomainOptions = $redirectDomainOptions;
 @endphp
 
 <div class="host-panel-scope managedb-scope">
@@ -76,8 +81,8 @@
     <nav class="managedb-tabs ssltls-tool-tabs" aria-label="Domain tools tabs" aria-describedby="domains-tabs-h">
         <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'domain']) }}" class="managedb-tab {{ $activeTab === 'domain' ? 'is-active' : '' }}">Domain</a>
         <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects']) }}" class="managedb-tab {{ $activeTab === 'redirects' ? 'is-active' : '' }}">Redirects</a>
-        <a href="#" class="managedb-tab">Zone Editor</a>
-        <a href="#" class="managedb-tab">Dynamic DNS</a>
+        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone']) }}" class="managedb-tab {{ $activeTab === 'zone' ? 'is-active' : '' }}">Zone Editor</a>
+        <a href="#" class="managedb-tab" onclick="return false;" title="Coming soon">Dynamic DNS</a>
     </nav>
 @if ($activeTab === 'domain')
     <section class="server-card">
@@ -146,18 +151,12 @@
     </section>
 
     <section class="server-card" style="margin-top:1rem;">
-        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Coming Next</h2>
+        <h2 class="host-sidebar-meta-title" style="margin-top:0;">More tools</h2>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.65rem;">
             <div class="host-panel-tile host-panel-tile--soon">
                 <span class="host-panel-tile__icon" aria-hidden="true"><i class="fa fa-random"></i></span>
                 <span class="host-panel-tile__label">Redirects</span>
                 <span class="host-panel-tile__desc">Path and domain forwarding rules</span>
-                <span class="host-panel-tile__badge">Soon</span>
-            </div>
-            <div class="host-panel-tile host-panel-tile--soon">
-                <span class="host-panel-tile__icon" aria-hidden="true"><i class="fa fa-sitemap"></i></span>
-                <span class="host-panel-tile__label">Zone Editor</span>
-                <span class="host-panel-tile__desc">A/AAAA/CNAME/MX/TXT records</span>
                 <span class="host-panel-tile__badge">Soon</span>
             </div>
             <div class="host-panel-tile host-panel-tile--soon">
@@ -168,7 +167,7 @@
             </div>
         </div>
     </section>
-@else
+@elseif ($activeTab === 'redirects')
     <section class="server-card" style="margin-top:1rem;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
             <h2 class="host-sidebar-meta-title" style="margin:0;">Domain redirects</h2>
@@ -200,6 +199,142 @@
             @endforeach
         @else
             <p class="subtle" style="margin:0.35rem 0 0;">No redirects yet. Click <strong>Add Redirect</strong> to create one.</p>
+        @endif
+    </section>
+@elseif ($activeTab === 'zone')
+    <section class="server-card" style="margin-top:0;">
+        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Zone Editor</h2>
+        <p class="subtle" style="margin:0.35rem 0 0.9rem;">Plan DNS for your domains. Records are stored here; apply the same at your domain registrar or DNS host when you point nameservers (full automation is not active yet).</p>
+
+        <form class="domains-modal__body" method="post" action="{{ route('hosts.domains.zone-records.store', $hosting) }}" style="margin:0; gap:0.75rem; border:1px solid rgba(255,255,255,0.09); border-radius:12px; padding:0.8rem; background: rgba(255,255,255,0.03);">
+            @csrf
+            <input type="hidden" name="_context" value="add_zone">
+            @if (! empty($filterZone))
+                <input type="hidden" name="return_filter_zone" value="{{ $filterZone }}">
+            @endif
+            <div class="domains-type-grid" style="margin-bottom:0.5rem;">
+                <div class="domains-modal__field" style="margin:0; padding:0.5rem 0.65rem;">
+                    <label class="domains-modal__label" for="zone_domain" style="margin-bottom:0.35rem;">Zone (domain)</label>
+                    <select id="zone_domain" name="zone_domain" class="domains-input" style="width:100%; background: transparent;" required>
+                        @foreach ($zoneDomainOptions as $d)
+                            <option value="{{ $d }}" @selected(old('zone_domain', $hosting->siteHost()) === $d)>{{ $d }}</option>
+                        @endforeach
+                    </select>
+                    @error('zone_domain')
+                        <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.35rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="domains-modal__field" style="margin:0; padding:0.5rem 0.65rem;">
+                    <label class="domains-modal__label" for="record_type" style="margin-bottom:0.35rem;">Type</label>
+                    <select id="record_type" name="record_type" class="domains-input" style="width:100%; background: transparent;" required>
+                        <option value="A" @selected(old('record_type', 'A') === 'A')>A</option>
+                        <option value="AAAA" @selected(old('record_type') === 'AAAA')>AAAA</option>
+                        <option value="CNAME" @selected(old('record_type') === 'CNAME')>CNAME</option>
+                        <option value="MX" @selected(old('record_type') === 'MX')>MX</option>
+                        <option value="TXT" @selected(old('record_type') === 'TXT')>TXT</option>
+                    </select>
+                </div>
+            </div>
+            <div class="domains-type-grid" style="margin-bottom:0.5rem;">
+                <div class="domains-modal__field" style="margin:0; padding:0.5rem 0.65rem;">
+                    <label class="domains-modal__label" for="record_name" style="margin-bottom:0.35rem;">Name / host</label>
+                    <div class="domains-input-group">
+                        <span class="domains-input-group__prefix" aria-hidden="true"><i class="fa fa-at"></i></span>
+                        <input id="record_name" class="domains-input" name="record_name" type="text" value="{{ old('record_name', '@') }}" placeholder="@" autocomplete="off" required>
+                    </div>
+                    @error('record_name')
+                        <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.35rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="domains-modal__field" id="zone-mx-priority-wrap" style="margin:0; padding:0.5rem 0.65rem; @if (old('record_type', 'A') !== 'MX') display:none; @endif">
+                    <label class="domains-modal__label" for="mx_priority" style="margin-bottom:0.35rem;">MX priority</label>
+                    <div class="domains-input-group">
+                        <span class="domains-input-group__prefix" aria-hidden="true"><i class="fa fa-sort-numeric-asc"></i></span>
+                        <input id="mx_priority" class="domains-input" name="mx_priority" type="number" min="0" max="65535" value="{{ old('mx_priority', '10') }}" placeholder="10">
+                    </div>
+                    @error('mx_priority')
+                        <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.35rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+            <div class="domains-modal__field" style="margin:0; padding:0.5rem 0.65rem;">
+                <label class="domains-modal__label" for="record_value" style="margin-bottom:0.35rem;">Value</label>
+                <div class="domains-input-group">
+                    <span class="domains-input-group__prefix" aria-hidden="true"><i class="fa fa-database"></i></span>
+                    <input id="record_value" class="domains-input" name="record_value" type="text" value="{{ old('record_value') }}" placeholder="e.g. 198.51.100.1 or target.example.com" required>
+                </div>
+                @error('record_value')
+                    <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.35rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                @enderror
+            </div>
+            <div class="domains-modal__field" style="margin:0; padding:0.5rem 0.65rem; max-width: 12rem;">
+                <label class="domains-modal__label" for="ttl" style="margin-bottom:0.35rem;">TTL (seconds)</label>
+                <input id="ttl" class="domains-input" name="ttl" type="number" min="60" max="86400" value="{{ old('ttl', '3600') }}" style="width:100%; border-radius:8px; border:1px solid rgba(118, 208, 255, 0.28); padding:0.45rem 0.6rem; background: transparent;">
+            </div>
+            <div style="display:flex; gap:0.5rem; margin-top:0.5rem; padding:0 0.65rem 0.5rem;">
+                <button type="submit" class="btn-primary">Add record</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="server-card" style="margin-top:1rem;">
+        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Current records
+            @if (($hasZoneTable ?? false) && isset($zoneRecords) && $zoneRecords->isNotEmpty())
+                <span class="subtle" style="font-weight:500; font-size:0.85em;">({{ $zoneRecords->count() }})</span>
+            @endif
+        </h2>
+
+        @if (! ($hasZoneTable ?? false))
+            <p class="subtle" style="margin:0;">Zone records are not available until the database is migrated. On the server run: <code style="font-size:0.85em;">php artisan migrate</code></p>
+        @else
+            <form method="get" action="{{ route('hosts.domains.index', $hosting) }}" class="domains-input-header" style="margin:0.35rem 0 0.75rem; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <input type="hidden" name="tab" value="zone">
+                <label for="filter_zone" class="subtle" style="margin:0; font-size:0.8rem;">Show zone</label>
+                <select id="filter_zone" name="filter_zone" class="btn-secondary compact" style="min-width: 12rem; padding:0.35rem 0.6rem; cursor:pointer;" onchange="this.form.submit()">
+                    <option value="">{{ '— All zones —' }}</option>
+                    @foreach ($zoneDomainOptions as $d)
+                        <option value="{{ $d }}" @selected(($filterZone ?? null) === $d)>{{ $d }}</option>
+                    @endforeach
+                </select>
+            </form>
+
+            @if (isset($zoneRecords) && $zoneRecords->isNotEmpty())
+            <div class="file-manager-main__sticky-head" style="margin:0.5rem 0; border-radius:8px;">
+                <div class="file-row file-row-head" style="grid-template-columns: 1fr 0.4fr 0.4fr 1.2fr 0.4fr 0.5fr 0.4fr;">
+                    <span>Zone</span>
+                    <span>Name</span>
+                    <span>Type</span>
+                    <span>Value</span>
+                    <span>Priority</span>
+                    <span>TTL</span>
+                    <span></span>
+                </div>
+            </div>
+            @foreach ($zoneRecords as $zr)
+                <div class="file-row" style="grid-template-columns: 1fr 0.4fr 0.4fr 1.2fr 0.4fr 0.5fr 0.4fr;">
+                    <span class="subtle">{{ $zr->zone_domain }}</span>
+                    <span><strong>{{ $zr->record_name }}</strong></span>
+                    <span class="subtle">{{ $zr->record_type }}</span>
+                    <span class="subtle" style="word-break: break-all;">{{ $zr->record_value }}</span>
+                    <span class="subtle">{{ $zr->record_type === 'MX' && $zr->mx_priority !== null ? (string) $zr->mx_priority : '—' }}</span>
+                    <span class="subtle">{{ (string) $zr->ttl }}</span>
+                    <span>
+                        <form method="post" action="{{ route('hosts.domains.zone-records.destroy', [$hosting, $zr]) }}" onsubmit="return confirm('Delete this DNS record?');" style="margin:0;">
+                            @csrf
+                            @method('DELETE')
+                            @if (! empty($filterZone))
+                                <input type="hidden" name="return_filter_zone" value="{{ $filterZone }}">
+                            @endif
+                            <button type="submit" class="btn-secondary compact" style="border-color: rgba(220, 38, 38, 0.45); color: #fecaca;">Delete</button>
+                        </form>
+                    </span>
+                </div>
+            @endforeach
+            @else
+            <p class="subtle" style="margin:0;">@if (! empty($filterZone))
+                No records for <strong>{{ $filterZone }}</strong>. @else
+                No zone records yet. @endif Add one using the form above.</p>
+            @endif
         @endif
     </section>
 @endif
@@ -747,6 +882,25 @@
             }
         });
 
+    })();
+</script>
+<script>
+    (function () {
+        var recordType = document.getElementById('record_type');
+        var mxWrap = document.getElementById('zone-mx-priority-wrap');
+        var mxInput = document.getElementById('mx_priority');
+        if (!recordType || !mxWrap) {
+            return;
+        }
+        function sync() {
+            var isMx = recordType.value === 'MX';
+            mxWrap.style.display = isMx ? 'block' : 'none';
+            if (mxInput) {
+                mxInput.disabled = !isMx;
+            }
+        }
+        recordType.addEventListener('change', sync);
+        sync();
     })();
 </script>
 @endsection

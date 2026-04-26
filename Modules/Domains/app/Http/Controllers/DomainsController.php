@@ -13,6 +13,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Domains\Models\HostDomainRedirect;
 use Modules\Domains\Models\HostDomain;
+use Modules\Domains\Models\HostDomainZoneRecord;
 
 class DomainsController extends Controller
 {
@@ -24,6 +25,10 @@ class DomainsController extends Controller
     {
         $hostDomains = collect();
         $redirects = collect();
+        $zoneRecords = collect();
+        $hasZoneTable = Schema::hasTable('host_domain_zone_records');
+        $filterZone = $this->normalizedFilterZone($hosting, request('filter_zone'));
+
         if (class_exists(HostDomain::class) && Schema::hasTable('host_domains')) {
             $hostDomains = HostDomain::query()
                 ->where('hosting_id', $hosting->id)
@@ -36,11 +41,23 @@ class DomainsController extends Controller
                 ->orderByDesc('id')
                 ->get();
         }
+        if ($hasZoneTable && class_exists(HostDomainZoneRecord::class)) {
+            $query = HostDomainZoneRecord::query()->where('hosting_id', $hosting->id);
+            if ($filterZone !== null) {
+                $query->where('zone_domain', $filterZone);
+            }
+            $zoneRecords = $query
+                ->orderByDesc('id')
+                ->get();
+        }
 
         return view('domains::index', [
             'hosting' => $hosting,
             'hostDomains' => $hostDomains,
             'redirects' => $redirects,
+            'zoneRecords' => $zoneRecords,
+            'hasZoneTable' => $hasZoneTable,
+            'filterZone' => $filterZone,
         ]);
     }
 
@@ -228,6 +245,107 @@ class DomainsController extends Controller
             ->with('success', 'Redirect removed for '.$source.'.');
     }
 
+    public function storeZoneRecord(Request $request, Hosting $hosting): RedirectResponse
+    {
+        if (! Schema::hasTable('host_domain_zone_records')) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone'])
+                ->with('error', 'Zone records table is missing. Run migrations: php artisan migrate');
+        }
+
+        $validated = $request->validate([
+            'zone_domain' => ['required', 'string', 'max:255'],
+            'record_name' => ['required', 'string', 'max:255'],
+            'record_type' => ['required', 'string', Rule::in(['A', 'AAAA', 'CNAME', 'MX', 'TXT'])],
+            'record_value' => ['required', 'string', 'max:2000'],
+            'mx_priority' => ['required_if:record_type,MX', 'nullable', 'integer', 'min:0', 'max:65535'],
+            'ttl' => ['nullable', 'integer', 'min:60', 'max:86400'],
+            '_context' => ['nullable', 'string', 'in:add_zone'],
+        ], [], [
+            'zone_domain' => 'zone',
+            'record_name' => 'name',
+            'record_type' => 'type',
+            'record_value' => 'value',
+        ]);
+
+        $zoneDomain = Hosting::normalizeDomainName((string) $validated['zone_domain']);
+        if ($zoneDomain === '' || ! $this->belongsToHosting($hosting, $zoneDomain)) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone'])
+                ->withErrors(['zone_domain' => 'Select a valid zone (domain) for this hosting account.'])
+                ->withInput();
+        }
+
+        $name = trim($validated['record_name']);
+        if ($name === '') {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone'])
+                ->withErrors(['record_name' => 'Name is required (use @ for the zone apex).'])
+                ->withInput();
+        }
+
+        $type = $validated['record_type'];
+        $value = trim($validated['record_value']);
+        $mx = $type === 'MX' ? $validated['mx_priority'] : null;
+
+        if ($type === 'A' && ! filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone'])
+                ->withErrors(['record_value' => 'A record value must be a valid IPv4 address.'])
+                ->withInput();
+        }
+        if ($type === 'AAAA' && ! filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone'])
+                ->withErrors(['record_value' => 'AAAA record value must be a valid IPv6 address.'])
+                ->withInput();
+        }
+
+        $ttl = (int) ($validated['ttl'] ?? 3600);
+        if ($ttl < 60) {
+            $ttl = 3600;
+        }
+
+        HostDomainZoneRecord::query()->create([
+            'hosting_id' => $hosting->id,
+            'zone_domain' => $zoneDomain,
+            'record_name' => $name,
+            'record_type' => $type,
+            'record_value' => $value,
+            'mx_priority' => $mx !== null && $mx !== '' ? (int) $mx : null,
+            'ttl' => $ttl,
+        ]);
+
+        return redirect()->route(
+            'hosts.domains.index',
+            array_filter([
+                'hosting' => $hosting,
+                'tab' => 'zone',
+                'filter_zone' => $this->normalizedFilterZone($hosting, $request->input('return_filter_zone')),
+            ], fn ($v) => $v !== null && $v !== '')
+        )->with('success', 'DNS record added. Apply this to your live DNS at your registrar or nameserver; the panel stores it for reference and future automation.');
+    }
+
+    public function destroyZoneRecord(Hosting $hosting, HostDomainZoneRecord $zoneRecord): RedirectResponse
+    {
+        if ((int) $zoneRecord->hosting_id !== (int) $hosting->id) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone'])
+                ->with('error', 'The selected record does not belong to this hosting account.');
+        }
+
+        $zoneRecord->delete();
+
+        return redirect()->route(
+            'hosts.domains.index',
+            array_filter([
+                'hosting' => $hosting,
+                'tab' => 'zone',
+                'filter_zone' => $this->normalizedFilterZone($hosting, $request->input('return_filter_zone')),
+            ], fn ($v) => $v !== null && $v !== '')
+        )->with('success', 'DNS record removed.');
+    }
+
     private function generateTemporaryDomain(Hosting $hosting): string
     {
         $base = $hosting->siteHost();
@@ -272,5 +390,22 @@ class DomainsController extends Controller
             ->where('hosting_id', $hosting->id)
             ->whereRaw('LOWER(domain) = ?', [mb_strtolower($domain)])
             ->exists();
+    }
+
+    /**
+     * GET ?filter_zone=... for Zone Editor; only returns a value if it is a domain on this hosting.
+     */
+    private function normalizedFilterZone(Hosting $hosting, mixed $raw): ?string
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $zone = Hosting::normalizeDomainName((string) $raw);
+        if ($zone === '' || ! $this->belongsToHosting($hosting, $zone)) {
+            return null;
+        }
+
+        return $zone;
     }
 }
