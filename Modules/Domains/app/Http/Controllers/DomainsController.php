@@ -7,18 +7,21 @@ use App\Models\Hosting;
 use App\Services\HostingCliProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Modules\Domains\Models\HostDomainRedirect;
 use Modules\Domains\Models\HostDomain;
+use Modules\Domains\Models\HostDomainRedirect;
 use Modules\Domains\Models\HostDomainZoneRecord;
+use Modules\Domains\Services\LiveDnsLookupService;
 
 class DomainsController extends Controller
 {
     public function __construct(
-        private readonly HostingCliProvisioner $provisioner
+        private readonly HostingCliProvisioner $provisioner,
+        private readonly LiveDnsLookupService $liveDnsLookup
     ) {}
 
     public function index(Hosting $hosting): View
@@ -51,6 +54,26 @@ class DomainsController extends Controller
                 ->get();
         }
 
+        $zoneDomainOptions = $this->buildZoneDomainOptions($hosting, $hostDomains);
+
+        $liveDnsRows = collect();
+        $liveDnsError = null;
+        $liveDnsFetchedAt = null;
+        if (request('tab') === 'zone' && $zoneDomainOptions->isNotEmpty()) {
+            $zonesToQuery = $filterZone !== null
+                ? [$filterZone]
+                : $zoneDomainOptions->all();
+            $result = $this->liveDnsLookup->fetchForZones(
+                $zonesToQuery,
+                request()->boolean('refresh_dns')
+            );
+            $liveDnsRows = $result['rows'];
+            $liveDnsFetchedAt = $result['fetched_at'];
+            if (! $result['ok']) {
+                $liveDnsError = $result['error'] ?? 'Live DNS could not be loaded.';
+            }
+        }
+
         return view('domains::index', [
             'hosting' => $hosting,
             'hostDomains' => $hostDomains,
@@ -58,6 +81,10 @@ class DomainsController extends Controller
             'zoneRecords' => $zoneRecords,
             'hasZoneTable' => $hasZoneTable,
             'filterZone' => $filterZone,
+            'zoneDomainOptions' => $zoneDomainOptions,
+            'liveDnsRows' => $liveDnsRows,
+            'liveDnsError' => $liveDnsError,
+            'liveDnsFetchedAt' => $liveDnsFetchedAt,
         ]);
     }
 
@@ -326,7 +353,7 @@ class DomainsController extends Controller
         )->with('success', 'DNS record added. Apply this to your live DNS at your registrar or nameserver; the panel stores it for reference and future automation.');
     }
 
-    public function destroyZoneRecord(Hosting $hosting, HostDomainZoneRecord $zoneRecord): RedirectResponse
+    public function destroyZoneRecord(Request $request, Hosting $hosting, HostDomainZoneRecord $zoneRecord): RedirectResponse
     {
         if ((int) $zoneRecord->hosting_id !== (int) $hosting->id) {
             return redirect()
@@ -344,6 +371,19 @@ class DomainsController extends Controller
                 'filter_zone' => $this->normalizedFilterZone($hosting, $request->input('return_filter_zone')),
             ], fn ($v) => $v !== null && $v !== '')
         )->with('success', 'DNS record removed.');
+    }
+
+    private function buildZoneDomainOptions(Hosting $hosting, Collection $hostDomains): Collection
+    {
+        if ($hostDomains->isEmpty()) {
+            return collect([$hosting->siteHost()]);
+        }
+
+        return collect([$hosting->siteHost()])
+            ->merge($hostDomains->pluck('domain'))
+            ->filter(fn ($d) => trim((string) $d) !== '')
+            ->unique()
+            ->values();
     }
 
     private function generateTemporaryDomain(Hosting $hosting): string

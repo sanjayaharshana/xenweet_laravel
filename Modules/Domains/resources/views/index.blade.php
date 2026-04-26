@@ -43,15 +43,6 @@
     };
     $primaryRootPathShown = $formatRootPath($hosting->web_root_path, $hosting->host_root_path);
     $primaryRootPathFm = $rootPathToFileManagerRelative($hosting->web_root_path, $hosting->host_root_path);
-    $redirectDomainOptions = collect([$hosting->siteHost()]);
-    if (isset($hostDomains)) {
-        $redirectDomainOptions = $redirectDomainOptions
-            ->merge($hostDomains->pluck('domain'))
-            ->filter(fn ($d) => trim((string) $d) !== '')
-            ->unique()
-            ->values();
-    }
-    $zoneDomainOptions = $redirectDomainOptions;
 @endphp
 
 <div class="host-panel-scope managedb-scope">
@@ -204,7 +195,55 @@
 @elseif ($activeTab === 'zone')
     <section class="server-card" style="margin-top:0;">
         <h2 class="host-sidebar-meta-title" style="margin-top:0;">Zone Editor</h2>
-        <p class="subtle" style="margin:0.35rem 0 0.9rem;">Plan DNS for your domains. Records are stored here; apply the same at your domain registrar or DNS host when you point nameservers (full automation is not active yet).</p>
+        <p class="subtle" style="margin:0.35rem 0 0.9rem;">
+            <strong>Live public DNS</strong> (below) is what resolvers on this server see right now. <strong>Records saved in the panel</strong> are for your reference and future automation; they do not change DNS at the registrar until you apply them (or an integration does).
+        </p>
+    </section>
+
+    <section class="server-card" style="margin-top:1rem;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.75rem; flex-wrap:wrap;">
+            <h3 class="host-sidebar-meta-title" style="margin:0; font-size:1.1rem;">Live public DNS</h3>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                @if ($liveDnsFetchedAt)
+                    <span class="subtle" style="font-size:0.8rem; margin:0;">Resolved {{ $liveDnsFetchedAt->format('H:i:s T') }}</span>
+                @endif
+                <a class="btn-secondary compact" href="{{ route('hosts.domains.index', array_filter(['hosting' => $hosting, 'tab' => 'zone', 'filter_zone' => $filterZone, 'refresh_dns' => 1], fn ($v) => $v !== null && $v !== '')) }}">Refresh</a>
+            </div>
+        </div>
+        <p class="subtle" style="margin:0.35rem 0 0.75rem; font-size:0.88rem;">A/AAAA, NS, SOA, MX, TXT, CNAME, SRV from a live lookup of your zone and <code>www</code> (results depend on the global DNS, TTL, and may be cached a short time on the server).</p>
+        @if (! empty($liveDnsError))
+            <p class="subtle" style="color: var(--danger-text, #b91c1c); margin:0;">{{ $liveDnsError }}</p>
+        @elseif (isset($liveDnsRows) && $liveDnsRows->isNotEmpty())
+            <div class="file-manager-main__sticky-head" style="margin:0.5rem 0; border-radius:8px;">
+                <div class="file-row file-row-head" style="grid-template-columns: 0.8fr 0.4fr 0.4fr 1.1fr 0.3fr 0.35fr 0.4fr;">
+                    <span>Zone</span>
+                    <span>Name</span>
+                    <span>Type</span>
+                    <span>Value</span>
+                    <span>Priority</span>
+                    <span>TTL</span>
+                    <span>Lookup</span>
+                </div>
+            </div>
+            @foreach ($liveDnsRows as $r)
+                <div class="file-row" style="grid-template-columns: 0.8fr 0.4fr 0.4fr 1.1fr 0.3fr 0.35fr 0.4fr;">
+                    <span class="subtle" style="word-break: break-all;">{{ $r['zone'] ?? '' }}</span>
+                    <span><strong>{{ $r['name'] ?? '—' }}</strong></span>
+                    <span class="subtle">{{ $r['type'] ?? '—' }}</span>
+                    <span class="subtle" style="word-break: break-all;">{{ $r['value'] ?? '—' }}</span>
+                    <span class="subtle">{{ $r['priority'] !== null ? (string) $r['priority'] : '—' }}</span>
+                    <span class="subtle">{{ $r['ttl'] !== null ? (string) $r['ttl'] : '—' }}</span>
+                    <span class="subtle" style="font-size:0.85em; word-break: break-all;" title="{{ $r['queried'] ?? '' }}">{{ $r['queried'] ?? '—' }}</span>
+                </div>
+            @endforeach
+        @else
+            <p class="subtle" style="margin:0;">No live DNS data returned. Add a primary or additional domain above, or check that PHP can use <code>dns_get_record</code> and that the zone is delegated in public DNS.</p>
+        @endif
+    </section>
+
+    <section class="server-card" style="margin-top:1rem;">
+        <h3 class="host-sidebar-meta-title" style="margin-top:0; font-size:1.1rem;">Add a record (saved in this panel)</h3>
+        <p class="subtle" style="margin:0.35rem 0 0.9rem;">These rows are stored in the panel; mirror them at your DNS provider if the site should use them on the public internet.</p>
 
         <form class="domains-modal__body" method="post" action="{{ route('hosts.domains.zone-records.store', $hosting) }}" style="margin:0; gap:0.75rem; border:1px solid rgba(255,255,255,0.09); border-radius:12px; padding:0.8rem; background: rgba(255,255,255,0.03);">
             @csrf
@@ -278,7 +317,7 @@
     </section>
 
     <section class="server-card" style="margin-top:1rem;">
-        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Current records
+        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Saved in this panel
             @if (($hasZoneTable ?? false) && isset($zoneRecords) && $zoneRecords->isNotEmpty())
                 <span class="subtle" style="font-weight:500; font-size:0.85em;">({{ $zoneRecords->count() }})</span>
             @endif
@@ -471,7 +510,7 @@
             <div class="domains-modal__field">
                 <label class="domains-modal__label" for="source_domain">Select domain</label>
                 <select id="source_domain" class="domains-input" name="source_domain" style="width:100%; background: transparent;">
-                    @foreach ($redirectDomainOptions as $d)
+                    @foreach ($zoneDomainOptions as $d)
                         <option value="{{ $d }}" @selected(old('source_domain') === $d)>{{ $d }}</option>
                     @endforeach
                 </select>
