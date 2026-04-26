@@ -11,4 +11,10 @@ Route::middleware(['host.access'])->group(function () {
     Route::delete('/hosts/{hosting}/domains/{hostDomain}', [DomainsController::class, 'destroy'])
         ->middleware('throttle:30,1')
         ->name('hosts.domains.destroy');
+    Route::post('/hosts/{hosting}/domains/redirects', [DomainsController::class, 'storeRedirect'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.domains.redirects.store');
+    Route::delete('/hosts/{hosting}/domains/redirects/{redirect}', [DomainsController::class, 'destroyRedirect'])
+        ->middleware('throttle:30,1')
+        ->name('hosts.domains.redirects.destroy');
 });

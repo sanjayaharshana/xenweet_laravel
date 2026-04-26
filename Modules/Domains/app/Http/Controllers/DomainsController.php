@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Domains\Models\HostDomainRedirect;
 use Modules\Domains\Models\HostDomain;
 
 class DomainsController extends Controller
@@ -22,8 +23,15 @@ class DomainsController extends Controller
     public function index(Hosting $hosting): View
     {
         $hostDomains = collect();
+        $redirects = collect();
         if (class_exists(HostDomain::class) && Schema::hasTable('host_domains')) {
             $hostDomains = HostDomain::query()
+                ->where('hosting_id', $hosting->id)
+                ->orderByDesc('id')
+                ->get();
+        }
+        if (class_exists(HostDomainRedirect::class) && Schema::hasTable('host_domain_redirects')) {
+            $redirects = HostDomainRedirect::query()
                 ->where('hosting_id', $hosting->id)
                 ->orderByDesc('id')
                 ->get();
@@ -32,6 +40,7 @@ class DomainsController extends Controller
         return view('domains::index', [
             'hosting' => $hosting,
             'hostDomains' => $hostDomains,
+            'redirects' => $redirects,
         ]);
     }
 
@@ -160,6 +169,65 @@ class DomainsController extends Controller
             ->with('success', $msg);
     }
 
+    public function storeRedirect(Request $request, Hosting $hosting): RedirectResponse
+    {
+        if (! Schema::hasTable('host_domain_redirects')) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects'])
+                ->with('error', 'Redirects table is missing. Run migrations: php artisan migrate');
+        }
+
+        $validated = $request->validate([
+            'source_domain' => ['required', 'string', 'max:255'],
+            'redirect_type' => ['required', 'string', Rule::in(['temporary', 'permanent'])],
+            'redirect_url' => ['required', 'url', 'max:2048'],
+            '_context' => ['nullable', 'string', 'in:add_redirect'],
+        ]);
+
+        $source = Hosting::normalizeDomainName((string) $validated['source_domain']);
+        if ($source === '') {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects'])
+                ->withErrors(['source_domain' => 'Please select a valid source domain.'])
+                ->withInput();
+        }
+
+        if (! $this->belongsToHosting($hosting, $source)) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects'])
+                ->withErrors(['source_domain' => 'Selected domain does not belong to this hosting account.'])
+                ->withInput();
+        }
+
+        HostDomainRedirect::query()->updateOrCreate(
+            ['hosting_id' => $hosting->id, 'source_domain' => $source],
+            [
+                'redirect_type' => $validated['redirect_type'],
+                'redirect_url' => (string) $validated['redirect_url'],
+            ]
+        );
+
+        return redirect()
+            ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects'])
+            ->with('success', 'Redirect saved for '.$source.'.');
+    }
+
+    public function destroyRedirect(Hosting $hosting, HostDomainRedirect $redirect): RedirectResponse
+    {
+        if ((int) $redirect->hosting_id !== (int) $hosting->id) {
+            return redirect()
+                ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects'])
+                ->with('error', 'The selected redirect does not belong to this hosting account.');
+        }
+
+        $source = $redirect->source_domain;
+        $redirect->delete();
+
+        return redirect()
+            ->route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects'])
+            ->with('success', 'Redirect removed for '.$source.'.');
+    }
+
     private function generateTemporaryDomain(Hosting $hosting): string
     {
         $base = $hosting->siteHost();
@@ -192,5 +260,17 @@ class DomainsController extends Controller
             ->exists();
 
         return $inHostings || $inHostDomains;
+    }
+
+    private function belongsToHosting(Hosting $hosting, string $domain): bool
+    {
+        if (mb_strtolower($domain) === mb_strtolower($hosting->siteHost())) {
+            return true;
+        }
+
+        return HostDomain::query()
+            ->where('hosting_id', $hosting->id)
+            ->whereRaw('LOWER(domain) = ?', [mb_strtolower($domain)])
+            ->exists();
     }
 }

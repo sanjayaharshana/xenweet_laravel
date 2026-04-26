@@ -3,6 +3,52 @@
 @section('title', 'Domains - Xenweet')
 
 @section('content')
+@php
+    $activeTab = request('tab') === 'redirects' ? 'redirects' : 'domain';
+    $openAddDomainModal = $errors->any() && old('_context') === 'add_domain';
+    $openRedirectModal = $errors->any() && old('_context') === 'add_redirect';
+    $hasFileManagerRoute = \Nwidart\Modules\Facades\Module::isEnabled('FileManager') && \Illuminate\Support\Facades\Route::has('hosts.files.index');
+    $formatRootPath = static function (?string $path, ?string $hostRoot = null): string {
+        $path = trim((string) $path);
+        if ($path === '') {
+            return '-';
+        }
+
+        $display = $path;
+        if ($hostRoot !== null) {
+            $hostRoot = rtrim(trim($hostRoot), '/');
+            if ($hostRoot !== '' && str_starts_with($path, $hostRoot)) {
+                $relative = ltrim(substr($path, strlen($hostRoot)), '/');
+                $display = $relative !== '' ? $relative : basename($path);
+            }
+        }
+
+        return $display;
+    };
+    $rootPathToFileManagerRelative = static function (?string $path, ?string $hostRoot = null): ?string {
+        $path = trim((string) $path);
+        $hostRoot = rtrim(trim((string) $hostRoot), '/');
+        if ($path === '' || $hostRoot === '') {
+            return null;
+        }
+        if (! str_starts_with($path, $hostRoot)) {
+            return null;
+        }
+
+        return ltrim(substr($path, strlen($hostRoot)), '/');
+    };
+    $primaryRootPathShown = $formatRootPath($hosting->web_root_path, $hosting->host_root_path);
+    $primaryRootPathFm = $rootPathToFileManagerRelative($hosting->web_root_path, $hosting->host_root_path);
+    $redirectDomainOptions = collect([$hosting->siteHost()]);
+    if (isset($hostDomains)) {
+        $redirectDomainOptions = $redirectDomainOptions
+            ->merge($hostDomains->pluck('domain'))
+            ->filter(fn ($d) => trim((string) $d) !== '')
+            ->unique()
+            ->values();
+    }
+@endphp
+
 <div class="host-panel-scope managedb-scope">
     @if (session('success'))
         <div class="server-card" style="border-left:4px solid var(--success-border, #16a34a); margin-bottom:1rem;">
@@ -28,19 +74,28 @@
 
     <p class="ssltls-workflow-eyebrow" id="domains-tabs-h">Domain tools</p>
     <nav class="managedb-tabs ssltls-tool-tabs" aria-label="Domain tools tabs" aria-describedby="domains-tabs-h">
-        <a href="#" class="managedb-tab is-active">Domain</a>
-        <a href="#" class="managedb-tab">Redirects</a>
+        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'domain']) }}" class="managedb-tab {{ $activeTab === 'domain' ? 'is-active' : '' }}">Domain</a>
+        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects']) }}" class="managedb-tab {{ $activeTab === 'redirects' ? 'is-active' : '' }}">Redirects</a>
         <a href="#" class="managedb-tab">Zone Editor</a>
         <a href="#" class="managedb-tab">Dynamic DNS</a>
     </nav>
-
+@if ($activeTab === 'domain')
     <section class="server-card">
         <h2 class="host-sidebar-meta-title" style="margin-top:0;">Primary domain</h2>
         <div class="meta meta--sidebar">
             <div><span>Domain</span><strong>{{ $hosting->domain }}</strong></div>
             <div><span>Hostname</span><strong>{{ $hosting->siteHost() }}</strong></div>
             <div><span>Public URL</span><strong>{{ $hosting->publicSiteUrl() }}</strong></div>
-            <div><span>Document Root</span><strong>{{ $hosting->web_root_path }}</strong></div>
+            <div>
+                <span>Document Root</span>
+                <strong title="{{ $hosting->web_root_path }}">
+                    @if ($hasFileManagerRoute && $primaryRootPathFm !== null)
+                        <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $primaryRootPathFm]) }}" target="_blank" rel="noopener noreferrer">{{ $primaryRootPathShown }}</a>
+                    @else
+                        {{ $primaryRootPathShown }}
+                    @endif
+                </strong>
+            </div>
         </div>
         <p class="subtle" style="margin-top:0.75rem; margin-bottom:0;">
             Add extra domains for this account below. They are stored in the <code>host_domains</code> table.
@@ -64,7 +119,18 @@
                     <span><strong>{{ $row->domain }}</strong></span>
                     <span class="subtle">{{ $row->type === 'registered' ? 'Registered' : 'Temporary' }}</span>
                     <span class="subtle">{{ $row->share_document_root ? 'Shared' : 'Custom' }}</span>
-                    <span class="subtle">{{ $row->share_document_root ? $hosting->web_root_path : ($row->document_root ?: '-') }}</span>
+                    @php
+                        $rawRootPath = $row->share_document_root ? $hosting->web_root_path : $row->document_root;
+                        $shownRootPath = $formatRootPath($rawRootPath, $hosting->host_root_path);
+                        $fmPath = $rootPathToFileManagerRelative($rawRootPath, $hosting->host_root_path);
+                    @endphp
+                    <span class="subtle" title="{{ $rawRootPath }}">
+                        @if ($hasFileManagerRoute && $fmPath !== null)
+                            <a href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $fmPath]) }}" target="_blank" rel="noopener noreferrer">{{ $shownRootPath }}</a>
+                        @else
+                            {{ $shownRootPath }}
+                        @endif
+                    </span>
                     <span>
                         <form method="post" action="{{ route('hosts.domains.destroy', [$hosting, $row]) }}" onsubmit="return confirm('Delete domain {{ $row->domain }}? This will also reapply Nginx.');">
                             @csrf
@@ -102,11 +168,43 @@
             </div>
         </div>
     </section>
+@else
+    <section class="server-card" style="margin-top:1rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
+            <h2 class="host-sidebar-meta-title" style="margin:0;">Domain redirects</h2>
+            <button type="button" class="btn-primary compact" id="open-add-redirect-modal">Add Redirect</button>
+        </div>
+        <p class="subtle" style="margin-top:0.5rem;">Choose a domain from this hosting account and forward it to a target URL (301 or 302).</p>
+        @if (isset($redirects) && $redirects->isNotEmpty())
+            <div class="file-manager-main__sticky-head" style="margin:0.5rem 0; border-radius:8px;">
+                <div class="file-row file-row-head" style="grid-template-columns: 1fr 0.5fr 1.2fr 0.5fr;">
+                    <span>Source domain</span>
+                    <span>Type</span>
+                    <span>Target URL</span>
+                    <span>Action</span>
+                </div>
+            </div>
+            @foreach ($redirects as $r)
+                <div class="file-row" style="grid-template-columns: 1fr 0.5fr 1.2fr 0.5fr;">
+                    <span><strong>{{ $r->source_domain }}</strong></span>
+                    <span class="subtle">{{ $r->redirect_type === 'permanent' ? '301' : '302' }}</span>
+                    <span class="subtle"><a href="{{ $r->redirect_url }}" target="_blank" rel="noopener noreferrer">{{ $r->redirect_url }}</a></span>
+                    <span>
+                        <form method="post" action="{{ route('hosts.domains.redirects.destroy', [$hosting, $r]) }}" onsubmit="return confirm('Delete redirect for {{ $r->source_domain }}?');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn-secondary compact" style="border-color: rgba(220, 38, 38, 0.45); color: #fecaca;">Delete</button>
+                        </form>
+                    </span>
+                </div>
+            @endforeach
+        @else
+            <p class="subtle" style="margin:0.35rem 0 0;">No redirects yet. Click <strong>Add Redirect</strong> to create one.</p>
+        @endif
+    </section>
+@endif
 </div>
 
-@php
-    $openAddDomainModal = $errors->any() && old('_context') === 'add_domain';
-@endphp
 <div id="add-domain-modal" class="domains-modal" @if (! $openAddDomainModal) hidden @endif>
     <div class="domains-modal__backdrop" data-close-add-domain-modal></div>
     <div class="domains-modal__panel" role="dialog" aria-modal="true" aria-labelledby="add-domain-modal-title">
@@ -185,7 +283,7 @@
                         </span>
                     </label>
                 </div>
-                <p class="subtle" style="margin:0.5rem 0 0;">Primary root path: <code>{{ $hosting->web_root_path }}</code></p>
+                <p class="subtle" style="margin:0.5rem 0 0;">Primary root path: <code>{{ $formatRootPath($hosting->web_root_path, $hosting->host_root_path) }}</code></p>
             </div>
 
             <div id="custom-root-wrap" class="domains-modal__field domains-modal__field--domain" hidden>
@@ -202,7 +300,7 @@
                         type="text"
                         value="{{ old('document_root') }}"
                         autocomplete="off"
-                        placeholder="{{ $hosting->web_root_path }}"
+                        placeholder="{{ $formatRootPath($hosting->web_root_path, $hosting->host_root_path) }}"
                     >
                 </div>
                 @error('document_root')
@@ -213,6 +311,80 @@
             <div class="domains-modal__actions">
                 <button type="submit" class="btn-primary">Create Domain</button>
                 <button type="button" class="btn-secondary" data-close-add-domain-modal>Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="add-redirect-modal" class="domains-modal" @if (! $openRedirectModal) hidden @endif>
+    <div class="domains-modal__backdrop" data-close-add-redirect-modal></div>
+    <div class="domains-modal__panel" role="dialog" aria-modal="true" aria-labelledby="add-redirect-modal-title">
+        <div class="domains-modal__head">
+            <div class="domains-modal__title-wrap">
+                <span class="domains-modal__title-icon" aria-hidden="true"><i class="fa fa-random"></i></span>
+                <div>
+                    <h2 id="add-redirect-modal-title">Add Redirect</h2>
+                    <p>Select source domain, redirect type and target URL.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-secondary compact" data-close-add-redirect-modal>Close</button>
+        </div>
+
+        <form class="domains-modal__body" method="post" action="{{ route('hosts.domains.redirects.store', $hosting) }}">
+            @csrf
+            <input type="hidden" name="_context" value="add_redirect">
+            <div class="domains-modal__field">
+                <label class="domains-modal__label" for="source_domain">Select domain</label>
+                <select id="source_domain" class="domains-input" name="source_domain" style="width:100%; background: transparent;">
+                    @foreach ($redirectDomainOptions as $d)
+                        <option value="{{ $d }}" @selected(old('source_domain') === $d)>{{ $d }}</option>
+                    @endforeach
+                </select>
+                @error('source_domain')
+                    <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.45rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="domains-modal__field">
+                <p class="domains-modal__label">Redirect type</p>
+                <div class="domains-type-grid">
+                    <label class="domains-type-card">
+                        <input type="radio" name="redirect_type" value="temporary" @checked(old('redirect_type', 'temporary') === 'temporary')>
+                        <span class="domains-type-card__content">
+                            <strong>Temporary Redirect</strong>
+                            <small>302 (can change later)</small>
+                        </span>
+                    </label>
+                    <label class="domains-type-card">
+                        <input type="radio" name="redirect_type" value="permanent" @checked(old('redirect_type') === 'permanent')>
+                        <span class="domains-type-card__content">
+                            <strong>Permanent Redirect</strong>
+                            <small>301 (final/canonical)</small>
+                        </span>
+                    </label>
+                </div>
+                @error('redirect_type')
+                    <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.45rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="domains-modal__field domains-modal__field--domain">
+                <div class="domains-input-header">
+                    <label for="redirect_url" class="domains-modal__label">Redirect URL</label>
+                    <span class="domains-input-hint">Example: <code>https://example.com/path</code></span>
+                </div>
+                <div class="domains-input-group">
+                    <span class="domains-input-group__prefix" aria-hidden="true"><i class="fa fa-external-link"></i></span>
+                    <input id="redirect_url" class="domains-input" name="redirect_url" type="url" value="{{ old('redirect_url') }}" placeholder="https://example.com" required>
+                </div>
+                @error('redirect_url')
+                    <p class="subtle" style="color: var(--danger-text, #b91c1c); margin: 0.45rem 0 0; font-size: 0.85rem;">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="domains-modal__actions">
+                <button type="submit" class="btn-primary">Save Redirect</button>
+                <button type="button" class="btn-secondary" data-close-add-redirect-modal>Cancel</button>
             </div>
         </form>
     </div>
@@ -482,6 +654,9 @@
         var openBtn = document.getElementById('open-add-domain-modal');
         var modal = document.getElementById('add-domain-modal');
         var closeBtns = document.querySelectorAll('[data-close-add-domain-modal]');
+        var openRedirectBtn = document.getElementById('open-add-redirect-modal');
+        var redirectModal = document.getElementById('add-redirect-modal');
+        var closeRedirectBtns = document.querySelectorAll('[data-close-add-redirect-modal]');
         var typeInputs = document.querySelectorAll('input[name="domain_type"]');
         var rootModeInputs = document.querySelectorAll('input[name="root_mode"]');
         var registeredWrap = document.getElementById('registered-domain-wrap');
@@ -531,6 +706,14 @@
             if (!modal) return;
             modal.hidden = true;
         }
+        function openRedirectModal() {
+            if (!redirectModal) return;
+            redirectModal.hidden = false;
+        }
+        function closeRedirectModal() {
+            if (!redirectModal) return;
+            redirectModal.hidden = true;
+        }
 
         if (openBtn) {
             openBtn.addEventListener('click', openModal);
@@ -538,6 +721,12 @@
 
         closeBtns.forEach(function (btn) {
             btn.addEventListener('click', closeModal);
+        });
+        if (openRedirectBtn) {
+            openRedirectBtn.addEventListener('click', openRedirectModal);
+        }
+        closeRedirectBtns.forEach(function (btn) {
+            btn.addEventListener('click', closeRedirectModal);
         });
 
         typeInputs.forEach(function (input) {
@@ -552,6 +741,9 @@
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && modal && !modal.hidden) {
                 closeModal();
+            }
+            if (event.key === 'Escape' && redirectModal && !redirectModal.hidden) {
+                closeRedirectModal();
             }
         });
 
