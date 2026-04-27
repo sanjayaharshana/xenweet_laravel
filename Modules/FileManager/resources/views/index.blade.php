@@ -26,6 +26,7 @@
             data-edit-url="{{ route('hosts.files.edit', $hosting) }}"
             data-update-url="{{ route('hosts.files.update', $hosting) }}"
             data-index-url="{{ route('hosts.files.index', $hosting) }}"
+            data-code-editor-url="{{ route('hosts.files.code-editor', $hosting) }}"
             data-queue-status-url="{{ route('hosts.files.queue-status', $hosting) }}"
             data-queue-token="{{ session('fm_queue_token', '') }}"
         >
@@ -241,6 +242,7 @@
                 <button type="button" class="fm-context-menu__item fm-context-menu__item--danger" role="menuitem" data-action="delete">Delete</button>
                 <button type="button" class="fm-context-menu__item" role="menuitem" data-action="edit">Edit</button>
                 <button type="button" class="fm-context-menu__item" role="menuitem" data-action="open">Open file</button>
+                <button type="button" class="fm-context-menu__item" role="menuitem" data-action="code-editor">Open in editor</button>
             </div>
 
             <script>
@@ -591,6 +593,7 @@
                         var fmEditBase = panel ? panel.getAttribute('data-edit-url') : '';
                         var fmUpdateUrl = panel ? panel.getAttribute('data-update-url') : '';
                         var fmIndexBase = panel ? panel.getAttribute('data-index-url') : '';
+                        var fmCodeEditorBase = panel ? panel.getAttribute('data-code-editor-url') : '';
                         var fmDialogEdit = document.getElementById('fm-dialog-edit');
                         var fmEditContent = document.getElementById('fm-edit-content');
                         var fmEditPathLabel = document.getElementById('fm-edit-path-label');
@@ -805,6 +808,29 @@
                                 row.classList.add('file-row--menu-open');
                                 setMenuActionDisabled('edit', !ctxState.editable);
                                 setMenuActionDisabled('extract', !ctxState.extractable);
+                                setMenuActionDisabled('code-editor', ctxState.type !== 'dir');
+                                positionFmMenu(e.clientX, e.clientY);
+                            });
+                        });
+
+                        document.querySelectorAll('.file-tree [data-tree-folder-relative]').forEach(function (link) {
+                            link.addEventListener('contextmenu', function (e) {
+                                e.preventDefault();
+                                if (!fmMenu) {
+                                    return;
+                                }
+                                var rel = link.getAttribute('data-tree-folder-relative');
+                                if (rel === null || rel === undefined) {
+                                    rel = '';
+                                }
+                                ctxState.relative = rel;
+                                ctxState.editable = false;
+                                ctxState.type = 'dir';
+                                ctxState.extractable = false;
+                                clearCtxRowHighlight();
+                                setMenuActionDisabled('edit', true);
+                                setMenuActionDisabled('extract', true);
+                                setMenuActionDisabled('code-editor', false);
                                 positionFmMenu(e.clientX, e.clientY);
                             });
                         });
@@ -838,6 +864,11 @@
                                         } else {
                                             window.open(fmUrl(fmOpenBase, rel), '_blank', 'noopener,noreferrer');
                                         }
+                                    } else if (action === 'code-editor') {
+                                        if (ctxState.type !== 'dir' || !fmCodeEditorBase) {
+                                            return;
+                                        }
+                                        window.open(fmUrl(fmCodeEditorBase, rel), '_blank', 'noopener,noreferrer');
                                     } else if (action === 'edit') {
                                         if (!ctxState.editable) {
                                             return;
@@ -1139,6 +1170,7 @@
                             <a
                                 href="{{ route('hosts.files.index', $hosting) }}"
                                 class="file-tree__root-link @if ($listing['relativePath'] === '') is-active @endif"
+                                data-tree-folder-relative=""
                             ><i class="fa fa-home" aria-hidden="true"></i> Host root</a>
                         </div>
                         @if (count($listing['tree']) > 0)
@@ -1245,7 +1277,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="file-manager-select-hint subtle">Right-click a <strong>file or folder</strong> for quick actions. Compress/Extract are queued background tasks (extract is available for .zip files). Click a file name to select; double-click a file name to rename.</p>
+                        <p class="file-manager-select-hint subtle">Right-click a <strong>file or folder</strong> for quick actions. Folders and the tree: <strong>Open in editor</strong> opens a new tab. Compress/Extract are queued. Click a file name to select; double-click to rename.</p>
                     @endif
                 </div>
             </div>

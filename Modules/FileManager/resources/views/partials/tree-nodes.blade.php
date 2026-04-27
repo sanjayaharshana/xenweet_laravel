@@ -8,6 +8,7 @@
                         <a
                             href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $node['relative']]) }}"
                             class="file-tree__link @if ($currentPath === $node['relative']) is-active @endif"
+                            data-tree-folder-relative="{{ $node['relative'] }}"
                             onclick="event.stopPropagation()"
                         >{{ $node['name'] }}</a>
                     </summary>
@@ -27,6 +28,7 @@
                         <a
                             href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $node['relative']]) }}"
                             class="file-tree__link @if ($currentPath === $node['relative']) is-active @endif"
+                            data-tree-folder-relative="{{ $node['relative'] }}"
                             onclick="event.stopPropagation()"
                         >{{ $node['name'] }}</a>
                     </summary>
@@ -38,6 +40,7 @@
                     <a
                         href="{{ route('hosts.files.index', ['hosting' => $hosting, 'path' => $node['relative']]) }}"
                         class="file-tree__link @if ($currentPath === $node['relative']) is-active @endif"
+                        data-tree-folder-relative="{{ $node['relative'] }}"
                     >{{ $node['name'] }}</a>
                 </div>
             @endif

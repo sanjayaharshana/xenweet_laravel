@@ -83,8 +83,8 @@ return [
             'title' => 'Domains',
             'items' => [
                 ['label' => 'Domain', 'description' => 'Primary domain and domain management', 'icon' => 'fa fa-globe', 'route' => 'hosts.domains.index'],
-                ['label' => 'Redirects', 'description' => 'URL and domain redirects', 'icon' => 'fa fa-random'],
-                ['label' => 'Zone Editor', 'description' => 'DNS zone records and settings', 'icon' => 'fa fa-sitemap'],
+                ['label' => 'Redirects', 'description' => 'URL and domain redirects', 'icon' => 'fa fa-random', 'route' => 'hosts.domains.index', 'route_parameters' => ['tab' => 'redirects']],
+                ['label' => 'Zone Editor', 'description' => 'DNS zone records and live public DNS', 'icon' => 'fa fa-sitemap', 'route' => 'hosts.domains.index', 'route_parameters' => ['tab' => 'zone']],
                 ['label' => 'Dynamic DNS', 'description' => 'Manage dynamic DNS host updates', 'icon' => 'fa fa-refresh'],
             ],
         ],

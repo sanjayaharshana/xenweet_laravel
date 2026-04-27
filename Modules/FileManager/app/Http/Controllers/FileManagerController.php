@@ -33,6 +33,59 @@ class FileManagerController extends Controller
         ]);
     }
 
+    /**
+     * JSON listing of a single directory (code editor file browser).
+     */
+    public function entries(Request $request, Hosting $hosting, HostFolderBrowser $browser): JsonResponse
+    {
+        $path = (string) $request->query('path', '');
+        $workspaceRoot = (string) $request->query('root', '');
+
+        if (! $this->isPathUnderWorkspace($path, $workspaceRoot)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Path is outside the selected workspace folder.',
+            ], 422);
+        }
+
+        $listing = $browser->listDirectory($hosting, $path);
+        if (! $listing['ok']) {
+            return response()->json([
+                'ok' => false,
+                'message' => (string) ($listing['error'] ?? 'Folder not found.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'path' => $listing['relativePath'],
+            'parentRelativePath' => $listing['parentRelativePath'],
+            'entries' => $listing['entries'],
+        ]);
+    }
+
+    public function codeEditor(Request $request, Hosting $hosting, HostFolderBrowser $browser): View|RedirectResponse
+    {
+        $workspaceRoot = (string) $request->query('path', '');
+
+        $check = $browser->listDirectory($hosting, $workspaceRoot);
+        if (! $check['ok']) {
+            return redirect()
+                ->route('hosts.files.index', ['hosting' => $hosting])
+                ->withErrors(['action' => (string) ($check['error'] ?? 'Invalid folder.')]);
+        }
+
+        $relativePath = (string) $check['relativePath'];
+        if ($relativePath !== $workspaceRoot) {
+            $workspaceRoot = $relativePath;
+        }
+
+        return view('filemanager::code-editor', [
+            'hosting' => $hosting,
+            'workspacePath' => $workspaceRoot,
+        ]);
+    }
+
     public function mkdir(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
@@ -450,6 +503,24 @@ class FileManagerController extends Controller
         }
 
         return dirname($p);
+    }
+
+    /**
+     * Whether a relative path is the workspace root or a descendant (code editor path guard).
+     */
+    private function isPathUnderWorkspace(string $path, string $root): bool
+    {
+        $path = str_replace('\\', '/', $path);
+        $root = str_replace('\\', '/', $root);
+        if ($root === '') {
+            return true;
+        }
+        if ($path === $root) {
+            return true;
+        }
+        $prefix = rtrim($root, '/').'/';
+
+        return str_starts_with($path, $prefix);
     }
 
     private const BULK_PATHS_MAX = 5000;

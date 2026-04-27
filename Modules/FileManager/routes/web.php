@@ -18,4 +18,6 @@ Route::middleware(['host.access'])->group(function () {
     Route::post('/hosts/{hosting}/files/compress', [FileManagerController::class, 'compress'])->name('hosts.files.compress');
     Route::post('/hosts/{hosting}/files/extract', [FileManagerController::class, 'extract'])->name('hosts.files.extract');
     Route::get('/hosts/{hosting}/files/queue-status', [FileManagerController::class, 'queueStatus'])->name('hosts.files.queue-status');
+    Route::get('/hosts/{hosting}/files/entries', [FileManagerController::class, 'entries'])->name('hosts.files.entries');
+    Route::get('/hosts/{hosting}/files/code-editor', [FileManagerController::class, 'codeEditor'])->name('hosts.files.code-editor');
 });

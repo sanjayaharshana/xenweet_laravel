@@ -23,6 +23,7 @@
 </head>
 @php
     $isFileManager = request()->routeIs('hosts.files.*');
+    $isFileManagerCodeEditor = request()->routeIs('hosts.files.code-editor');
     $showHostQuickSidebar = isset($hosting) && ! $isFileManager;
     $hasRightSidebar = ! $isFileManager && (view()->hasSection('right_sidebar') || isset($hosting));
     $moduleEnabled = function (string $name): bool {
@@ -33,7 +34,7 @@
         return \Nwidart\Modules\Facades\Module::isEnabled($name);
     };
 @endphp
-<body class="dashboard-body dashboard-body--host @if ($isFileManager) dashboard-body--file-manager @endif">
+<body class="dashboard-body dashboard-body--host @if ($isFileManagerCodeEditor) dashboard-body--fm-code-editor @elseif ($isFileManager) dashboard-body--file-manager @endif">
     <nav class="host-main-navbar" aria-label="Host account">
         <div class="nav-inner host-nav-inner">
             @isset($hosting)
@@ -67,6 +68,10 @@
                     @endif
                     @if ($moduleEnabled('SslTls'))
                         <a href="{{ route('hosts.ssl-tls', $hosting) }}" class="{{ request()->routeIs('hosts.ssl-tls*') ? 'active' : '' }}">SSL</a>
+                    @endif
+                    @if ($moduleEnabled('Domains') && \Illuminate\Support\Facades\Route::has('hosts.domains.index'))
+                        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects']) }}" class="{{ request()->routeIs('hosts.domains.index') && request('tab') === 'redirects' ? 'active' : '' }}">Redirects</a>
+                        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone']) }}" class="{{ request()->routeIs('hosts.domains.index') && request('tab') === 'zone' ? 'active' : '' }}">Zone Editor</a>
                     @endif
                     @if ($moduleEnabled('SshAccess'))
                         <a href="{{ route('hosts.ssh-access', $hosting) }}" class="{{ request()->routeIs('hosts.ssh-access*') ? 'active' : '' }}">SSH</a>
