@@ -92,13 +92,19 @@
         <div class="server-card host-sidebar-meta">
             <h2 class="host-sidebar-meta-title">Roundcube Installer</h2>
             @php
-                $roundcubeInstalled = is_file(public_path('roundcube/index.php'));
+                $roundcubeInstalled = (bool) ($installerStatus['installed'] ?? false);
+                $roundcubePath = (string) ($installerStatus['path'] ?? '');
                 $configuredCentralUrl = trim((string) ($settings['webmail_central_url'] ?? ''));
                 $configuredMode = trim((string) ($settings['webmail_mode'] ?? 'per_host'));
             @endphp
             <p class="subtle" style="margin-bottom:0.65rem;">
                 Status: <strong>{{ $roundcubeInstalled ? 'Installed' : 'Not installed' }}</strong>
             </p>
+            @if ($roundcubeInstalled && $roundcubePath !== '')
+                <p class="subtle" style="margin-bottom:0.65rem;">
+                    Installed path: <code>{{ $roundcubePath }}</code>
+                </p>
+            @endif
             <p class="subtle" style="margin-bottom:0.65rem;">
                 WebMail URL:
                 <strong>

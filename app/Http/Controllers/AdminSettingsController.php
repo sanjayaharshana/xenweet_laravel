@@ -81,16 +81,18 @@ class AdminSettingsController extends Controller
             ->with('success', 'Settings updated successfully.');
     }
 
-    public function webmail(): View
+    public function webmail(WebmailInstallerService $installer): View
     {
         $webmail = (array) config('admin_settings.webmail_settings', []);
         $fields = (array) ($webmail['fields'] ?? []);
         $settings = $this->loadSettingsFromFields($fields);
+        $installerStatus = $installer->installationStatus();
 
         return view('panel.webmail-settings', [
             'webmail' => $webmail,
             'fields' => $fields,
             'settings' => $settings,
+            'installerStatus' => $installerStatus,
         ]);
     }
 

@@ -156,6 +156,16 @@ class WebmailInstallerService
         ];
     }
 
+    public function installationStatus(): array
+    {
+        $root = $this->detectInstalledRoundcubeRoot();
+
+        return [
+            'installed' => $root !== null,
+            'path' => $root,
+        ];
+    }
+
     private function bootstrapCentralRoundcube(string $targetRoot): array
     {
         $configDir = $targetRoot.DIRECTORY_SEPARATOR.'config';
