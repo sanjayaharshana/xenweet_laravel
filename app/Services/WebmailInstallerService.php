@@ -647,26 +647,8 @@ PHP;
 
     private function roundcubeBaseUriForTarget(string $targetRoot): string
     {
-        $configured = trim((string) ModuleSettings::get('webmail_central_url', ''));
-        if ($configured !== '') {
-            $path = (string) (parse_url($configured, PHP_URL_PATH) ?? '/');
-            $path = trim($path);
-            if ($path === '') {
-                $path = '/';
-            }
-            if (! str_starts_with($path, '/')) {
-                $path = '/'.$path;
-            }
-
-            return rtrim($path, '/').'/';
-        }
-
-        $publicRoundcube = public_path('roundcube');
-        if (realpath($targetRoot) === realpath($publicRoundcube)) {
-            return '/roundcube/';
-        }
-
-        return '/';
+        // Keep Roundcube mounted at baseurl/roundcube consistently.
+        return '/roundcube/';
     }
 
     private function applyRuntimeCompatPatch(string $targetRoot): void

@@ -6,9 +6,20 @@ use App\Http\Controllers\HostAuthController;
 use App\Http\Controllers\HostTwoFactorController;
 use App\Http\Controllers\LogViewerController;
 use App\Http\Controllers\PanelController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login');
+Route::match(['GET', 'POST'], '/', function (Request $request) {
+    if ($request->query->has('_task') || $request->query->has('_action') || $request->query->has('_framed')) {
+        $qs = $request->getQueryString();
+        $target = '/roundcube/'.($qs ? '?'.$qs : '');
+        $status = $request->isMethod('POST') ? 307 : 302;
+
+        return redirect($target, $status);
+    }
+
+    return redirect('/login');
+});
 Route::redirect('/roundcube', '/roundcube/');
 
 Route::middleware('guest')->group(function () {
