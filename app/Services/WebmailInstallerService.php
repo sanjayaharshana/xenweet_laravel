@@ -29,8 +29,14 @@ class WebmailInstallerService
             ];
         }
 
-        $extractBase = storage_path('app/roundcube-central-install');
-        File::ensureDirectoryExists($extractBase);
+        $extractDir = $this->resolveWritableDirectory([
+            storage_path('app/roundcube-central-install'),
+            sys_get_temp_dir().DIRECTORY_SEPARATOR.'xenweet-roundcube-central-install',
+        ]);
+        if (! $extractDir['ok']) {
+            return $extractDir;
+        }
+        $extractBase = (string) $extractDir['path'];
 
         try {
             $process = new Process(['tar', '-xzf', $archivePath, '-C', $extractBase]);
@@ -133,8 +139,14 @@ class WebmailInstallerService
         File::ensureDirectoryExists($tempDir);
         File::ensureDirectoryExists($logsDir);
 
-        $dbDir = storage_path('app/roundcube-central');
-        File::ensureDirectoryExists($dbDir);
+        $dbDirResult = $this->resolveWritableDirectory([
+            storage_path('app/roundcube-central'),
+            sys_get_temp_dir().DIRECTORY_SEPARATOR.'xenweet-roundcube-central-db',
+        ]);
+        if (! $dbDirResult['ok']) {
+            return $dbDirResult;
+        }
+        $dbDir = (string) $dbDirResult['path'];
         $dbPath = $dbDir.DIRECTORY_SEPARATOR.'roundcube.sqlite';
 
         $init = $this->initSqliteDbIfNeeded($targetRoot, $dbPath);
@@ -222,8 +234,14 @@ PHP;
             return ['ok' => false, 'error' => 'Nginx vhost script missing. Set HOSTING_VHOST_SCRIPT.'];
         }
 
-        $outputDir = storage_path('app/hosting-vhosts');
-        File::ensureDirectoryExists($outputDir);
+        $outputDirResult = $this->resolveWritableDirectory([
+            storage_path('app/hosting-vhosts'),
+            sys_get_temp_dir().DIRECTORY_SEPARATOR.'xenweet-hosting-vhosts',
+        ]);
+        if (! $outputDirResult['ok']) {
+            return $outputDirResult;
+        }
+        $outputDir = (string) $outputDirResult['path'];
 
         $process = new Process(
             ['bash', $script, $host, $webRoot],
@@ -398,5 +416,30 @@ PHP;
             $p = new Process(['bash', $scriptDeactivate, $host], base_path(), [], null, (float) config('hosting_provision.timeout', 120));
             $p->run();
         }
+    }
+
+    private function resolveWritableDirectory(array $candidates): array
+    {
+        foreach ($candidates as $path) {
+            $dir = trim((string) $path);
+            if ($dir === '') {
+                continue;
+            }
+
+            try {
+                File::ensureDirectoryExists($dir);
+            } catch (Throwable) {
+                continue;
+            }
+
+            if (is_dir($dir) && is_writable($dir)) {
+                return ['ok' => true, 'path' => $dir];
+            }
+        }
+
+        return [
+            'ok' => false,
+            'error' => 'Permission denied while creating installer directories. Ensure PHP can write to storage/ (or system temp directory).',
+        ];
     }
 }
