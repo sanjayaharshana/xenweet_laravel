@@ -110,18 +110,12 @@ class WebmailInstallerService
         if (! $nginx['ok']) {
             return $nginx;
         }
-        if (! empty($nginx['warning'])) {
-            return [
-                'ok' => true,
-                'message' => 'Roundcube installed at '.$targetRoot.'. '.$nginx['warning'],
-            ];
-        }
 
         $ssl = $this->requestAutoSslForCentralHost($centralHost, $targetRoot);
         if (! $ssl['ok']) {
             return [
-                'ok' => false,
-                'error' => 'Nginx is ready, but AutoSSL failed: '.(string) ($ssl['error'] ?? 'unknown error'),
+                'ok' => true,
+                'message' => 'Roundcube installed at '.$targetRoot.'. Nginx configured for '.$centralHost.', but AutoSSL failed (HTTP should work): '.(string) ($ssl['error'] ?? 'unknown error'),
             ];
         }
 
@@ -328,9 +322,29 @@ PHP;
             if (! $activate->isSuccessful()) {
                 $detail = trim($activate->getErrorOutput()."\n".$activate->getOutput());
                 if ($this->isSudoPasswordRequired($detail)) {
+                    // Auto fallback: try non-sudo script mode before failing.
+                    if ($activateScript !== '' && is_file($activateScript)) {
+                        $fallback = new Process(
+                            ['bash', $activateScript, $host, $outputDir],
+                            base_path(),
+                            ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
+                            null,
+                            (float) config('hosting_provision.timeout', 120)
+                        );
+                        $fallback->run();
+                        if ($fallback->isSuccessful()) {
+                            return ['ok' => true];
+                        }
+
+                        return [
+                            'ok' => false,
+                            'error' => 'Nginx activate failed in both sudo and non-sudo modes. sudo: '.$detail.' | script: '.trim($fallback->getErrorOutput()."\n".$fallback->getOutput()),
+                        ];
+                    }
+
                     return [
-                        'ok' => true,
-                        'warning' => 'Roundcube files were installed, but Nginx activate needs passwordless sudo. Run on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
+                        'ok' => false,
+                        'error' => 'Nginx activate needs passwordless sudo. Run on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
                     ];
                 }
 
@@ -393,7 +407,12 @@ PHP;
         $process = new Process($cmd, base_path(), ['LE_WEBROOT' => $webRoot], null, (float) config('ssltls.letsencrypt_timeout', 300));
         $process->run();
         if (! $process->isSuccessful()) {
-            return ['ok' => false, 'error' => trim($process->getErrorOutput()."\n".$process->getOutput()) ?: 'certbot failed'];
+            $detail = trim($process->getErrorOutput()."\n".$process->getOutput()) ?: 'certbot failed';
+            if ($this->isSudoPasswordRequired($detail)) {
+                return ['ok' => false, 'error' => 'certbot requires passwordless sudo. Run: sudo bash '.base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data'];
+            }
+
+            return ['ok' => false, 'error' => $detail];
         }
 
         $liveBase = rtrim((string) config('ssltls.letsencrypt_config_dir', '/etc/letsencrypt'), '/').DIRECTORY_SEPARATOR.'live'.DIRECTORY_SEPARATOR.$certName;
@@ -421,7 +440,27 @@ PHP;
             );
             $p->run();
             if (! $p->isSuccessful()) {
-                return ['ok' => false, 'error' => 'AutoSSL issued cert but nginx SSL install failed: '.trim($p->getErrorOutput()."\n".$p->getOutput())];
+                $detail = trim($p->getErrorOutput()."\n".$p->getOutput());
+                if ($this->isSudoPasswordRequired($detail)) {
+                    $script = (string) config('ssltls.nginx_ssl_install_script', '');
+                    if ($script !== '' && is_file($script)) {
+                        $fallback = new Process(
+                            ['bash', $script, $host, $webRoot, $keyPath, $fullchainPath],
+                            base_path(),
+                            [],
+                            null,
+                            (float) config('ssltls.nginx_ssl_install_timeout', 90)
+                        );
+                        $fallback->run();
+                        if ($fallback->isSuccessful()) {
+                            return ['ok' => true];
+                        }
+
+                        return ['ok' => false, 'error' => 'AutoSSL cert issued, but nginx SSL install failed in sudo and script modes. sudo: '.$detail.' | script: '.trim($fallback->getErrorOutput()."\n".$fallback->getOutput())];
+                    }
+                }
+
+                return ['ok' => false, 'error' => 'AutoSSL issued cert but nginx SSL install failed: '.$detail];
             }
 
             return ['ok' => true];
