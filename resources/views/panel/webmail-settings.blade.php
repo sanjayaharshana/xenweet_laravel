@@ -93,9 +93,23 @@
             <h2 class="host-sidebar-meta-title">Roundcube Installer</h2>
             @php
                 $roundcubeInstalled = is_file(public_path('roundcube/index.php'));
+                $configuredCentralUrl = trim((string) ($settings['webmail_central_url'] ?? ''));
+                $configuredMode = trim((string) ($settings['webmail_mode'] ?? 'per_host'));
             @endphp
             <p class="subtle" style="margin-bottom:0.65rem;">
                 Status: <strong>{{ $roundcubeInstalled ? 'Installed' : 'Not installed' }}</strong>
+            </p>
+            <p class="subtle" style="margin-bottom:0.65rem;">
+                WebMail URL:
+                <strong>
+                    @if ($configuredMode === 'central' && $configuredCentralUrl !== '')
+                        {{ $configuredCentralUrl }}
+                    @elseif ($configuredMode === 'central')
+                        Not configured (set Central WebMail URL)
+                    @else
+                        Per-host mode (example: mail.yourdomain.com)
+                    @endif
+                </strong>
             </p>
             <form method="POST" action="{{ route('panel.settings.webmail.install-roundcube') }}">
                 @csrf
