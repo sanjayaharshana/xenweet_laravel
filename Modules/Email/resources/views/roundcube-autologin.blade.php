@@ -26,12 +26,44 @@
         const user = @json($email);
         const pass = @json($password);
 
+        function extractRequestToken(html) {
+            try {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const byName = doc.querySelector('input[name="_token"]');
+                if (byName && byName.value) {
+                    return byName.value;
+                }
+            } catch (e) { /* continue */ }
+            const patterns = [
+                /name=["']_token["']\s+value=["']([^"']+)["']/i,
+                /value=["']([^"']+)["']\s+name=["']_token["']/i,
+                /["']request_token["']\s*:\s*["']([^"']+)["']/,
+                /"request_token"\s*:\s*"([^"]+)"/,
+            ];
+            for (let i = 0; i < patterns.length; i++) {
+                const m = html.match(patterns[i]);
+                if (m && m[1]) {
+                    return m[1];
+                }
+            }
+            return null;
+        }
+
         try {
-            const loginPageResponse = await fetch(base + '?_task=login', { credentials: 'include' });
+            const loginUrl = (base.indexOf('?') >= 0 ? base + '&' : base + '?') + '_task=login';
+            const loginPageResponse = await fetch(loginUrl, {
+                credentials: 'include',
+                redirect: 'follow',
+                cache: 'no-store',
+            });
             const html = await loginPageResponse.text();
-            const tokenMatch = html.match(/name="_token"\s+value="([^"]+)"/);
-            if (!tokenMatch || !tokenMatch[1]) {
-                status.textContent = 'Auto login failed: Roundcube CSRF token not found.';
+            if (!loginPageResponse.ok) {
+                status.textContent = 'Auto login failed: Roundcube returned HTTP ' + loginPageResponse.status + '.';
+                return;
+            }
+            const requestToken = extractRequestToken(html);
+            if (!requestToken) {
+                status.textContent = 'Auto login failed: Roundcube CSRF token not found (response length ' + html.length + '). Open Roundcube login manually.';
                 return;
             }
 
@@ -45,7 +77,7 @@
                 _action: 'login',
                 _user: user,
                 _pass: pass,
-                _token: tokenMatch[1],
+                _token: requestToken,
             };
 
             Object.entries(fields).forEach(([name, value]) => {
