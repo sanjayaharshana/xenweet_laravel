@@ -7,6 +7,7 @@ use App\Services\HostingCliProvisioner;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Modules\Email\Models\HostEmailAccount;
+use Throwable;
 
 class EmailAccountsService
 {
@@ -155,13 +156,14 @@ class EmailAccountsService
             ];
         }
 
-        $source = public_path('roundcube');
-        if (! is_dir($source)) {
+        $sourceResult = $this->resolveRoundcubeSourceFromArchive();
+        if (! $sourceResult['ok']) {
             return [
                 'ok' => false,
-                'error' => 'Roundcube source is missing. Upload it to public/roundcube first.',
+                'error' => (string) $sourceResult['error'],
             ];
         }
+        $source = (string) $sourceResult['path'];
 
         $hostRoot = trim((string) $hosting->host_root_path);
         if ($hostRoot === '' || ! is_dir($hostRoot)) {
@@ -270,6 +272,50 @@ class EmailAccountsService
         }
 
         $hostDomainClass::query()->create($payload);
+    }
+
+    private function resolveRoundcubeSourceFromArchive(): array
+    {
+        $archivePath = public_path('roundcubemail-1.5.15-complete.tar.gz');
+        if (! is_file($archivePath)) {
+            return [
+                'ok' => false,
+                'error' => 'Roundcube archive not found at public/roundcubemail-1.5.15-complete.tar.gz.',
+            ];
+        }
+
+        $extractBase = storage_path('app/roundcube-source');
+        File::ensureDirectoryExists($extractBase);
+
+        $extractedRoot = $extractBase.DIRECTORY_SEPARATOR.'roundcubemail-1.5.15';
+        if (is_dir($extractedRoot) && is_file($extractedRoot.DIRECTORY_SEPARATOR.'index.php')) {
+            return ['ok' => true, 'path' => $extractedRoot];
+        }
+
+        try {
+            $tarPath = str_ends_with($archivePath, '.gz') ? substr($archivePath, 0, -3) : $archivePath.'.tar';
+            if (! is_file((string) $tarPath)) {
+                $gzip = new \PharData($archivePath);
+                $gzip->decompress();
+            }
+
+            $tar = new \PharData((string) $tarPath);
+            $tar->extractTo($extractBase, null, true);
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'error' => 'Could not extract Roundcube archive: '.$e->getMessage(),
+            ];
+        }
+
+        if (! is_dir($extractedRoot) || ! is_file($extractedRoot.DIRECTORY_SEPARATOR.'index.php')) {
+            return [
+                'ok' => false,
+                'error' => 'Roundcube archive extracted, but roundcubemail-1.5.15 source folder was not found.',
+            ];
+        }
+
+        return ['ok' => true, 'path' => $extractedRoot];
     }
 
     private function isValidDomain(string $domain): bool
