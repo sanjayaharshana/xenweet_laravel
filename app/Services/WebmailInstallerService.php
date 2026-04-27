@@ -426,6 +426,12 @@ PHP;
             if ($this->isSudoPasswordRequired($detail)) {
                 return ['ok' => false, 'error' => 'certbot requires passwordless sudo. Run: sudo bash '.base_path('scripts/install-xenweet-certbot-sudo.sh').' www-data'];
             }
+            if ($this->isTlsChallengeHandshakeFailure($detail)) {
+                return [
+                    'ok' => false,
+                    'error' => 'AutoSSL challenge failed due to HTTPS handshake/proxy mismatch. If using Cloudflare, switch mail host DNS record to DNS-only (gray cloud), ensure A/AAAA point to this server, keep port 80 reachable, and do not force HTTPS redirect for /.well-known/acme-challenge before certificate issuance. Then retry install/SSL.',
+                ];
+            }
 
             return ['ok' => false, 'error' => $detail];
         }
@@ -647,5 +653,13 @@ PHP;
         return str_contains($lower, 'a password is required')
             || str_contains($lower, 'password is required')
             || str_contains($lower, 'no tty present');
+    }
+
+    private function isTlsChallengeHandshakeFailure(string $output): bool
+    {
+        $lower = strtolower($output);
+
+        return str_contains($lower, 'certbot failed to authenticate some domains')
+            && str_contains($lower, 'tls: handshake failure');
     }
 }
