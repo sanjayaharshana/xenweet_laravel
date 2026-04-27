@@ -60,14 +60,28 @@ class WebmailInstallerService
             ];
         }
 
-        if (is_dir($targetRoot)) {
-            File::deleteDirectory($targetRoot);
-        }
-
-        if (! File::copyDirectory($source, $targetRoot)) {
+        try {
+            if (is_dir($targetRoot)) {
+                File::deleteDirectory($targetRoot);
+            }
+        } catch (Throwable $e) {
             return [
                 'ok' => false,
-                'error' => 'Could not copy extracted Roundcube files to public/roundcube.',
+                'error' => 'Could not remove existing public/roundcube: '.$e->getMessage(),
+            ];
+        }
+
+        try {
+            if (! File::copyDirectory($source, $targetRoot)) {
+                return [
+                    'ok' => false,
+                    'error' => 'Could not copy extracted Roundcube files to public/roundcube.',
+                ];
+            }
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'error' => 'Could not write to public/roundcube (permission issue): '.$e->getMessage(),
             ];
         }
 
@@ -135,9 +149,10 @@ class WebmailInstallerService
         $configDir = $targetRoot.DIRECTORY_SEPARATOR.'config';
         $tempDir = $targetRoot.DIRECTORY_SEPARATOR.'temp';
         $logsDir = $targetRoot.DIRECTORY_SEPARATOR.'logs';
-        File::ensureDirectoryExists($configDir);
-        File::ensureDirectoryExists($tempDir);
-        File::ensureDirectoryExists($logsDir);
+        $dirCreate = $this->ensureDirectoriesSafe([$configDir, $tempDir, $logsDir], 'Roundcube runtime directories');
+        if (! $dirCreate['ok']) {
+            return $dirCreate;
+        }
 
         $dbDirResult = $this->resolveWritableDirectory([
             storage_path('app/roundcube-central'),
@@ -184,7 +199,14 @@ class WebmailInstallerService
 \$config['log_dir'] = __DIR__ . '/../logs';
 PHP;
 
-        File::put($configDir.DIRECTORY_SEPARATOR.'config.inc.php', $configPhp);
+        try {
+            File::put($configDir.DIRECTORY_SEPARATOR.'config.inc.php', $configPhp);
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'error' => 'Could not write Roundcube config file: '.$e->getMessage(),
+            ];
+        }
 
         return ['ok' => true];
     }
@@ -202,7 +224,14 @@ PHP;
             return ['ok' => true];
         }
 
-        File::put($dbPath, '');
+        try {
+            File::put($dbPath, '');
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'error' => 'Could not create Roundcube SQLite DB file: '.$e->getMessage(),
+            ];
+        }
         $schemaPath = $targetRoot.DIRECTORY_SEPARATOR.'SQL'.DIRECTORY_SEPARATOR.'sqlite.initial.sql';
         if (! is_file($schemaPath)) {
             return ['ok' => false, 'error' => 'Roundcube schema missing: SQL/sqlite.initial.sql'];
@@ -441,5 +470,25 @@ PHP;
             'ok' => false,
             'error' => 'Permission denied while creating installer directories. Ensure PHP can write to storage/ (or system temp directory).',
         ];
+    }
+
+    private function ensureDirectoriesSafe(array $paths, string $label): array
+    {
+        foreach ($paths as $path) {
+            $dir = trim((string) $path);
+            if ($dir === '') {
+                continue;
+            }
+            try {
+                File::ensureDirectoryExists($dir);
+            } catch (Throwable $e) {
+                return [
+                    'ok' => false,
+                    'error' => 'Could not create '.$label.' at '.$dir.': '.$e->getMessage(),
+                ];
+            }
+        }
+
+        return ['ok' => true];
     }
 }
