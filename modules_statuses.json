@@ -8,5 +8,6 @@
     "PhpVersion": true,
     "ManageSetting": true,
     "Domains": true,
-    "HotlinkProtection": true
+    "HotlinkProtection": true,
+    "Email": true
 }

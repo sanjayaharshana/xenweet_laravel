@@ -122,6 +122,58 @@ return [
                 ],
             ],
         ],
+        [
+            'id' => 'email',
+            'title' => 'Email',
+            'items' => [
+                [
+                    'label' => 'Email Accounts',
+                    'description' => 'Create and manage mailbox accounts for this host',
+                    'icon' => 'fa fa-envelope',
+                    'route' => 'hosts.email.accounts',
+                ],
+                [
+                    'label' => 'Forwarders',
+                    'description' => 'Forward incoming mail to other addresses',
+                    'icon' => 'fa fa-mail-forward',
+                ],
+                [
+                    'label' => 'Email Routing',
+                    'description' => 'Configure local and remote email routing',
+                    'icon' => 'fa fa-random',
+                ],
+                [
+                    'label' => 'Email Filtering',
+                    'description' => 'Set per-account filters and mail rules',
+                    'icon' => 'fa fa-filter',
+                ],
+                [
+                    'label' => 'Auto Responders',
+                    'description' => 'Configure automatic replies for mailboxes',
+                    'icon' => 'fa fa-reply',
+                ],
+                [
+                    'label' => 'Track Delivery',
+                    'description' => 'Inspect delivery attempts and message flow',
+                    'icon' => 'fa fa-search',
+                ],
+                [
+                    'label' => 'Mailbox Usage',
+                    'description' => 'Review mailbox storage consumption and quotas',
+                    'icon' => 'fa fa-pie-chart',
+                ],
+                [
+                    'label' => 'Global Email Filters',
+                    'description' => 'Define account-wide filtering rules',
+                    'icon' => 'fa fa-globe',
+                ],
+                [
+                    'label' => 'Import Addresses',
+                    'description' => 'Bulk import email addresses and aliases',
+                    'icon' => 'fa fa-download',
+                ],
+            ],
+        ],
     ],
 
 ];

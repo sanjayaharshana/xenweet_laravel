@@ -56,6 +56,9 @@
             "Modules\\HotlinkProtection\\": "Modules/HotlinkProtection/app/",
             "Modules\\HotlinkProtection\\Database\\Factories\\": "Modules/HotlinkProtection/database/factories/",
             "Modules\\HotlinkProtection\\Database\\Seeders\\": "Modules/HotlinkProtection/database/seeders/",
+            "Modules\\Email\\": "Modules/Email/app/",
+            "Modules\\Email\\Database\\Factories\\": "Modules/Email/database/factories/",
+            "Modules\\Email\\Database\\Seeders\\": "Modules/Email/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
