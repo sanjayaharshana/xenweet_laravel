@@ -110,6 +110,12 @@ class WebmailInstallerService
         if (! $nginx['ok']) {
             return $nginx;
         }
+        if (! empty($nginx['warning'])) {
+            return [
+                'ok' => true,
+                'message' => 'Roundcube installed at '.$targetRoot.'. '.$nginx['warning'],
+            ];
+        }
 
         $ssl = $this->requestAutoSslForCentralHost($centralHost, $targetRoot);
         if (! $ssl['ok']) {
@@ -320,7 +326,15 @@ PHP;
             $activate = new Process(['sudo', '-n', $activateSystem, $host, $outputDir], base_path(), [], null, (float) config('hosting_provision.timeout', 120));
             $activate->run();
             if (! $activate->isSuccessful()) {
-                return ['ok' => false, 'error' => 'Nginx activate failed: '.trim($activate->getErrorOutput()."\n".$activate->getOutput())];
+                $detail = trim($activate->getErrorOutput()."\n".$activate->getOutput());
+                if ($this->isSudoPasswordRequired($detail)) {
+                    return [
+                        'ok' => true,
+                        'warning' => 'Roundcube files were installed, but Nginx activate needs passwordless sudo. Run on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
+                    ];
+                }
+
+                return ['ok' => false, 'error' => 'Nginx activate failed: '.$detail];
             }
 
             return ['ok' => true];
@@ -570,5 +584,14 @@ PHP;
         }
 
         return ['ok' => true];
+    }
+
+    private function isSudoPasswordRequired(string $output): bool
+    {
+        $lower = strtolower($output);
+
+        return str_contains($lower, 'a password is required')
+            || str_contains($lower, 'password is required')
+            || str_contains($lower, 'no tty present');
     }
 }
