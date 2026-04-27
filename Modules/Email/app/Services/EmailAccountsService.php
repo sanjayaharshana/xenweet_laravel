@@ -3,6 +3,7 @@
 namespace Modules\Email\Services;
 
 use App\Models\Hosting;
+use App\Support\ModuleSettings;
 use App\Services\HostingCliProvisioner;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -131,6 +132,17 @@ class EmailAccountsService
 
     public function roundcubeActionUrl(Hosting $hosting): ?string
     {
+        if (! ModuleSettings::bool('webmail_enabled', true)) {
+            return null;
+        }
+
+        if ($this->webmailMode() === 'central') {
+            $central = trim((string) ModuleSettings::get('webmail_central_url', ''));
+            if ($central !== '') {
+                return rtrim($central, '/').'?_task=login';
+            }
+        }
+
         $mailSubdomainUrl = $this->deployedRoundcubeUrl($hosting);
         if ($mailSubdomainUrl !== null) {
             return $mailSubdomainUrl.'?_task=login';
@@ -149,6 +161,20 @@ class EmailAccountsService
 
     public function deployRoundcubeForHosting(Hosting $hosting): array
     {
+        if (! ModuleSettings::bool('webmail_enabled', true)) {
+            return [
+                'ok' => false,
+                'error' => 'WebMail is disabled in Admin Settings.',
+            ];
+        }
+
+        if ($this->webmailMode() === 'central') {
+            return [
+                'ok' => false,
+                'error' => 'WebMail mode is set to central. Switch mode to per_host to deploy per-host Roundcube.',
+            ];
+        }
+
         if (! class_exists(\Nwidart\Modules\Facades\Module::class)
             || ! \Nwidart\Modules\Facades\Module::isEnabled('Domains')
             || ! Schema::hasTable('host_domains')
@@ -176,7 +202,7 @@ class EmailAccountsService
             ];
         }
 
-        $mailDomain = 'mail.'.$hosting->siteHost();
+        $mailDomain = $this->webmailHostForHosting($hosting);
         $docRoot = rtrim($hostRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'mail'.DIRECTORY_SEPARATOR.'public_html';
         File::ensureDirectoryExists($docRoot);
 
@@ -218,7 +244,7 @@ class EmailAccountsService
 
     public function uninstallRoundcubeForHosting(Hosting $hosting): array
     {
-        $mailDomain = 'mail.'.$hosting->siteHost();
+        $mailDomain = $this->webmailHostForHosting($hosting);
         $hostRoot = trim((string) $hosting->host_root_path);
         if ($hostRoot === '' || ! is_dir($hostRoot)) {
             return [
@@ -267,7 +293,7 @@ class EmailAccountsService
             return null;
         }
 
-        $mailDomain = 'mail.'.$hosting->siteHost();
+        $mailDomain = $this->webmailHostForHosting($hosting);
         $exists = $hostDomainClass::query()
             ->where('hosting_id', $hosting->id)
             ->whereRaw('LOWER(domain) = ?', [mb_strtolower($mailDomain)])
@@ -468,8 +494,13 @@ class EmailAccountsService
     private function roundcubeConfigPhp(string $mailDomain, string $dbPath): string
     {
         $escapedDbPath = str_replace('\\', '\\\\', $dbPath);
-        $mailHost = 'localhost';
-        $smtpHost = 'localhost';
+        $imapHost = trim((string) ModuleSettings::get('webmail_imap_host', 'localhost'));
+        $smtpHost = trim((string) ModuleSettings::get('webmail_smtp_host', 'localhost'));
+        $imapPort = (int) ModuleSettings::get('webmail_imap_port', 143);
+        $smtpPort = (int) ModuleSettings::get('webmail_smtp_port', 587);
+        $useTls = ModuleSettings::bool('webmail_use_tls', false);
+        $mailHost = $useTls ? 'tls://'.$imapHost : $imapHost;
+        $smtpServer = $useTls ? 'tls://'.$smtpHost : $smtpHost;
 
         return <<<PHP
 <?php
@@ -477,9 +508,9 @@ class EmailAccountsService
 \$config = [];
 \$config['db_dsnw'] = 'sqlite:///$escapedDbPath?mode=0640';
 \$config['default_host'] = '$mailHost';
-\$config['default_port'] = 143;
-\$config['smtp_server'] = '$smtpHost';
-\$config['smtp_port'] = 587;
+\$config['default_port'] = $imapPort;
+\$config['smtp_server'] = '$smtpServer';
+\$config['smtp_port'] = $smtpPort;
 \$config['smtp_user'] = '%u';
 \$config['smtp_pass'] = '%p';
 \$config['support_url'] = '';
@@ -491,6 +522,23 @@ class EmailAccountsService
 \$config['temp_dir'] = __DIR__ . '/../temp';
 \$config['log_dir'] = __DIR__ . '/../logs';
 PHP;
+    }
+
+    private function webmailMode(): string
+    {
+        $mode = trim((string) ModuleSettings::get('webmail_mode', 'per_host'));
+
+        return in_array($mode, ['per_host', 'central'], true) ? $mode : 'per_host';
+    }
+
+    private function webmailHostForHosting(Hosting $hosting): string
+    {
+        $prefix = trim((string) ModuleSettings::get('webmail_subdomain_prefix', 'mail'));
+        if (! preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i', $prefix)) {
+            $prefix = 'mail';
+        }
+
+        return mb_strtolower($prefix).'.'.$hosting->siteHost();
     }
 
     private function isValidDomain(string $domain): bool

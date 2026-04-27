@@ -97,8 +97,11 @@
                             <i class="fa fa-cog" aria-hidden="true"></i><span>Settings</span>
                         </button>
                         <div class="sidebar-submenu__items">
-                            <a href="{{ route('panel.settings') }}" class="{{ request()->routeIs('panel.settings*') ? 'active' : '' }}">
+                            <a href="{{ route('panel.settings') }}" class="{{ request()->routeIs('panel.settings') ? 'active' : '' }}">
                                 <i class="fa fa-sliders" aria-hidden="true"></i><span>Platform Settings</span>
+                            </a>
+                            <a href="{{ route('panel.settings.webmail') }}" class="{{ request()->routeIs('panel.settings.webmail*') ? 'active' : '' }}">
+                                <i class="fa fa-inbox" aria-hidden="true"></i><span>WebMail Settings</span>
                             </a>
                         </div>
                     </div>

@@ -23,6 +23,16 @@ class ManageSettingDatabaseSeeder extends Seeder
             }
         }
 
+        $webmailSettings = (array) config('admin_settings.webmail_settings', []);
+        foreach ((array) ($webmailSettings['fields'] ?? []) as $field) {
+            $key = (string) ($field['key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+
+            $defaults[$key] = $field['default'] ?? null;
+        }
+
         app(ManageSettingService::class)->seedDefaults($defaults);
     }
 }
