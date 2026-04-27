@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\Email\Models\HostEmailAccount;
 use PDO;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 class EmailAccountsService
@@ -303,14 +304,12 @@ class EmailAccountsService
         }
 
         try {
-            $tarPath = str_ends_with($archivePath, '.gz') ? substr($archivePath, 0, -3) : $archivePath.'.tar';
-            if (! is_file((string) $tarPath)) {
-                $gzip = new \PharData($archivePath);
-                $gzip->decompress();
+            $process = new Process(['tar', '-xzf', $archivePath, '-C', $extractBase]);
+            $process->setTimeout(180);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                throw new RuntimeException(trim($process->getErrorOutput()."\n".$process->getOutput()) ?: 'tar extract command failed.');
             }
-
-            $tar = new \PharData((string) $tarPath);
-            $tar->extractTo($extractBase, null, true);
         } catch (Throwable $e) {
             return [
                 'ok' => false,
