@@ -10,12 +10,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::match(['GET', 'POST'], '/', function (Request $request) {
-    if ($request->query->has('_task') || $request->query->has('_action') || $request->query->has('_framed')) {
+    if (
+        $request->isMethod('POST')
+        && ($request->query->has('_task') || $request->query->has('_action') || $request->query->has('_framed'))
+    ) {
         $qs = $request->getQueryString();
         $target = '/roundcube/'.($qs ? '?'.$qs : '');
-        $status = $request->isMethod('POST') ? 307 : 302;
 
-        return redirect($target, $status);
+        return redirect($target, 307);
     }
 
     return redirect('/login');
