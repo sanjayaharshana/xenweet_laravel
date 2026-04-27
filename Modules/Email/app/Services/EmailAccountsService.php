@@ -2,6 +2,7 @@
 
 namespace Modules\Email\Services;
 
+use App\Services\MailStackProvisioner;
 use App\Models\Hosting;
 use Modules\Email\Models\HostEmailAutoresponder;
 use Modules\Email\Models\HostEmailAccount;
@@ -10,6 +11,10 @@ use Modules\Email\Models\HostEmailForwarder;
 
 class EmailAccountsService
 {
+    public function __construct(
+        private readonly MailStackProvisioner $mailStackProvisioner
+    ) {}
+
     public function listAccounts(Hosting $hosting): array
     {
         $accounts = HostEmailAccount::query()
@@ -103,14 +108,29 @@ class EmailAccountsService
             ];
         }
 
+        $mailPasswordHash = '{BLF-CRYPT}'.password_hash((string) $validated['password'], PASSWORD_BCRYPT);
         $account = HostEmailAccount::query()->create([
             'hosting_id' => $hosting->id,
             'local_part' => $localPart,
             'domain' => $domain,
             'password' => (string) $validated['password'],
+            'mail_password_hash' => $mailPasswordHash,
             'quota_mb' => (int) ($validated['quota_mb'] ?? 1024),
             'status' => 'active',
         ]);
+
+        $mailStackResult = $this->mailStackProvisioner->provisionMailbox(
+            $account->local_part.'@'.$account->domain,
+            (string) $account->mail_password_hash
+        );
+        if (! $mailStackResult['ok']) {
+            $account->delete();
+
+            return [
+                'ok' => false,
+                'errors' => ['local_part' => 'Mailbox provisioning failed: '.(string) $mailStackResult['message']],
+            ];
+        }
 
         return [
             'ok' => true,
@@ -128,6 +148,14 @@ class EmailAccountsService
         }
 
         $email = $account->local_part.'@'.$account->domain;
+        $mailStackResult = $this->mailStackProvisioner->removeMailbox($email);
+        if (! $mailStackResult['ok']) {
+            return [
+                'ok' => false,
+                'error' => 'Mailbox removal failed: '.(string) $mailStackResult['message'],
+            ];
+        }
+
         $account->delete();
 
         return [

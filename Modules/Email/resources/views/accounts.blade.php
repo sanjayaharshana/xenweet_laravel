@@ -13,17 +13,17 @@
         <div>
             <p class="eyebrow">Email</p>
             <h1>Email Manager</h1>
-            <p class="subtle">cPanel-like email tools for this host (DB-only mode).</p>
+            <p class="subtle">cPanel-like email tools for this host with local mail stack integration.</p>
         </div>
         <div class="topbar-actions">
             <a class="btn-secondary" href="{{ route('hosts.panel', $hosting) }}">Back to Host Panel</a>
             <a class="btn-primary" href="{{ url('/roundcube/') }}" target="_blank" rel="noopener noreferrer">Open Webmail</a>
         </div>
     </header>
-    <div class="server-card" style="margin-bottom:1rem;border-left:4px solid #f59e0b;">
+    <div class="server-card" style="margin-bottom:1rem;border-left:4px solid #16a34a;">
         <p class="subtle" style="margin:0;">
-            This is panel-managed DB mode. Mailboxes/features are managed here, but IMAP/SMTP delivery/auth integration is not wired yet.
-            Use login format <strong>username@domain</strong> in Roundcube.
+            Local mail stack mode is enabled. Mailboxes are provisioned for IMAP/SMTP auth and can sign in to Roundcube using
+            <strong>username@domain</strong>.
         </p>
     </div>
 
@@ -337,7 +337,7 @@
     <section class="server-card">
         <h2 class="host-sidebar-meta-title" style="margin-top:0;">Roundcube Webmail</h2>
         <p class="subtle">Open Roundcube in a new tab. Use mailbox credentials in <strong>username@domain</strong> format.</p>
-        <p class="subtle">Panel passwords and Roundcube authentication are not synchronized in DB-only mode.</p>
+        <p class="subtle">Mailbox credentials are provisioned to the local mail stack during create/delete operations.</p>
         <a class="btn-primary" href="{{ url('/roundcube/') }}" target="_blank" rel="noopener noreferrer">Launch Roundcube</a>
     </section>
     @endif

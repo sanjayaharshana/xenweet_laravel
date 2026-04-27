@@ -11,6 +11,7 @@ class HostEmailAccount extends Model
         'local_part',
         'domain',
         'password',
+        'mail_password_hash',
         'quota_mb',
         'status',
     ];
