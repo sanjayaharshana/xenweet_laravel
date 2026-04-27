@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\WebmailInstallerService;
 use App\Support\ModuleSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -81,100 +80,6 @@ class AdminSettingsController extends Controller
             ->with('success', 'Settings updated successfully.');
     }
 
-    public function webmail(WebmailInstallerService $installer): View
-    {
-        $webmail = (array) config('admin_settings.webmail_settings', []);
-        $fields = (array) ($webmail['fields'] ?? []);
-        $settings = $this->loadSettingsFromFields($fields);
-        $installerStatus = $installer->installationStatus();
-
-        return view('panel.webmail-settings', [
-            'webmail' => $webmail,
-            'fields' => $fields,
-            'settings' => $settings,
-            'installerStatus' => $installerStatus,
-        ]);
-    }
-
-    public function updateWebmail(Request $request): RedirectResponse
-    {
-        $webmail = (array) config('admin_settings.webmail_settings', []);
-        $fields = (array) ($webmail['fields'] ?? []);
-        if ($fields === []) {
-            return redirect()->route('panel.settings.webmail')->withErrors(['settings' => 'WebMail settings are not configured.']);
-        }
-
-        $rules = [];
-        foreach ($fields as $field) {
-            $key = (string) ($field['key'] ?? '');
-            if ($key === '') {
-                continue;
-            }
-            $type = (string) ($field['type'] ?? 'text');
-            $rules["settings.{$key}"] = match ($type) {
-                'number' => ['nullable', 'integer'],
-                'boolean' => ['nullable', 'boolean'],
-                default => ['nullable', 'string', 'max:255'],
-            };
-        }
-
-        $validated = $request->validate($rules);
-        $incoming = $validated['settings'] ?? [];
-        $stored = $this->loadStoredSettings();
-
-        foreach ($fields as $field) {
-            $key = (string) ($field['key'] ?? '');
-            if ($key === '') {
-                continue;
-            }
-
-            $type = (string) ($field['type'] ?? 'text');
-            if ($type === 'boolean') {
-                $stored[$key] = $request->boolean("settings.{$key}");
-
-                continue;
-            }
-
-            if (array_key_exists($key, $incoming)) {
-                $stored[$key] = $incoming[$key];
-            }
-        }
-
-        $this->persistSettings($stored);
-
-        return redirect()
-            ->route('panel.settings.webmail')
-            ->with('success', 'WebMail settings updated successfully.');
-    }
-
-    public function installWebmailRoundcube(WebmailInstallerService $installer): RedirectResponse
-    {
-        $result = $installer->installRoundcubeFromArchive();
-        if (! $result['ok']) {
-            return redirect()
-                ->route('panel.settings.webmail')
-                ->withErrors(['webmail' => (string) ($result['error'] ?? 'Roundcube installation failed.')]);
-        }
-
-        return redirect()
-            ->route('panel.settings.webmail')
-            ->with('success', (string) ($result['message'] ?? 'Roundcube installed successfully.'));
-    }
-
-    public function uninstallWebmailRoundcube(WebmailInstallerService $installer): RedirectResponse
-    {
-        $result = $installer->uninstallRoundcube();
-        if (! $result['ok']) {
-            return redirect()
-                ->route('panel.settings.webmail')
-                ->withErrors(['webmail' => (string) ($result['error'] ?? 'Roundcube uninstall failed.')]);
-        }
-
-        return redirect()
-            ->route('panel.settings.webmail')
-            ->with('success', (string) ($result['message'] ?? 'Roundcube uninstalled successfully.'));
-    }
-
     public function testDb(Request $request)
     {
         $validated = $request->validate([
@@ -222,27 +127,6 @@ class AdminSettingsController extends Controller
                 }
                 $out[$key] = $stored[$key] ?? ($field['default'] ?? null);
             }
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $fields
-     * @return array<string, mixed>
-     */
-    private function loadSettingsFromFields(array $fields): array
-    {
-        $stored = $this->loadStoredSettings();
-        $out = [];
-
-        foreach ($fields as $field) {
-            $key = (string) ($field['key'] ?? '');
-            if ($key === '') {
-                continue;
-            }
-
-            $out[$key] = $stored[$key] ?? ($field['default'] ?? null);
         }
 
         return $out;

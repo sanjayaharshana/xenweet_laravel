@@ -6,23 +6,9 @@ use App\Http\Controllers\HostAuthController;
 use App\Http\Controllers\HostTwoFactorController;
 use App\Http\Controllers\LogViewerController;
 use App\Http\Controllers\PanelController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::match(['GET', 'POST'], '/', function (Request $request) {
-    if (
-        $request->isMethod('POST')
-        && ($request->query->has('_task') || $request->query->has('_action') || $request->query->has('_framed'))
-    ) {
-        $qs = $request->getQueryString();
-        $target = '/roundcube/'.($qs ? '?'.$qs : '');
-
-        return redirect($target, 307);
-    }
-
-    return redirect('/login');
-});
-Route::redirect('/roundcube', '/roundcube/');
+Route::redirect('/', '/login');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -40,10 +26,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/panel/settings', [AdminSettingsController::class, 'index'])->name('panel.settings');
     Route::post('/panel/settings', [AdminSettingsController::class, 'update'])->name('panel.settings.update');
     Route::post('/panel/settings/test-db', [AdminSettingsController::class, 'testDb'])->name('panel.settings.test-db');
-    Route::get('/panel/settings/webmail', [AdminSettingsController::class, 'webmail'])->name('panel.settings.webmail');
-    Route::post('/panel/settings/webmail', [AdminSettingsController::class, 'updateWebmail'])->name('panel.settings.webmail.update');
-    Route::post('/panel/settings/webmail/install-roundcube', [AdminSettingsController::class, 'installWebmailRoundcube'])->name('panel.settings.webmail.install-roundcube');
-    Route::delete('/panel/settings/webmail/uninstall-roundcube', [AdminSettingsController::class, 'uninstallWebmailRoundcube'])->name('panel.settings.webmail.uninstall-roundcube');
     Route::get('/hosts/create', [PanelController::class, 'create'])->name('hosts.create');
     Route::post('/hosts', [PanelController::class, 'store'])->name('hosts.store');
     Route::delete('/hosts/{hosting}', [PanelController::class, 'destroy'])->name('hosts.destroy');

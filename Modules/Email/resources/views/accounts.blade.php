@@ -85,10 +85,7 @@
                         <span>{{ $displayEmail }}</span>
                         <span>{{ number_format((int) $account->quota_mb) }} MB</span>
                         <span>{{ ucfirst((string) $account->status) }}</span>
-                        <span style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                            <a class="btn-primary" target="_blank" rel="noopener" href="{{ route('hosts.email.accounts.webmail-login', ['hosting' => $hosting, 'emailAccount' => $account->id]) }}">
-                                Open Webmail
-                            </a>
+                        <span>
                             <form method="post" action="{{ route('hosts.email.accounts.destroy', ['hosting' => $hosting, 'emailAccount' => $account->id]) }}" onsubmit="return confirm('Delete this email account?');">
                                 @csrf
                                 @method('DELETE')

@@ -96,22 +96,4 @@ SQL
             ],
         ],
     ],
-    'webmail_settings' => [
-        'label' => 'WebMail Settings',
-        'icon' => 'fa fa-inbox',
-        'help' => [
-            'summary' => 'Common webmail configuration for hosted accounts. Choose centralized Roundcube (single shared URL) or per-host subdomain deployment.',
-        ],
-        'fields' => [
-            ['key' => 'webmail_enabled', 'label' => 'Enable WebMail', 'type' => 'boolean', 'default' => true, 'description' => 'Master switch for webmail access buttons in host email tools.'],
-            ['key' => 'webmail_mode', 'label' => 'WebMail Mode', 'type' => 'select', 'default' => 'per_host', 'options' => ['per_host', 'central'], 'depends_on' => 'webmail_enabled', 'description' => 'per_host = mail.<domain> deployment. central = use one shared Roundcube URL for all hosts.'],
-            ['key' => 'webmail_central_url', 'label' => 'Central WebMail URL', 'type' => 'text', 'default' => env('EMAIL_ROUNDCUBE_URL', ''), 'depends_on' => 'webmail_enabled', 'description' => 'Used when mode is central (example: https://webmail.example.com).'],
-            ['key' => 'webmail_subdomain_prefix', 'label' => 'Per-host subdomain prefix', 'type' => 'text', 'default' => 'mail', 'depends_on' => 'webmail_enabled', 'description' => 'Prefix for per-host webmail domains (mail.example.com).'],
-            ['key' => 'webmail_imap_host', 'label' => 'IMAP Host', 'type' => 'text', 'default' => 'localhost', 'depends_on' => 'webmail_enabled', 'description' => 'Default IMAP host written to Roundcube config during deploy.'],
-            ['key' => 'webmail_imap_port', 'label' => 'IMAP Port', 'type' => 'number', 'default' => 143, 'depends_on' => 'webmail_enabled', 'description' => 'Default IMAP port written to Roundcube config.'],
-            ['key' => 'webmail_smtp_host', 'label' => 'SMTP Host', 'type' => 'text', 'default' => 'localhost', 'depends_on' => 'webmail_enabled', 'description' => 'Default SMTP host written to Roundcube config during deploy.'],
-            ['key' => 'webmail_smtp_port', 'label' => 'SMTP Port', 'type' => 'number', 'default' => 587, 'depends_on' => 'webmail_enabled', 'description' => 'Default SMTP port written to Roundcube config.'],
-            ['key' => 'webmail_use_tls', 'label' => 'Require TLS in WebMail', 'type' => 'boolean', 'default' => false, 'depends_on' => 'webmail_enabled', 'description' => 'If enabled, Roundcube uses tls:// host notation for IMAP and SMTP connections.'],
-        ],
-    ],
 ];

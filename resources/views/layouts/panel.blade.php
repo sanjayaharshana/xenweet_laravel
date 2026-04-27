@@ -100,9 +100,6 @@
                             <a href="{{ route('panel.settings') }}" class="{{ request()->routeIs('panel.settings') ? 'active' : '' }}">
                                 <i class="fa fa-sliders" aria-hidden="true"></i><span>Platform Settings</span>
                             </a>
-                            <a href="{{ route('panel.settings.webmail') }}" class="{{ request()->routeIs('panel.settings.webmail*') ? 'active' : '' }}">
-                                <i class="fa fa-inbox" aria-hidden="true"></i><span>WebMail Settings</span>
-                            </a>
                         </div>
                     </div>
                     <a href="#">
