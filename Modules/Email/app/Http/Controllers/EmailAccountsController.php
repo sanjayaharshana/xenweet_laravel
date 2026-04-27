@@ -86,7 +86,7 @@ class EmailAccountsController extends Controller
         if ($action === null) {
             return redirect()
                 ->route('hosts.email.accounts', $hosting)
-                ->withErrors(['webmail' => 'Add Roundcube in public/roundcube or set EMAIL_ROUNDCUBE_URL in .env.']);
+                ->withErrors(['webmail' => 'Deploy Roundcube first from Email panel or set EMAIL_ROUNDCUBE_URL in .env.']);
         }
 
         $email = trim((string) $emailAccount->local_part).'@'.trim((string) $emailAccount->domain);

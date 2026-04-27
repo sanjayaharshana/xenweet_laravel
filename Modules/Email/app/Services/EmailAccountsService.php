@@ -7,6 +7,8 @@ use App\Services\HostingCliProvisioner;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Modules\Email\Models\HostEmailAccount;
+use PDO;
+use RuntimeException;
 use Throwable;
 
 class EmailAccountsService
@@ -186,6 +188,14 @@ class EmailAccountsService
             }
         }
 
+        $bootstrap = $this->bootstrapRoundcubeInstallation($hosting, $docRoot, $mailDomain);
+        if (! $bootstrap['ok']) {
+            return [
+                'ok' => false,
+                'error' => (string) $bootstrap['error'],
+            ];
+        }
+
         $this->ensureMailSubdomainDomainRecord($hosting, $mailDomain, $docRoot);
 
         $vhost = $this->provisioner->reapplyWebVhost($hosting->refresh());
@@ -316,6 +326,109 @@ class EmailAccountsService
         }
 
         return ['ok' => true, 'path' => $extractedRoot];
+    }
+
+    private function bootstrapRoundcubeInstallation(Hosting $hosting, string $docRoot, string $mailDomain): array
+    {
+        $configDir = $docRoot.DIRECTORY_SEPARATOR.'config';
+        $tempDir = $docRoot.DIRECTORY_SEPARATOR.'temp';
+        $logsDir = $docRoot.DIRECTORY_SEPARATOR.'logs';
+        File::ensureDirectoryExists($configDir);
+        File::ensureDirectoryExists($tempDir);
+        File::ensureDirectoryExists($logsDir);
+
+        $mailRoot = rtrim((string) $hosting->host_root_path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'mail';
+        File::ensureDirectoryExists($mailRoot);
+        $dbPath = $mailRoot.DIRECTORY_SEPARATOR.'roundcube.sqlite';
+
+        $dbSetup = $this->initializeRoundcubeSqliteIfNeeded($docRoot, $dbPath);
+        if (! $dbSetup['ok']) {
+            return $dbSetup;
+        }
+
+        $configPath = $configDir.DIRECTORY_SEPARATOR.'config.inc.php';
+        $configPhp = $this->roundcubeConfigPhp($mailDomain, $dbPath);
+        File::put($configPath, $configPhp);
+
+        return ['ok' => true];
+    }
+
+    private function initializeRoundcubeSqliteIfNeeded(string $docRoot, string $dbPath): array
+    {
+        if (! class_exists(PDO::class)) {
+            return [
+                'ok' => false,
+                'error' => 'PDO extension is required for Roundcube database bootstrap.',
+            ];
+        }
+        if (! in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            return [
+                'ok' => false,
+                'error' => 'PDO SQLite driver is required. Install/enable pdo_sqlite for PHP-FPM.',
+            ];
+        }
+
+        $isNew = ! is_file($dbPath);
+        if ($isNew) {
+            File::put($dbPath, '');
+        }
+
+        if (! $isNew) {
+            return ['ok' => true];
+        }
+
+        $schemaPath = $docRoot.DIRECTORY_SEPARATOR.'SQL'.DIRECTORY_SEPARATOR.'sqlite.initial.sql';
+        if (! is_file($schemaPath)) {
+            return [
+                'ok' => false,
+                'error' => 'Roundcube sqlite schema file is missing after deploy.',
+            ];
+        }
+
+        try {
+            $pdo = new PDO('sqlite:'.$dbPath);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $schema = (string) file_get_contents($schemaPath);
+            if (trim($schema) === '') {
+                throw new RuntimeException('Schema file is empty.');
+            }
+            $pdo->exec($schema);
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'error' => 'Could not initialize Roundcube SQLite database: '.$e->getMessage(),
+            ];
+        }
+
+        return ['ok' => true];
+    }
+
+    private function roundcubeConfigPhp(string $mailDomain, string $dbPath): string
+    {
+        $escapedDbPath = str_replace('\\', '\\\\', $dbPath);
+        $mailHost = 'localhost';
+        $smtpHost = 'localhost';
+
+        return <<<PHP
+<?php
+
+\$config = [];
+\$config['db_dsnw'] = 'sqlite:///$escapedDbPath?mode=0640';
+\$config['default_host'] = '$mailHost';
+\$config['default_port'] = 143;
+\$config['smtp_server'] = '$smtpHost';
+\$config['smtp_port'] = 587;
+\$config['smtp_user'] = '%u';
+\$config['smtp_pass'] = '%p';
+\$config['support_url'] = '';
+\$config['product_name'] = 'Webmail';
+\$config['des_key'] = substr(hash('sha256', '$mailDomain|xenweet|roundcube'), 0, 24);
+\$config['plugins'] = ['archive', 'zipdownload'];
+\$config['skin'] = 'elastic';
+\$config['enable_installer'] = false;
+\$config['temp_dir'] = __DIR__ . '/../temp';
+\$config['log_dir'] = __DIR__ . '/../logs';
+PHP;
     }
 
     private function isValidDomain(string $domain): bool
