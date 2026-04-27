@@ -19,10 +19,6 @@
     data-csrf="{{ e(csrf_token()) }}"
     data-back-url="{{ e($backToFm) }}"
 >
-    <header class="fm-code-editor__topbar topbar">
-        <p class="subtle fm-code-editor__file-meta" id="fm-code-editor-file-label" hidden></p>
-    </header>
-
     <nav class="fm-menubar" id="fm-menubar" aria-label="Editor menu" role="menubar">
         <div class="fm-menubar__item" data-fm-menublock>
             <button type="button" class="fm-menubar__trigger" data-fm-menutrigger id="mb-trigger-file" aria-haspopup="true" aria-expanded="false" aria-controls="mb-panel-file">File</button>
@@ -78,6 +74,7 @@
                 <button type="button" class="fm-menubar__opt" role="menuitem" data-cmd="help-keys">Shortcuts</button>
             </div>
         </div>
+        <p class="subtle fm-code-editor__file-meta fm-menubar__file-meta" id="fm-code-editor-file-label" hidden></p>
     </nav>
 
     <div class="fm-code-editor__layout">

@@ -1466,15 +1466,6 @@ body {
     overflow: visible;
 }
 
-.fm-code-editor__topbar {
-    flex: 0 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0.5rem 1rem;
-}
-
 .fm-code-editor__file-meta {
     margin: 0;
     flex: 1 1 auto;
@@ -1511,6 +1502,17 @@ body {
 
 .fm-menubar__item {
     position: relative;
+}
+
+.fm-menubar__file-meta {
+    margin-left: auto;
+    padding: 0 0.6rem;
+    max-width: 45%;
+    text-align: right;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .fm-menubar__trigger {
