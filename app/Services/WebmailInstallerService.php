@@ -328,11 +328,23 @@ PHP;
             $activate->run();
             if (! $activate->isSuccessful()) {
                 $detail = trim($activate->getErrorOutput()."\n".$activate->getOutput());
+                if ($this->isSudoPasswordRequired($detail)) {
+                    return [
+                        'ok' => true,
+                        'warning' => 'Roundcube deployed, but nginx activation needs sudo permissions. Run once on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
+                    ];
+                }
                 if ($activateSystem !== '' && is_executable($activateSystem)) {
                     $fallback = new Process(['sudo', '-n', $activateSystem, $host, $outputDir], base_path(), [], null, (float) config('hosting_provision.timeout', 120));
                     $fallback->run();
                     if ($fallback->isSuccessful()) {
                         return ['ok' => true];
+                    }
+                    if ($this->isSudoPasswordRequired(trim($fallback->getErrorOutput()."\n".$fallback->getOutput()))) {
+                        return [
+                            'ok' => true,
+                            'warning' => 'Roundcube deployed, but nginx activation needs sudo permissions. Run once on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
+                        ];
                     }
 
                     return [
@@ -353,7 +365,10 @@ PHP;
             if (! $activate->isSuccessful()) {
                 $detail = trim($activate->getErrorOutput()."\n".$activate->getOutput());
                 if ($this->isSudoPasswordRequired($detail)) {
-                    return ['ok' => false, 'error' => 'Nginx activate requires passwordless sudo. Run: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data'];
+                    return [
+                        'ok' => true,
+                        'warning' => 'Roundcube deployed, but nginx activation needs sudo permissions. Run once on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
+                    ];
                 }
 
                 return ['ok' => false, 'error' => 'Nginx activate failed: '.$detail];
