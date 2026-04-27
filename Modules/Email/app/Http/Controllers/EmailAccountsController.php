@@ -73,6 +73,20 @@ class EmailAccountsController extends Controller
             ->with('success', (string) ($result['message'] ?? 'Roundcube deployed successfully.'));
     }
 
+    public function uninstallRoundcube(Hosting $hosting, EmailAccountsService $service): RedirectResponse
+    {
+        $result = $service->uninstallRoundcubeForHosting($hosting);
+        if (! $result['ok']) {
+            return redirect()
+                ->route('hosts.email.accounts', $hosting)
+                ->withErrors(['roundcube' => (string) ($result['error'] ?? 'Roundcube uninstall failed.')]);
+        }
+
+        return redirect()
+            ->route('hosts.email.accounts', $hosting)
+            ->with('success', (string) ($result['message'] ?? 'Roundcube uninstalled successfully.'));
+    }
+
     public function webmailLogin(
         Hosting $hosting,
         HostEmailAccount $emailAccount,

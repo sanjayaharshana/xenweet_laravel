@@ -63,10 +63,17 @@
     <section class="server-card" style="margin-top:1rem;">
         <h2 class="host-sidebar-meta-title" style="margin-top:0;">Roundcube Webmail</h2>
         <p class="subtle" style="margin-top:0.35rem;">Deploy Roundcube to <strong>mail.{{ $hosting->siteHost() }}</strong> and configure subdomain vhost automatically.</p>
-        <form method="post" action="{{ route('hosts.email.roundcube.deploy', $hosting) }}">
-            @csrf
-            <button type="submit" class="btn-primary">Deploy Roundcube on mail.{{ $hosting->siteHost() }}</button>
-        </form>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <form method="post" action="{{ route('hosts.email.roundcube.deploy', $hosting) }}">
+                @csrf
+                <button type="submit" class="btn-primary">Deploy Roundcube on mail.{{ $hosting->siteHost() }}</button>
+            </form>
+            <form method="post" action="{{ route('hosts.email.roundcube.uninstall', $hosting) }}" onsubmit="return confirm('Uninstall Roundcube and remove mail.{{ $hosting->siteHost() }} mapping?');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn-secondary">Uninstall Roundcube</button>
+            </form>
+        </div>
     </section>
 
     <section class="server-card" style="margin-top:1rem;">

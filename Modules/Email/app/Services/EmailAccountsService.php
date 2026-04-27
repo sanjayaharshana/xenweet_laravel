@@ -216,6 +216,44 @@ class EmailAccountsService
         ];
     }
 
+    public function uninstallRoundcubeForHosting(Hosting $hosting): array
+    {
+        $mailDomain = 'mail.'.$hosting->siteHost();
+        $hostRoot = trim((string) $hosting->host_root_path);
+        if ($hostRoot === '' || ! is_dir($hostRoot)) {
+            return [
+                'ok' => false,
+                'error' => 'Hosting root path is missing. Provision the hosting account first.',
+            ];
+        }
+
+        $mailRoot = rtrim($hostRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'mail';
+        $docRoot = $mailRoot.DIRECTORY_SEPARATOR.'public_html';
+        $dbPath = $mailRoot.DIRECTORY_SEPARATOR.'roundcube.sqlite';
+
+        if (is_dir($docRoot)) {
+            File::deleteDirectory($docRoot);
+        }
+        if (is_file($dbPath)) {
+            File::delete($dbPath);
+        }
+
+        $this->removeMailSubdomainDomainRecord($hosting, $mailDomain);
+
+        $vhost = $this->provisioner->reapplyWebVhost($hosting->refresh());
+        if (! $vhost['success']) {
+            return [
+                'ok' => false,
+                'error' => 'Roundcube files removed, but web server update failed: '.(string) $vhost['message'],
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'Roundcube uninstalled for '.$mailDomain.'. '.trim((string) ($vhost['message'] ?? '')),
+        ];
+    }
+
     private function deployedRoundcubeUrl(Hosting $hosting): ?string
     {
         if (! class_exists(\Nwidart\Modules\Facades\Module::class)
@@ -283,6 +321,31 @@ class EmailAccountsService
         }
 
         $hostDomainClass::query()->create($payload);
+    }
+
+    private function removeMailSubdomainDomainRecord(Hosting $hosting, string $mailDomain): void
+    {
+        if (! class_exists(\Nwidart\Modules\Facades\Module::class)
+            || ! \Nwidart\Modules\Facades\Module::isEnabled('Domains')
+            || ! Schema::hasTable('host_domains')) {
+            return;
+        }
+
+        $hostDomainClass = 'Modules\\Domains\\Models\\HostDomain';
+        if (! class_exists($hostDomainClass)) {
+            return;
+        }
+
+        $existing = $hostDomainClass::query()
+            ->where('hosting_id', $hosting->id)
+            ->whereRaw('LOWER(domain) = ?', [mb_strtolower($mailDomain)])
+            ->first();
+
+        if ($existing === null) {
+            return;
+        }
+
+        $existing->delete();
     }
 
     private function resolveRoundcubeSourceFromArchive(): array
