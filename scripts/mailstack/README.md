@@ -31,3 +31,28 @@ Example Postfix virtual transport hints:
 - `virtual_mailbox_maps = hash:/etc/postfix/virtual_mailbox_maps`
 
 Update those maps to include hosted domains and mailbox addresses.
+
+Permissions (required on the server)
+-------------------------------------
+PHP-FPM runs as `www-data`. Dovecot reads `users.passwd` and maildirs as `dovecot` / `vmail`.
+Create the state root once and allow `www-data` to create subdirs under `vmail/`:
+
+```bash
+groupadd -g 5000 vmail 2>/dev/null || true
+id -u vmail >/dev/null 2>&1 || useradd -r -u 5000 -g vmail -d /var/lib/vmail -s /usr/sbin/nologin vmail
+
+mkdir -p /var/lib/xenweet-mailstack/{dovecot,vmail}
+touch /var/lib/xenweet-mailstack/dovecot/users.passwd
+
+chown -R vmail:vmail /var/lib/xenweet-mailstack
+chmod 2770 /var/lib/xenweet-mailstack /var/lib/xenweet-mailstack/vmail /var/lib/xenweet-mailstack/dovecot
+chmod 660 /var/lib/xenweet-mailstack/dovecot/users.passwd
+
+usermod -aG vmail www-data
+usermod -aG vmail dovecot
+
+systemctl restart php8.4-fpm
+systemctl restart dovecot
+```
+
+New maildirs inherit group `vmail` (setgid). Ensure `MAIL_STACK_STATE_ROOT` matches the Dovecot passwd path.

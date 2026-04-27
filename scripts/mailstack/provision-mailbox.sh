@@ -28,6 +28,10 @@ awk -F: -v mailbox="$MAILBOX" '$1 != mailbox { print }' "$PASSWD_FILE" > "$TMP_F
 printf '%s:%s\n' "$MAILBOX" "$PASS_HASH" >> "$TMP_FILE"
 mv "$TMP_FILE" "$PASSWD_FILE"
 
-chmod 600 "$PASSWD_FILE" || true
+# Group read for Dovecot; group write for PHP when file is vmail:vmail and www-data is in vmail.
+chmod 640 "$PASSWD_FILE" || true
+
+# Ensure maildir is group-accessible (vmail user uses group perms when dirs are www-data:vmail, mode 770).
+chmod -R u+rwX,g+rwX,o= "$VMAIL_DIR" 2>/dev/null || true
 
 echo "Provisioned mailbox ${MAILBOX} at ${VMAIL_DIR}"
