@@ -15,10 +15,24 @@ fi
 MAILBOX="${LOCAL}@${DOMAIN}"
 PASSWD_DIR="${STATE_ROOT}/dovecot"
 PASSWD_FILE="${PASSWD_DIR}/users.passwd"
+DOMAIN_VMAIL_DIR="${STATE_ROOT}/vmail/${DOMAIN}"
 VMAIL_DIR="${STATE_ROOT}/vmail/${DOMAIN}/${LOCAL}"
 
 mkdir -p "$PASSWD_DIR"
+
+# Domain dir often pre-exists as vmail:vmail mode 0700 (created by delivery/Dovecot) — www-data then cannot add mailboxes.
+if [[ -d "$DOMAIN_VMAIL_DIR" && ! -w "$DOMAIN_VMAIL_DIR" ]]; then
+  echo "Error: $DOMAIN_VMAIL_DIR is not writable by this process (often mode 0700 for vmail only). " >&2
+  echo "As root, fix the tree so the panel can create \`${LOCAL}/\` and delivery still works, e.g.:" >&2
+  echo "  chown vmail:vmail $STATE_ROOT/vmail $DOMAIN_VMAIL_DIR && chmod 2770 $STATE_ROOT/vmail $DOMAIN_VMAIL_DIR" >&2
+  echo "  # or: find $STATE_ROOT/vmail -type d -exec chmod 2770 {} \;" >&2
+  exit 1
+fi
+
 mkdir -p "$VMAIL_DIR/Maildir"/{cur,new,tmp}
+# Setgid on dirs we own so new paths stay group vmail
+chmod 2770 "$DOMAIN_VMAIL_DIR" 2>/dev/null || true
+chmod 2770 "$VMAIL_DIR" 2>/dev/null || true
 
 touch "$PASSWD_FILE"
 

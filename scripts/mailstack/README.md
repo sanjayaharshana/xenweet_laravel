@@ -56,3 +56,23 @@ systemctl restart dovecot
 ```
 
 New maildirs inherit group `vmail` (setgid). Ensure `MAIL_STACK_STATE_ROOT` matches the Dovecot passwd path.
+
+Troubleshooting: `Permission denied` under `.../vmail/<domain>/<user>`
+--------------------------------------------------------------------
+If the **domain** directory already exists (e.g. first message delivered by Postfix before the panel), it is often `0700` and `vmail:vmail`. The PHP user (`www-data`) then cannot `mkdir` the mailbox folder.
+
+As root, normalize the vmail tree once (safe with `www-data` in group `vmail`):
+
+```bash
+chown -R vmail:vmail /var/lib/xenweet-mailstack/vmail
+find /var/lib/xenweet-mailstack/vmail -type d -exec chmod 2770 {} \;
+```
+
+Or only fix one domain:
+
+```bash
+chown vmail:vmail /var/lib/xenweet-mailstack/vmail/greentalk.xelenic.com
+chmod 2770 /var/lib/xenweet-mailstack/vmail/greentalk.xelenic.com
+```
+
+Then retry creating the account from the panel.
