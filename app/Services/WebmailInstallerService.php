@@ -316,36 +316,44 @@ PHP;
         $activateSystem = (string) config('hosting_provision.vhost_nginx_system_activate', '');
         $activateScript = (string) config('hosting_provision.vhost_nginx_activate_script', '');
 
+        // Prefer script-based activation first (works without sudo setup in many environments).
+        if ($activateScript !== '' && is_file($activateScript)) {
+            $activate = new Process(
+                ['bash', $activateScript, $host, $outputDir],
+                base_path(),
+                ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
+                null,
+                (float) config('hosting_provision.timeout', 120)
+            );
+            $activate->run();
+            if (! $activate->isSuccessful()) {
+                $detail = trim($activate->getErrorOutput()."\n".$activate->getOutput());
+                if ($activateSystem !== '' && is_executable($activateSystem)) {
+                    $fallback = new Process(['sudo', '-n', $activateSystem, $host, $outputDir], base_path(), [], null, (float) config('hosting_provision.timeout', 120));
+                    $fallback->run();
+                    if ($fallback->isSuccessful()) {
+                        return ['ok' => true];
+                    }
+
+                    return [
+                        'ok' => false,
+                        'error' => 'Nginx activate failed in script and sudo modes. script: '.$detail.' | sudo: '.trim($fallback->getErrorOutput()."\n".$fallback->getOutput()),
+                    ];
+                }
+
+                return ['ok' => false, 'error' => 'Nginx activate script failed: '.$detail];
+            }
+
+            return ['ok' => true];
+        }
+
         if ($activateSystem !== '' && is_executable($activateSystem)) {
             $activate = new Process(['sudo', '-n', $activateSystem, $host, $outputDir], base_path(), [], null, (float) config('hosting_provision.timeout', 120));
             $activate->run();
             if (! $activate->isSuccessful()) {
                 $detail = trim($activate->getErrorOutput()."\n".$activate->getOutput());
                 if ($this->isSudoPasswordRequired($detail)) {
-                    // Auto fallback: try non-sudo script mode before failing.
-                    if ($activateScript !== '' && is_file($activateScript)) {
-                        $fallback = new Process(
-                            ['bash', $activateScript, $host, $outputDir],
-                            base_path(),
-                            ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir],
-                            null,
-                            (float) config('hosting_provision.timeout', 120)
-                        );
-                        $fallback->run();
-                        if ($fallback->isSuccessful()) {
-                            return ['ok' => true];
-                        }
-
-                        return [
-                            'ok' => false,
-                            'error' => 'Nginx activate failed in both sudo and non-sudo modes. sudo: '.$detail.' | script: '.trim($fallback->getErrorOutput()."\n".$fallback->getOutput()),
-                        ];
-                    }
-
-                    return [
-                        'ok' => false,
-                        'error' => 'Nginx activate needs passwordless sudo. Run on server: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data',
-                    ];
+                    return ['ok' => false, 'error' => 'Nginx activate requires passwordless sudo. Run: sudo bash '.base_path('scripts/install-xenweet-nginx-sudo.sh').' www-data'];
                 }
 
                 return ['ok' => false, 'error' => 'Nginx activate failed: '.$detail];
@@ -354,15 +362,7 @@ PHP;
             return ['ok' => true];
         }
 
-        if ($activateScript !== '' && is_file($activateScript)) {
-            $activate = new Process(['bash', $activateScript, $host, $outputDir], base_path(), ['HOSTING_VHOST_OUTPUT_DIR' => $outputDir], null, (float) config('hosting_provision.timeout', 120));
-            $activate->run();
-            if (! $activate->isSuccessful()) {
-                return ['ok' => false, 'error' => 'Nginx activate failed: '.trim($activate->getErrorOutput()."\n".$activate->getOutput())];
-            }
-        }
-
-        return ['ok' => true];
+        return ['ok' => false, 'error' => 'No nginx activation method available. Configure HOSTING_VHOST_NGINX_ACTIVATE_SCRIPT or HOSTING_VHOST_NGINX_SYSTEM_ACTIVATE.'];
     }
 
     private function requestAutoSslForCentralHost(string $host, string $webRoot): array
