@@ -8,8 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Modules\Email\Models\HostEmailAutoresponder;
 use Modules\Email\Models\HostEmailAccount;
+use Modules\Email\Models\HostEmailAutoresponder;
 use Modules\Email\Models\HostEmailFilter;
 use Modules\Email\Models\HostEmailForwarder;
 use Modules\Email\Services\EmailAccountsService;
@@ -176,7 +176,7 @@ class EmailAccountsController extends Controller
             ->with('success', 'Filter removed: '.$result['name']);
     }
 
-    public function roundcubeAutoLogin(Hosting $hosting, HostEmailAccount $emailAccount): View|RedirectResponse
+    public function roundcubeAutoLogin(Request $request, Hosting $hosting, HostEmailAccount $emailAccount): View|RedirectResponse
     {
         if ((int) $emailAccount->hosting_id !== (int) $hosting->id) {
             return redirect()
@@ -192,10 +192,12 @@ class EmailAccountsController extends Controller
                 ->with('error', 'Cannot auto-login because mailbox password is empty.');
         }
 
+        $base = rtrim($request->getSchemeAndHttpHost().$request->getBaseUrl(), '/');
+
         return view('email::roundcube-autologin', [
             'email' => $email,
             'password' => $password,
-            'roundcubeBase' => url('/roundcube/'),
+            'roundcubeBase' => $base.'/roundcube/',
         ]);
     }
 }

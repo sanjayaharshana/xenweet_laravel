@@ -30,8 +30,15 @@ if (is_string($explicitDsn) && trim($explicitDsn) !== '') {
         );
     }
 }
-$config['default_host'] = 'localhost';
-$config['default_port'] = 143;
+// IMAP: match Dovecot on this host. Use tls://127.0.0.1 if Dovecot requires STARTTLS on 143,
+// or ssl://127.0.0.1 with ROUNDCUBE_DEFAULT_PORT=993 for implicit TLS.
+$config['default_host'] = getenv('ROUNDCUBE_DEFAULT_HOST') !== false && getenv('ROUNDCUBE_DEFAULT_HOST') !== ''
+    ? getenv('ROUNDCUBE_DEFAULT_HOST')
+    : 'localhost';
+$imapPortEnv = getenv('ROUNDCUBE_DEFAULT_PORT');
+$config['default_port'] = ($imapPortEnv !== false && $imapPortEnv !== '')
+    ? (int) $imapPortEnv
+    : 143;
 $config['smtp_server'] = 'localhost';
 $config['smtp_port'] = 587;
 $config['smtp_user'] = '%u';
@@ -42,5 +49,5 @@ $config['base_uri'] = '/roundcube/';
 $config['plugins'] = ['archive', 'zipdownload'];
 $config['skin'] = 'elastic';
 $config['enable_installer'] = false;
-$config['temp_dir'] = __DIR__ . '/../temp';
-$config['log_dir'] = __DIR__ . '/../logs';
+$config['temp_dir'] = __DIR__.'/../temp';
+$config['log_dir'] = __DIR__.'/../logs';

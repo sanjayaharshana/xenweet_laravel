@@ -39,11 +39,13 @@
                 /value=["']([^"']+)["']\s+name=["']_token["']/i,
                 /["']request_token["']\s*:\s*["']([^"']+)["']/,
                 /"request_token"\s*:\s*"([^"]+)"/,
+                // Roundcube footer: set_env(\n{..."request_token":"...",...})
+                /"request_token"\s*:\s*"((?:\\.|[^"\\])+)"/,
             ];
             for (let i = 0; i < patterns.length; i++) {
                 const m = html.match(patterns[i]);
                 if (m && m[1]) {
-                    return m[1];
+                    return m[1].replace(/\\(.)/g, (_, c) => c);
                 }
             }
             return null;
@@ -75,6 +77,7 @@
             const fields = {
                 _task: 'login',
                 _action: 'login',
+                _timezone: '_default_',
                 _user: user,
                 _pass: pass,
                 _token: requestToken,
