@@ -98,30 +98,9 @@ class WebmailInstallerService
             return $bootstrap;
         }
 
-        $centralHost = $this->centralWebmailHost();
-        if ($centralHost === null) {
-            return [
-                'ok' => true,
-                'message' => 'Roundcube installed at '.$targetRoot.'. Set WebMail central URL to auto-create nginx and AutoSSL.',
-            ];
-        }
-
-        $nginx = $this->createAndActivateNginxRules($centralHost, $targetRoot);
-        if (! $nginx['ok']) {
-            return $nginx;
-        }
-
-        $ssl = $this->requestAutoSslForCentralHost($centralHost, $targetRoot);
-        if (! $ssl['ok']) {
-            return [
-                'ok' => true,
-                'message' => 'Roundcube installed at '.$targetRoot.'. Nginx configured for '.$centralHost.', but AutoSSL failed (HTTP should work): '.(string) ($ssl['error'] ?? 'unknown error'),
-            ];
-        }
-
         return [
             'ok' => true,
-            'message' => 'Roundcube installed at '.$targetRoot.'. Nginx configured for '.$centralHost.' and AutoSSL completed.',
+            'message' => 'Roundcube installed at '.$targetRoot.'. Nginx/AutoSSL are not configured by this action.',
         ];
     }
 
@@ -195,6 +174,7 @@ class WebmailInstallerService
         $smtpHost = trim((string) ModuleSettings::get('webmail_smtp_host', 'localhost'));
         $imapPort = (int) ModuleSettings::get('webmail_imap_port', 143);
         $smtpPort = (int) ModuleSettings::get('webmail_smtp_port', 587);
+        $baseUri = $this->roundcubeBaseUriForTarget($targetRoot);
         $useTls = ModuleSettings::bool('webmail_use_tls', false);
         $defaultHost = $useTls ? 'tls://'.$imapHost : $imapHost;
         $smtpServer = $useTls ? 'tls://'.$smtpHost : $smtpHost;
@@ -214,6 +194,7 @@ class WebmailInstallerService
 \$config['smtp_pass'] = '%p';
 \$config['product_name'] = 'Webmail';
 \$config['des_key'] = '$desKey';
+\$config['base_uri'] = '$baseUri';
 \$config['plugins'] = ['archive', 'zipdownload'];
 \$config['skin'] = 'elastic';
 \$config['enable_installer'] = false;
@@ -228,6 +209,24 @@ PHP;
                 'ok' => false,
                 'error' => 'Could not write Roundcube config file: '.$e->getMessage(),
             ];
+        }
+
+        // Keep Roundcube runtime clean on PHP 8.4+: suppress deprecated/strict notices for this app only.
+        try {
+            File::put(
+                $targetRoot.DIRECTORY_SEPARATOR.'.user.ini',
+                "display_errors=0\n".
+                "display_startup_errors=0\n".
+                "error_reporting=E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED & ~E_STRICT\n"
+            );
+        } catch (Throwable) {
+            // Non-fatal: environments without .user.ini support can still rely on index.php runtime settings.
+        }
+
+        try {
+            $this->applyRuntimeCompatPatch($targetRoot);
+        } catch (Throwable) {
+            // Non-fatal on environments with readonly Roundcube source.
         }
 
         return ['ok' => true];
@@ -644,6 +643,50 @@ PHP;
         }
 
         return ['ok' => true];
+    }
+
+    private function roundcubeBaseUriForTarget(string $targetRoot): string
+    {
+        $configured = trim((string) ModuleSettings::get('webmail_central_url', ''));
+        if ($configured !== '') {
+            $path = (string) (parse_url($configured, PHP_URL_PATH) ?? '/');
+            $path = trim($path);
+            if ($path === '') {
+                $path = '/';
+            }
+            if (! str_starts_with($path, '/')) {
+                $path = '/'.$path;
+            }
+
+            return rtrim($path, '/').'/';
+        }
+
+        $publicRoundcube = public_path('roundcube');
+        if (realpath($targetRoot) === realpath($publicRoundcube)) {
+            return '/roundcube/';
+        }
+
+        return '/';
+    }
+
+    private function applyRuntimeCompatPatch(string $targetRoot): void
+    {
+        $indexPath = $targetRoot.DIRECTORY_SEPARATOR.'index.php';
+        if (! is_file($indexPath)) {
+            return;
+        }
+
+        $contents = (string) file_get_contents($indexPath);
+        if ($contents === '' || str_contains($contents, 'Hide PHP 8.4 deprecation/strict notices')) {
+            return;
+        }
+
+        $needle = "*/\n\n// include environment";
+        $inject = "*/\n\n// Hide PHP 8.4 deprecation/strict notices from Roundcube vendor stack.\n@ini_set('display_errors', '0');\n@ini_set('display_startup_errors', '0');\nerror_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED & ~E_STRICT);\n\n// include environment";
+        if (str_contains($contents, $needle)) {
+            $contents = str_replace($needle, $inject, $contents);
+            File::put($indexPath, $contents);
+        }
     }
 
     private function isSudoPasswordRequired(string $output): bool

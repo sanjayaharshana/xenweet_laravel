@@ -9,6 +9,7 @@ use App\Http\Controllers\PanelController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
+Route::redirect('/roundcube', '/roundcube/');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
