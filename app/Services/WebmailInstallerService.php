@@ -11,6 +11,8 @@ use Throwable;
 
 class WebmailInstallerService
 {
+    private const FALLBACK_WEBROOT_DIRNAME = 'roundcube-central-public';
+
     public function installRoundcubeFromArchive(): array
     {
         $archivePath = public_path('roundcubemail-1.5.15-complete.tar.gz');
@@ -21,11 +23,11 @@ class WebmailInstallerService
             ];
         }
 
-        $targetRoot = public_path('roundcube');
-        if (is_file($targetRoot.DIRECTORY_SEPARATOR.'index.php')) {
+        $existingTarget = $this->detectInstalledRoundcubeRoot();
+        if ($existingTarget !== null && is_file($existingTarget.DIRECTORY_SEPARATOR.'index.php')) {
             return [
                 'ok' => true,
-                'message' => 'Roundcube is already installed at public/roundcube.',
+                'message' => 'Roundcube is already installed at '.$existingTarget.'.',
             ];
         }
 
@@ -59,6 +61,12 @@ class WebmailInstallerService
                 'error' => 'Extracted archive does not contain roundcubemail-1.5.15/index.php',
             ];
         }
+
+        $targetResolve = $this->resolveRoundcubeTargetRoot();
+        if (! $targetResolve['ok']) {
+            return $targetResolve;
+        }
+        $targetRoot = (string) $targetResolve['path'];
 
         try {
             if (is_dir($targetRoot)) {
@@ -94,7 +102,7 @@ class WebmailInstallerService
         if ($centralHost === null) {
             return [
                 'ok' => true,
-                'message' => 'Roundcube installed at public/roundcube. Set WebMail central URL to auto-create nginx and AutoSSL.',
+                'message' => 'Roundcube installed at '.$targetRoot.'. Set WebMail central URL to auto-create nginx and AutoSSL.',
             ];
         }
 
@@ -113,18 +121,22 @@ class WebmailInstallerService
 
         return [
             'ok' => true,
-            'message' => 'Roundcube installed at public/roundcube. Nginx configured for '.$centralHost.' and AutoSSL completed.',
+            'message' => 'Roundcube installed at '.$targetRoot.'. Nginx configured for '.$centralHost.' and AutoSSL completed.',
         ];
     }
 
     public function uninstallRoundcube(): array
     {
-        $targetRoot = public_path('roundcube');
+        $targetRoot = $this->detectInstalledRoundcubeRoot() ?? public_path('roundcube');
         $dbPath = storage_path('app/roundcube-central/roundcube.sqlite');
         $extractBase = storage_path('app/roundcube-central-install');
+        $fallbackTarget = storage_path('app/'.self::FALLBACK_WEBROOT_DIRNAME);
 
         if (is_dir($targetRoot)) {
             File::deleteDirectory($targetRoot);
+        }
+        if ($targetRoot !== $fallbackTarget && is_dir($fallbackTarget)) {
+            File::deleteDirectory($fallbackTarget);
         }
         if (is_file($dbPath)) {
             File::delete($dbPath);
@@ -470,6 +482,64 @@ PHP;
             'ok' => false,
             'error' => 'Permission denied while creating installer directories. Ensure PHP can write to storage/ (or system temp directory).',
         ];
+    }
+
+    private function resolveRoundcubeTargetRoot(): array
+    {
+        $publicTarget = public_path('roundcube');
+        if ($this->isPathWritableOrCreatable($publicTarget)) {
+            return ['ok' => true, 'path' => $publicTarget];
+        }
+
+        $fallback = $this->resolveWritableDirectory([
+            storage_path('app/'.self::FALLBACK_WEBROOT_DIRNAME),
+            sys_get_temp_dir().DIRECTORY_SEPARATOR.self::FALLBACK_WEBROOT_DIRNAME,
+        ]);
+        if (! $fallback['ok']) {
+            return [
+                'ok' => false,
+                'error' => 'public/roundcube is not writable and fallback webroot directory could not be created.',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'path' => (string) $fallback['path'],
+        ];
+    }
+
+    private function detectInstalledRoundcubeRoot(): ?string
+    {
+        $publicTarget = public_path('roundcube');
+        if (is_file($publicTarget.DIRECTORY_SEPARATOR.'index.php')) {
+            return $publicTarget;
+        }
+
+        $fallbackTarget = storage_path('app/'.self::FALLBACK_WEBROOT_DIRNAME);
+        if (is_file($fallbackTarget.DIRECTORY_SEPARATOR.'index.php')) {
+            return $fallbackTarget;
+        }
+
+        $tmpFallback = sys_get_temp_dir().DIRECTORY_SEPARATOR.self::FALLBACK_WEBROOT_DIRNAME;
+        if (is_file($tmpFallback.DIRECTORY_SEPARATOR.'index.php')) {
+            return $tmpFallback;
+        }
+
+        return null;
+    }
+
+    private function isPathWritableOrCreatable(string $path): bool
+    {
+        if (is_dir($path)) {
+            return is_writable($path);
+        }
+
+        $parent = dirname($path);
+        if (! is_dir($parent)) {
+            return false;
+        }
+
+        return is_writable($parent);
     }
 
     private function ensureDirectoriesSafe(array $paths, string $label): array
