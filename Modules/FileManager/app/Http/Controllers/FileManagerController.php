@@ -43,7 +43,7 @@ class FileManagerController extends Controller
 
         return response()->json([
             'ok' => true,
-            'path' => $listing['relativePath'],
+            'path' => $listing['path'],
             'parentRelativePath' => $listing['parentRelativePath'],
             'entries' => $listing['entries'],
         ]);

@@ -60,6 +60,7 @@ return [
                     'label' => '2FA Authentication',
                     'description' => 'Two-factor authentication for the panel and related logins',
                     'icon' => 'fa fa-shield',
+                    'route' => 'hosts.security.2fa',
                 ],
                 [
                     'label' => 'Hotlink Protection',

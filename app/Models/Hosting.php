@@ -21,12 +21,18 @@ class Hosting extends Model
         'provisioned_at',
         'php_version',
         'disk_usage_mb',
+        'panel_2fa_enabled',
+        'panel_2fa_secret',
+        'panel_2fa_recovery_codes',
     ];
 
     protected function casts(): array
     {
         return [
             'panel_password' => 'encrypted',
+            'panel_2fa_enabled' => 'boolean',
+            'panel_2fa_secret' => 'encrypted',
+            'panel_2fa_recovery_codes' => 'array',
             'php_extensions' => 'array',
             'php_ini_options' => 'array',
             'provisioned_at' => 'datetime',
