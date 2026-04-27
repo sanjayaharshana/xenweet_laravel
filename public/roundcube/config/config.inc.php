@@ -1,7 +1,9 @@
 <?php
 
 $config = [];
-$config['db_dsnw'] = 'sqlite:////Users/mac/Documents/Projects/xenweet_laravel/storage/app/roundcube-central/roundcube.sqlite?mode=0640';
+$projectRoot = dirname(__DIR__, 3);
+$roundcubeDb = $projectRoot.'/storage/app/roundcube-central/roundcube.sqlite';
+$config['db_dsnw'] = 'sqlite:'.$roundcubeDb;
 $config['default_host'] = 'localhost';
 $config['default_port'] = 143;
 $config['smtp_server'] = 'localhost';
