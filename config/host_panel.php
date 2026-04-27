@@ -130,12 +130,15 @@ return [
                     'label' => 'Email Accounts',
                     'description' => 'Create and manage mailbox accounts for this host',
                     'icon' => 'fa fa-envelope',
-                    'route' => 'hosts.email.accounts',
+                    'route' => 'hosts.email.index',
+                    'route_parameters' => ['tab' => 'accounts'],
                 ],
                 [
                     'label' => 'Forwarders',
                     'description' => 'Forward incoming mail to other addresses',
                     'icon' => 'fa fa-mail-forward',
+                    'route' => 'hosts.email.index',
+                    'route_parameters' => ['tab' => 'forwarders'],
                 ],
                 [
                     'label' => 'Email Routing',
@@ -146,11 +149,15 @@ return [
                     'label' => 'Email Filtering',
                     'description' => 'Set per-account filters and mail rules',
                     'icon' => 'fa fa-filter',
+                    'route' => 'hosts.email.index',
+                    'route_parameters' => ['tab' => 'filters'],
                 ],
                 [
                     'label' => 'Auto Responders',
                     'description' => 'Configure automatic replies for mailboxes',
                     'icon' => 'fa fa-reply',
+                    'route' => 'hosts.email.index',
+                    'route_parameters' => ['tab' => 'autoresponders'],
                 ],
                 [
                     'label' => 'Track Delivery',
@@ -161,6 +168,8 @@ return [
                     'label' => 'Mailbox Usage',
                     'description' => 'Review mailbox storage consumption and quotas',
                     'icon' => 'fa fa-pie-chart',
+                    'route' => 'hosts.email.index',
+                    'route_parameters' => ['tab' => 'usage'],
                 ],
                 [
                     'label' => 'Global Email Filters',

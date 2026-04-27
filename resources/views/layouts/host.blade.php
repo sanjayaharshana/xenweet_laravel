@@ -80,8 +80,8 @@
                     @if ($moduleEnabled('HotlinkProtection') && \Illuminate\Support\Facades\Route::has('hosts.hotlink-protection'))
                         <a href="{{ route('hosts.hotlink-protection', $hosting) }}" class="{{ request()->routeIs('hosts.hotlink-protection*') ? 'active' : '' }}">Hotlink</a>
                     @endif
-                    @if ($moduleEnabled('Email') && \Illuminate\Support\Facades\Route::has('hosts.email.accounts'))
-                        <a href="{{ route('hosts.email.accounts', $hosting) }}" class="{{ request()->routeIs('hosts.email.*') ? 'active' : '' }}">Email</a>
+                    @if ($moduleEnabled('Email') && \Illuminate\Support\Facades\Route::has('hosts.email.index'))
+                        <a href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts']) }}" class="{{ request()->routeIs('hosts.email.*') ? 'active' : '' }}">Email</a>
                     @endif
                 @endisset
             </div>

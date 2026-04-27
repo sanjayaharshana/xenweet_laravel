@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roundcube Auto Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }
+        .box { max-width: 700px; margin: 50px auto; background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 20px; }
+        .muted { color: #94a3b8; font-size: 14px; }
+        a { color: #60a5fa; }
+        code { background: #1f2937; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>Signing in to Roundcube...</h2>
+    <p class="muted" id="status">Preparing secure login flow.</p>
+    <p class="muted">If it does not continue, <a id="fallback" href="{{ $roundcubeBase }}?_task=login">open Roundcube login</a>.</p>
+</div>
+
+<script>
+    (async function () {
+        const status = document.getElementById('status');
+        const base = @json($roundcubeBase);
+        const user = @json($email);
+        const pass = @json($password);
+
+        try {
+            const loginPageResponse = await fetch(base + '?_task=login', { credentials: 'include' });
+            const html = await loginPageResponse.text();
+            const tokenMatch = html.match(/name="_token"\s+value="([^"]+)"/);
+            if (!tokenMatch || !tokenMatch[1]) {
+                status.textContent = 'Auto login failed: Roundcube CSRF token not found.';
+                return;
+            }
+
+            status.textContent = 'Submitting mailbox credentials to Roundcube...';
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = base;
+
+            const fields = {
+                _task: 'login',
+                _action: 'login',
+                _user: user,
+                _pass: pass,
+                _token: tokenMatch[1],
+            };
+
+            Object.entries(fields).forEach(([name, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = String(value);
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        } catch (err) {
+            status.textContent = 'Auto login failed: ' + (err && err.message ? err.message : 'Unknown error');
+        }
+    })();
+</script>
+</body>
+</html>
