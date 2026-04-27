@@ -7,25 +7,18 @@ use App\Models\Hosting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use InvalidArgumentException;
-use JsonException;
-use Modules\FileManager\Jobs\CompressItemJob;
-use Modules\FileManager\Jobs\ExtractArchiveJob;
-use Modules\FileManager\Services\HostFilesystemService;
-use Modules\FileManager\Services\HostFolderBrowser;
+use Modules\FileManager\Services\FileManagerApplicationService;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
 class FileManagerController extends Controller
 {
-    public function index(Request $request, Hosting $hosting, HostFolderBrowser $browser): View
+    public function index(Request $request, Hosting $hosting, FileManagerApplicationService $service): View
     {
         $path = (string) $request->query('path', '');
-
-        $listing = $browser->listDirectory($hosting, $path);
+        $listing = $service->listDirectory($hosting, $path);
 
         return view('filemanager::index', [
             'hosting' => $hosting,
@@ -36,23 +29,15 @@ class FileManagerController extends Controller
     /**
      * JSON listing of a single directory (code editor file browser).
      */
-    public function entries(Request $request, Hosting $hosting, HostFolderBrowser $browser): JsonResponse
+    public function entries(Request $request, Hosting $hosting, FileManagerApplicationService $service): JsonResponse
     {
         $path = (string) $request->query('path', '');
         $workspaceRoot = (string) $request->query('root', '');
-
-        if (! $this->isPathUnderWorkspace($path, $workspaceRoot)) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Path is outside the selected workspace folder.',
-            ], 422);
-        }
-
-        $listing = $browser->listDirectory($hosting, $path);
+        $listing = $service->listEntries($hosting, $path, $workspaceRoot);
         if (! $listing['ok']) {
             return response()->json([
                 'ok' => false,
-                'message' => (string) ($listing['error'] ?? 'Folder not found.'),
+                'message' => (string) ($listing['message'] ?? 'Folder not found.'),
             ], 422);
         }
 
@@ -64,29 +49,23 @@ class FileManagerController extends Controller
         ]);
     }
 
-    public function codeEditor(Request $request, Hosting $hosting, HostFolderBrowser $browser): View|RedirectResponse
+    public function codeEditor(Request $request, Hosting $hosting, FileManagerApplicationService $service): View|RedirectResponse
     {
         $workspaceRoot = (string) $request->query('path', '');
-
-        $check = $browser->listDirectory($hosting, $workspaceRoot);
-        if (! $check['ok']) {
+        $workspace = $service->resolveCodeEditorWorkspace($hosting, $workspaceRoot);
+        if (! $workspace['ok']) {
             return redirect()
                 ->route('hosts.files.index', ['hosting' => $hosting])
-                ->withErrors(['action' => (string) ($check['error'] ?? 'Invalid folder.')]);
-        }
-
-        $relativePath = (string) $check['relativePath'];
-        if ($relativePath !== $workspaceRoot) {
-            $workspaceRoot = $relativePath;
+                ->withErrors(['action' => (string) ($workspace['message'] ?? 'Invalid folder.')]);
         }
 
         return view('filemanager::code-editor', [
             'hosting' => $hosting,
-            'workspacePath' => $workspaceRoot,
+            'workspacePath' => (string) ($workspace['workspacePath'] ?? ''),
         ]);
     }
 
-    public function mkdir(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function mkdir(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -96,15 +75,15 @@ class FileManagerController extends Controller
         $path = (string) ($validated['path'] ?? '');
 
         try {
-            $fs->createDirectory($hosting, $path, trim($validated['name']));
+            $service->createDirectory($hosting, $path, (string) $validated['name']);
         } catch (Throwable $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->actionSuccess($request, $hosting, $path, 'Folder created.');
+        return $this->actionSuccess($service, $request, $hosting, $path, 'Folder created.');
     }
 
-    public function touch(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function touch(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -114,15 +93,15 @@ class FileManagerController extends Controller
         $path = (string) ($validated['path'] ?? '');
 
         try {
-            $fs->createFile($hosting, $path, trim($validated['name']));
+            $service->createFile($hosting, $path, (string) $validated['name']);
         } catch (Throwable $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->actionSuccess($request, $hosting, $path, 'File created.');
+        return $this->actionSuccess($service, $request, $hosting, $path, 'File created.');
     }
 
-    public function destroy(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function destroy(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -134,25 +113,25 @@ class FileManagerController extends Controller
         $path = (string) ($validated['path'] ?? '');
 
         try {
-            $items = $this->resolveBulkItemPaths($request);
+            $items = $service->resolveBulkItemPaths($request->input('items_json'), $request->input('items', []));
         } catch (InvalidArgumentException $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
         if ($items === []) {
-            return $this->actionError($request, $hosting, $path, 'Select at least one item.');
+            return $this->actionError($service, $request, $hosting, $path, 'Select at least one item.');
         }
 
         try {
-            $fs->deleteItems($hosting, $items);
+            $service->deleteItems($hosting, $items);
         } catch (Throwable $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->actionSuccess($request, $hosting, $path, 'Deleted selected items.');
+        return $this->actionSuccess($service, $request, $hosting, $path, 'Deleted selected items.');
     }
 
-    public function move(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function move(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -165,25 +144,25 @@ class FileManagerController extends Controller
         $path = (string) ($validated['path'] ?? '');
 
         try {
-            $items = $this->resolveBulkItemPaths($request);
+            $items = $service->resolveBulkItemPaths($request->input('items_json'), $request->input('items', []));
         } catch (InvalidArgumentException $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
         if ($items === []) {
-            return $this->actionError($request, $hosting, $path, 'Select at least one item.');
+            return $this->actionError($service, $request, $hosting, $path, 'Select at least one item.');
         }
 
         try {
-            $fs->moveItems($hosting, $items, trim($validated['destination']));
+            $service->moveItems($hosting, $items, (string) $validated['destination']);
         } catch (Throwable $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->actionSuccess($request, $hosting, $path, 'Moved selected items.');
+        return $this->actionSuccess($service, $request, $hosting, $path, 'Moved selected items.');
     }
 
-    public function upload(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function upload(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'path' => 'nullable|string|max:4096',
@@ -191,8 +170,7 @@ class FileManagerController extends Controller
             'file.*' => 'file|max:51200',
         ]);
 
-        $uploaded = $request->file('file');
-        $files = is_array($uploaded) ? array_values(array_filter($uploaded)) : ($uploaded ? [$uploaded] : []);
+        $files = $service->normalizeUploadedFiles($request->file('file'));
         if ($files === []) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -201,14 +179,12 @@ class FileManagerController extends Controller
                 ], 422);
             }
 
-            return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+            return $this->redirectBack($service, $hosting, (string) ($validated['path'] ?? ''))
                 ->withErrors(['action' => 'No file uploaded.']);
         }
 
         try {
-            foreach ($files as $file) {
-                $fs->upload($hosting, (string) ($validated['path'] ?? ''), $file);
-            }
+            $service->uploadFiles($hosting, (string) ($validated['path'] ?? ''), $files);
         } catch (Throwable $e) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -217,7 +193,7 @@ class FileManagerController extends Controller
                 ], 422);
             }
 
-            return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+            return $this->redirectBack($service, $hosting, (string) ($validated['path'] ?? ''))
                 ->withErrors(['action' => $e->getMessage()]);
         }
 
@@ -228,14 +204,14 @@ class FileManagerController extends Controller
             ]);
         }
 
-        return $this->redirectBack($hosting, (string) ($validated['path'] ?? ''))
+        return $this->redirectBack($service, $hosting, (string) ($validated['path'] ?? ''))
             ->with('success', 'File uploaded.');
     }
 
-    public function openFile(Request $request, Hosting $hosting, HostFilesystemService $fs): BinaryFileResponse
+    public function openFile(Request $request, Hosting $hosting, FileManagerApplicationService $service): BinaryFileResponse
     {
         $path = (string) $request->query('path', '');
-        $abs = $fs->fileAbsolutePath($hosting, $path);
+        $abs = $service->openFileAbsolutePath($hosting, $path);
         abort_if($abs === null, 404);
 
         return response()->file($abs, [
@@ -243,12 +219,12 @@ class FileManagerController extends Controller
         ]);
     }
 
-    public function edit(Request $request, Hosting $hosting, HostFilesystemService $fs): View|RedirectResponse|JsonResponse
+    public function edit(Request $request, Hosting $hosting, FileManagerApplicationService $service): View|RedirectResponse|JsonResponse
     {
         $path = (string) $request->query('path', '');
 
         try {
-            $content = $fs->readTextFile($hosting, $path);
+            $content = $service->readEditableTextFile($hosting, $path);
         } catch (Throwable $e) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -258,7 +234,7 @@ class FileManagerController extends Controller
             }
 
             return redirect()
-                ->route('hosts.files.index', $this->listingParams($hosting, $this->parentRelative($path)))
+                ->route('hosts.files.index', $service->listingParams($hosting, $service->parentRelative($path)))
                 ->withErrors(['action' => $e->getMessage()]);
         }
 
@@ -273,12 +249,12 @@ class FileManagerController extends Controller
         return view('filemanager::edit', [
             'hosting' => $hosting,
             'relativePath' => $path,
-            'parentPath' => $this->parentRelative($path),
+            'parentPath' => $service->parentRelative($path),
             'content' => $content,
         ]);
     }
 
-    public function update(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function update(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $max = (int) config('file_manager.max_edit_bytes', 2 * 1024 * 1024);
         $validated = $request->validate([
@@ -287,7 +263,7 @@ class FileManagerController extends Controller
         ]);
 
         try {
-            $fs->writeTextFile($hosting, $validated['path'], (string) ($validated['content'] ?? ''));
+            $service->writeEditableTextFile($hosting, (string) $validated['path'], (string) ($validated['content'] ?? ''));
         } catch (Throwable $e) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -314,7 +290,7 @@ class FileManagerController extends Controller
             ->with('success', 'File saved.');
     }
 
-    public function duplicate(Request $request, Hosting $hosting, HostFilesystemService $fs): RedirectResponse|JsonResponse
+    public function duplicate(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
@@ -324,109 +300,79 @@ class FileManagerController extends Controller
         $path = (string) ($validated['path'] ?? '');
 
         try {
-            $fs->duplicateFile($hosting, $validated['from']);
+            $service->duplicateFile($hosting, (string) $validated['from']);
         } catch (Throwable $e) {
-            return $this->actionError($request, $hosting, $path, $e->getMessage());
+            return $this->actionError($service, $request, $hosting, $path, $e->getMessage());
         }
 
-        return $this->actionSuccess($request, $hosting, $path, 'File copied.');
+        return $this->actionSuccess($service, $request, $hosting, $path, 'File copied.');
     }
 
-    public function compress(Request $request, Hosting $hosting): RedirectResponse|JsonResponse
+    public function compress(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
             'path' => 'nullable|string|max:4096',
         ]);
 
-        $token = (string) Str::uuid();
-        Cache::put('file_manager_job:'.$token, [
-            'status' => 'pending',
-            'message' => 'Compress queued.',
-        ], now()->addMinutes(15));
-
-        CompressItemJob::dispatch($hosting->id, $validated['from'], $token);
+        $job = $service->queueCompress($hosting, (string) $validated['from']);
 
         $path = (string) ($validated['path'] ?? '');
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'Compress queued.',
-                'queue_token' => $token,
+                'message' => $job['message'],
+                'queue_token' => $job['token'],
                 'queue_status_url' => route('hosts.files.queue-status', $hosting),
-                'reload_url' => route('hosts.files.index', $this->listingParams($hosting, $path)),
+                'reload_url' => route('hosts.files.index', $service->listingParams($hosting, $path)),
             ]);
         }
 
         return redirect()
-            ->route('hosts.files.index', $this->listingParams($hosting, $path))
-            ->with('success', 'Compress queued.')
-            ->with('fm_queue_token', $token);
+            ->route('hosts.files.index', $service->listingParams($hosting, $path))
+            ->with('success', $job['message'])
+            ->with('fm_queue_token', $job['token']);
     }
 
-    public function extract(Request $request, Hosting $hosting): RedirectResponse|JsonResponse
+    public function extract(Request $request, Hosting $hosting, FileManagerApplicationService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
             'path' => 'nullable|string|max:4096',
         ]);
 
-        $token = (string) Str::uuid();
-        Cache::put('file_manager_job:'.$token, [
-            'status' => 'pending',
-            'message' => 'Extract queued.',
-        ], now()->addMinutes(15));
-
-        ExtractArchiveJob::dispatch($hosting->id, $validated['from'], $token);
+        $job = $service->queueExtract($hosting, (string) $validated['from']);
 
         $path = (string) ($validated['path'] ?? '');
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'Extract queued.',
-                'queue_token' => $token,
+                'message' => $job['message'],
+                'queue_token' => $job['token'],
                 'queue_status_url' => route('hosts.files.queue-status', $hosting),
-                'reload_url' => route('hosts.files.index', $this->listingParams($hosting, $path)),
+                'reload_url' => route('hosts.files.index', $service->listingParams($hosting, $path)),
             ]);
         }
 
         return redirect()
-            ->route('hosts.files.index', $this->listingParams($hosting, $path))
-            ->with('success', 'Extract queued.')
-            ->with('fm_queue_token', $token);
+            ->route('hosts.files.index', $service->listingParams($hosting, $path))
+            ->with('success', $job['message'])
+            ->with('fm_queue_token', $job['token']);
     }
 
-    public function queueStatus(Request $request, Hosting $hosting): JsonResponse
+    public function queueStatus(Request $request, Hosting $hosting, FileManagerApplicationService $service): JsonResponse
     {
-        $token = (string) $request->query('token', '');
-        if ($token === '') {
+        try {
+            return response()->json($service->queueStatus((string) $request->query('token', '')));
+        } catch (InvalidArgumentException $e) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Missing token.',
+                'message' => $e->getMessage(),
             ], 422);
         }
-
-        $data = Cache::get('file_manager_job:'.$token);
-        if (! is_array($data)) {
-            return response()->json([
-                'ok' => true,
-                'status' => 'unknown',
-                'done' => true,
-                'message' => 'No status found.',
-            ]);
-        }
-
-        $status = (string) ($data['status'] ?? 'pending');
-
-        return response()->json([
-            'ok' => true,
-            'status' => $status,
-            'done' => in_array($status, ['done', 'failed', 'unknown'], true),
-            'message' => (string) ($data['message'] ?? ''),
-        ]);
     }
 
-    public function rename(Request $request, Hosting $hosting, HostFilesystemService $fs): JsonResponse
+    public function rename(Request $request, Hosting $hosting, FileManagerApplicationService $service): JsonResponse
     {
         $validated = $request->validate([
             'from' => 'required|string|max:4096',
@@ -434,7 +380,7 @@ class FileManagerController extends Controller
         ]);
 
         try {
-            $newRelative = $fs->renameItem($hosting, $validated['from'], trim($validated['name']));
+            $renamed = $service->renameItem($hosting, (string) $validated['from'], (string) $validated['name']);
         } catch (Throwable $e) {
             return response()->json([
                 'ok' => false,
@@ -442,35 +388,33 @@ class FileManagerController extends Controller
             ], 422);
         }
 
-        $name = basename(str_replace('\\', '/', $newRelative));
-
         return response()->json([
             'ok' => true,
-            'relative' => $newRelative,
-            'name' => $name,
-            'editable' => HostFilesystemService::isEditableFilename($name),
+            'relative' => $renamed['relative'],
+            'name' => $renamed['name'],
+            'editable' => $renamed['editable'],
         ]);
     }
 
-    private function redirectBack(Hosting $hosting, string $path): RedirectResponse
+    private function redirectBack(FileManagerApplicationService $service, Hosting $hosting, string $path): RedirectResponse
     {
-        return redirect()->route('hosts.files.index', $this->listingParams($hosting, $path));
+        return redirect()->route('hosts.files.index', $service->listingParams($hosting, $path));
     }
 
-    private function actionSuccess(Request $request, Hosting $hosting, string $path, string $message): RedirectResponse|JsonResponse
+    private function actionSuccess(FileManagerApplicationService $service, Request $request, Hosting $hosting, string $path, string $message): RedirectResponse|JsonResponse
     {
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
                 'message' => $message,
-                'reload_url' => route('hosts.files.index', $this->listingParams($hosting, $path)),
+                'reload_url' => route('hosts.files.index', $service->listingParams($hosting, $path)),
             ]);
         }
 
-        return $this->redirectBack($hosting, $path)->with('success', $message);
+        return $this->redirectBack($service, $hosting, $path)->with('success', $message);
     }
 
-    private function actionError(Request $request, Hosting $hosting, string $path, string $message): RedirectResponse|JsonResponse
+    private function actionError(FileManagerApplicationService $service, Request $request, Hosting $hosting, string $path, string $message): RedirectResponse|JsonResponse
     {
         if ($request->expectsJson()) {
             return response()->json([
@@ -479,107 +423,6 @@ class FileManagerController extends Controller
             ], 422);
         }
 
-        return $this->redirectBack($hosting, $path)->withErrors(['action' => $message]);
-    }
-
-    /**
-     * @return array{hosting: Hosting, path?: string}
-     */
-    private function listingParams(Hosting $hosting, string $path): array
-    {
-        $params = ['hosting' => $hosting];
-        if ($path !== '') {
-            $params['path'] = $path;
-        }
-
-        return $params;
-    }
-
-    private function parentRelative(string $relativePath): string
-    {
-        $p = str_replace('\\', '/', $relativePath);
-        if (! str_contains($p, '/')) {
-            return '';
-        }
-
-        return dirname($p);
-    }
-
-    /**
-     * Whether a relative path is the workspace root or a descendant (code editor path guard).
-     */
-    private function isPathUnderWorkspace(string $path, string $root): bool
-    {
-        $path = str_replace('\\', '/', $path);
-        $root = str_replace('\\', '/', $root);
-        if ($root === '') {
-            return true;
-        }
-        if ($path === $root) {
-            return true;
-        }
-        $prefix = rtrim($root, '/').'/';
-
-        return str_starts_with($path, $prefix);
-    }
-
-    private const BULK_PATHS_MAX = 5000;
-
-    /**
-     * Paths from a single `items_json` (preferred) or legacy `items` array, avoiding many POST vars
-     * that are truncated by PHP’s max_input_vars.
-     *
-     * @return array<int, string>
-     */
-    private function resolveBulkItemPaths(Request $request): array
-    {
-        $rawJson = $request->input('items_json');
-        if (is_string($rawJson) && $rawJson !== '') {
-            try {
-                $decoded = json_decode($rawJson, true, 512, JSON_THROW_ON_ERROR);
-            } catch (JsonException) {
-                throw new InvalidArgumentException('Invalid item list (JSON).');
-            }
-            if (! is_array($decoded)) {
-                throw new InvalidArgumentException('Invalid item list format.');
-            }
-            if (count($decoded) > self::BULK_PATHS_MAX) {
-                throw new InvalidArgumentException('Too many items selected (max '.self::BULK_PATHS_MAX.').');
-            }
-            $out = [];
-            foreach ($decoded as $one) {
-                if (! is_string($one) && ! is_int($one) && ! is_float($one)) {
-                    continue;
-                }
-                $p = trim((string) $one);
-                if ($p === '' || strlen($p) > 4096) {
-                    throw new InvalidArgumentException('Each path must be 1 to 4,096 characters.');
-                }
-                $out[] = $p;
-            }
-
-            return $out;
-        }
-
-        $items = $request->input('items', []);
-        if (! is_array($items) || $items === []) {
-            return [];
-        }
-        if (count($items) > self::BULK_PATHS_MAX) {
-            throw new InvalidArgumentException('Too many items selected (max '.self::BULK_PATHS_MAX.').');
-        }
-        $out = [];
-        foreach ($items as $one) {
-            if (! is_string($one) && ! is_int($one) && ! is_float($one)) {
-                continue;
-            }
-            $p = trim((string) $one);
-            if ($p === '' || strlen($p) > 4096) {
-                throw new InvalidArgumentException('Each path must be 1 to 4,096 characters.');
-            }
-            $out[] = $p;
-        }
-
-        return $out;
+        return $this->redirectBack($service, $hosting, $path)->withErrors(['action' => $message]);
     }
 }
