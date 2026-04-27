@@ -41,7 +41,12 @@ class MailStackProvisioner
 
         $output = trim($process->getOutput()."\n".$process->getErrorOutput());
         if (! $process->isSuccessful()) {
-            return ['ok' => false, 'message' => $output !== '' ? $output : 'Mailbox provision failed with no output.'];
+            $msg = $output !== '' ? $output : 'Mailbox provision failed with no output.';
+
+            return [
+                'ok' => false,
+                'message' => $msg.' (state root: '.$stateRoot.')',
+            ];
         }
 
         return ['ok' => true, 'message' => $output !== '' ? $output : 'Mailbox provisioned.'];
@@ -79,7 +84,12 @@ class MailStackProvisioner
 
         $output = trim($process->getOutput()."\n".$process->getErrorOutput());
         if (! $process->isSuccessful()) {
-            return ['ok' => false, 'message' => $output !== '' ? $output : 'Mailbox remove failed with no output.'];
+            $msg = $output !== '' ? $output : 'Mailbox remove failed with no output.';
+
+            return [
+                'ok' => false,
+                'message' => $msg.' (state root: '.$stateRoot.')',
+            ];
         }
 
         return ['ok' => true, 'message' => $output !== '' ? $output : 'Mailbox removed.'];
