@@ -15,6 +15,10 @@ class Hosting extends Model
         'plan',
         'panel_username',
         'panel_password',
+        'hotlink_protection_enabled',
+        'hotlink_allow_direct_requests',
+        'hotlink_allowed_domains',
+        'hotlink_blocked_extensions',
         'status',
         'provision_status',
         'provision_log',
@@ -30,6 +34,10 @@ class Hosting extends Model
     {
         return [
             'panel_password' => 'encrypted',
+            'hotlink_protection_enabled' => 'boolean',
+            'hotlink_allow_direct_requests' => 'boolean',
+            'hotlink_allowed_domains' => 'array',
+            'hotlink_blocked_extensions' => 'array',
             'panel_2fa_enabled' => 'boolean',
             'panel_2fa_secret' => 'encrypted',
             'panel_2fa_recovery_codes' => 'array',

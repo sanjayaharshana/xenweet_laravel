@@ -1,0 +1,11 @@
+{
+    "name": "HotlinkProtection",
+    "alias": "hotlinkprotection",
+    "description": "Hotlink protection settings per hosting account",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\HotlinkProtection\\Providers\\HotlinkProtectionServiceProvider"
+    ],
+    "files": []
+}

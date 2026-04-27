@@ -66,6 +66,7 @@ return [
                     'label' => 'Hotlink Protection',
                     'description' => 'Prevent other sites from hotlinking your images and static files',
                     'icon' => 'fa fa-chain-broken',
+                    'route' => 'hosts.hotlink-protection',
                 ],
             ],
         ],

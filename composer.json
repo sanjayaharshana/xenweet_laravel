@@ -53,6 +53,9 @@
             "Modules\\Domains\\": "Modules/Domains/app/",
             "Modules\\Domains\\Database\\Factories\\": "Modules/Domains/database/factories/",
             "Modules\\Domains\\Database\\Seeders\\": "Modules/Domains/database/seeders/",
+            "Modules\\HotlinkProtection\\": "Modules/HotlinkProtection/app/",
+            "Modules\\HotlinkProtection\\Database\\Factories\\": "Modules/HotlinkProtection/database/factories/",
+            "Modules\\HotlinkProtection\\Database\\Seeders\\": "Modules/HotlinkProtection/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

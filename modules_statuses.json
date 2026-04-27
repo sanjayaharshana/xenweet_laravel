@@ -7,5 +7,6 @@
     "SshAccess": true,
     "PhpVersion": true,
     "ManageSetting": true,
-    "Domains": true
+    "Domains": true,
+    "HotlinkProtection": true
 }

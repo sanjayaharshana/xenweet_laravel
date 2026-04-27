@@ -77,6 +77,9 @@
                         <a href="{{ route('hosts.ssh-access', $hosting) }}" class="{{ request()->routeIs('hosts.ssh-access*') ? 'active' : '' }}">SSH</a>
                         <a href="{{ route('hosts.terminal', $hosting) }}" class="{{ request()->routeIs('hosts.terminal') ? 'active' : '' }}">Terminal</a>
                     @endif
+                    @if ($moduleEnabled('HotlinkProtection') && \Illuminate\Support\Facades\Route::has('hosts.hotlink-protection'))
+                        <a href="{{ route('hosts.hotlink-protection', $hosting) }}" class="{{ request()->routeIs('hosts.hotlink-protection*') ? 'active' : '' }}">Hotlink</a>
+                    @endif
                 @endisset
             </div>
 
