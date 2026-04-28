@@ -449,3 +449,6 @@
     @endif
 </div>
 @endsection
+
+@section('right_sidebar')
+@endsection
