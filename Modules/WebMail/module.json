@@ -1,0 +1,11 @@
+{
+    "name": "WebMail",
+    "alias": "webmail",
+    "description": "Basic webmail client for hosted email accounts",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\WebMail\\Providers\\WebMailServiceProvider"
+    ],
+    "files": []
+}
