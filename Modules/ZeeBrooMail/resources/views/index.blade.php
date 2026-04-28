@@ -5,24 +5,35 @@
 @section('content')
 <div class="host-panel-scope zeebroo-mail">
     <style>
-        .zeebroo-mail { --zb-bg:#f6f8fc; --zb-surface:#fff; --zb-border:#dde3ea; --zb-text:#202124; --zb-subtle:#5f6368; --zb-primary:#1a73e8; --zb-primary-soft:#e8f0fe; }
-        .zeebroo-mail .zb-frame { background:var(--zb-bg); border:1px solid var(--zb-border); border-radius:14px; overflow:hidden; }
-        .zeebroo-mail .zb-shell { display:grid; grid-template-columns:220px 360px 1fr; min-height:680px; }
-        .zeebroo-mail .zb-side, .zeebroo-mail .zb-list, .zeebroo-mail .zb-read { background:var(--zb-surface); }
-        .zeebroo-mail .zb-side { border-right:1px solid var(--zb-border); padding:0.85rem 0.7rem; }
-        .zeebroo-mail .zb-list { border-right:1px solid var(--zb-border); display:flex; flex-direction:column; min-width:0; }
-        .zeebroo-mail .zb-read { display:flex; flex-direction:column; min-width:0; }
+        .zeebroo-mail { --zb-bg:#f6f8fc; --zb-surface:#fff; --zb-border:#dde3ea; --zb-text:#202124; --zb-subtle:#5f6368; --zb-primary:#1a73e8; --zb-primary-soft:#e8f0fe; overflow:hidden; }
+        .zeebroo-mail .zb-main-card { position:fixed; top:66px; left:92px; right:16px; bottom:14px; height:auto; min-height:620px; max-height:none; margin:0; z-index:20; }
+        .zeebroo-mail .zb-frame { background:var(--zb-bg); border:1px solid var(--zb-border); border-radius:14px; overflow:hidden; height:100%; min-height:0; }
+        .zeebroo-mail .zb-shell { display:grid; grid-template-columns:240px 1fr; height:100%; min-height:0; }
+        .zeebroo-mail .zb-side, .zeebroo-mail .zb-list { background:var(--zb-surface); }
+        .zeebroo-mail .zb-side { border-right:1px solid var(--zb-border); padding:0.85rem 0.7rem; overflow:hidden; min-height:0; position:sticky; top:0; align-self:start; height:100%; }
+        .zeebroo-mail .zb-list { border-right:1px solid var(--zb-border); display:flex; flex-direction:column; min-width:0; min-height:0; }
         .zeebroo-mail .zb-user { display:flex; align-items:center; justify-content:space-between; gap:0.4rem; border-radius:10px; padding:0.52rem 0.55rem; background:#f1f3f4; margin-bottom:0.8rem; color:var(--zb-text); font-size:0.84rem; font-weight:600; }
+        .zeebroo-mail-top-account { display:flex; align-items:center; gap:0.4rem; margin-right:0.6rem; }
+        .zeebroo-mail-top-account select { min-width:220px; max-width:320px; border:1px solid rgba(255,255,255,0.28); border-radius:8px; background:rgba(255,255,255,0.12); color:#fff; padding:0.35rem 0.5rem; font-size:0.82rem; }
+        .zeebroo-mail-top-account select option { color:#111827; }
         .zeebroo-mail .zb-section-title { margin:0.85rem 0 0.42rem; color:var(--zb-subtle); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; font-weight:700; }
         .zeebroo-mail .zb-folder-list { display:flex; flex-direction:column; gap:0.22rem; }
         .zeebroo-mail .zb-folder-item { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; border-radius:999px; padding:0.48rem 0.74rem; color:var(--zb-text); text-decoration:none; font-size:0.9rem; border:1px solid transparent; }
+        .zeebroo-mail .zb-folder-main { display:inline-flex; align-items:center; gap:0.5rem; }
+        .zeebroo-mail .zb-folder-main i { width:1rem; text-align:center; color:var(--zb-subtle); }
+        .zeebroo-mail .zb-folder-item.active .zb-folder-main i { color:var(--zb-primary); }
         .zeebroo-mail .zb-folder-item:hover { background:#f1f3f4; }
         .zeebroo-mail .zb-folder-item.active { background:var(--zb-primary-soft); color:var(--zb-primary); font-weight:700; border-color:#d3e3fd; }
-        .zeebroo-mail .zb-list-top { padding:0.72rem; border-bottom:1px solid var(--zb-border); display:grid; gap:0.55rem; }
+        .zeebroo-mail .zb-list-top { padding:0.72rem; border-bottom:1px solid var(--zb-border); display:grid; gap:0.55rem; position:sticky; top:0; background:var(--zb-surface); z-index:2; }
         .zeebroo-mail .zb-search { border:1px solid var(--zb-border); background:#f1f3f4; border-radius:999px; padding:0.52rem 0.78rem; color:var(--zb-subtle); font-size:0.9rem; }
         .zeebroo-mail .zb-actions { display:flex; gap:0.4rem; flex-wrap:wrap; }
         .zeebroo-mail .zb-chip { border:1px solid var(--zb-border); background:#fff; color:var(--zb-subtle); font-size:0.78rem; padding:0.2rem 0.48rem; border-radius:999px; }
-        .zeebroo-mail .zb-message-list { overflow:auto; flex:1; }
+        .zeebroo-mail .zb-dev-banner { margin-bottom:1rem; border:1px solid #c7d2fe; border-left:4px solid #4f46e5; border-radius:12px; background:linear-gradient(180deg, #eef2ff, #e0e7ff); padding:0.75rem 0.9rem; display:flex; gap:0.7rem; align-items:flex-start; }
+        .zeebroo-mail .zb-dev-banner .icon { width:1.45rem; height:1.45rem; border-radius:999px; background:#4f46e5; color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex:0 0 auto; margin-top:0.1rem; }
+        .zeebroo-mail .zb-dev-banner .title { margin:0 0 0.15rem; font-size:0.88rem; color:#312e81; font-weight:700; }
+        .zeebroo-mail .zb-dev-banner .text { margin:0; color:#4338ca; font-size:0.84rem; }
+        .zeebroo-mail .zb-message-list { overflow:auto; flex:1; min-height:0; }
+        body.host-left-quicklinks-fixed .host-left-quicklinks { position:fixed; top:var(--main-navbar-height); left:0; width:78px; z-index:6; box-sizing:border-box; }
         .zeebroo-mail .zb-message-item { display:block; text-decoration:none; color:var(--zb-text); border-bottom:1px solid var(--zb-border); padding:0.62rem 0.72rem; background:#fff; }
         .zeebroo-mail .zb-message-item:hover { background:#f8fafd; }
         .zeebroo-mail .zb-message-item.active { background:var(--zb-primary-soft); }
@@ -31,50 +42,31 @@
         .zeebroo-mail .zb-date { color:var(--zb-subtle); white-space:nowrap; }
         .zeebroo-mail .zb-subject { margin-top:0.18rem; font-size:0.9rem; color:#111827; }
         .zeebroo-mail .zb-status { margin-top:0.14rem; color:var(--zb-subtle); font-size:0.78rem; }
-        .zeebroo-mail .zb-read-top { border-bottom:1px solid var(--zb-border); padding:0.72rem 0.95rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; background:#fff; }
-        .zeebroo-mail .zb-read-scroll { padding:0.95rem; overflow:auto; flex:1; min-height:0; }
         .zeebroo-mail .zb-empty { color:var(--zb-subtle); font-size:0.9rem; margin:0.6rem 0; }
         .zeebroo-mail .zb-message-card { border:1px solid var(--zb-border); border-radius:12px; padding:0.9rem; background:#fff; color:var(--zb-text); }
         .zeebroo-mail .zb-message-card h3 { margin:0 0 0.72rem; font-size:1rem; }
         .zeebroo-mail .zb-meta-grid { display:grid; gap:0.26rem; margin-bottom:0.75rem; color:var(--zb-subtle); font-size:0.84rem; }
         .zeebroo-mail .zb-body { border:1px solid var(--zb-border); border-radius:10px; padding:0.8rem; background:#fafbff; max-height:280px; overflow:auto; }
-        .zeebroo-mail .zb-compose { margin-top:0.88rem; border:1px solid var(--zb-border); border-radius:12px; padding:0.78rem; background:#fff; }
-        .zeebroo-mail .zb-compose h4 { margin:0 0 0.65rem; font-size:0.94rem; }
-        .zeebroo-mail .zb-compose-grid { display:grid; gap:0.55rem; }
         .zeebroo-mail label { display:grid; gap:0.25rem; }
         .zeebroo-mail label > span { color:var(--zb-subtle); font-size:0.76rem; font-weight:600; }
         .zeebroo-mail select, .zeebroo-mail input, .zeebroo-mail textarea { width:100%; border:1px solid var(--zb-border); border-radius:8px; background:#fff; color:var(--zb-text); padding:0.48rem 0.56rem; font-size:0.88rem; }
         .zeebroo-mail textarea { min-height:110px; resize:vertical; }
         .zeebroo-mail select:focus, .zeebroo-mail input:focus, .zeebroo-mail textarea:focus { outline:none; border-color:var(--zb-primary); box-shadow:0 0 0 3px rgba(26, 115, 232, 0.14); }
-        .zeebroo-mail .zb-compose-grid .btn-primary { width:100%; margin-top:0.2rem; }
         .zeebroo-mail .zb-error { color:#b91c1c; font-size:0.82rem; margin-top:0.55rem; }
-        @media (max-width: 1400px) { .zeebroo-mail .zb-shell { grid-template-columns:210px 320px 1fr; } }
-        @media (max-width: 1100px) { .zeebroo-mail .zb-shell { grid-template-columns:1fr; } .zeebroo-mail .zb-side, .zeebroo-mail .zb-list { border-right:none; border-bottom:1px solid var(--zb-border); } }
+        .zeebroo-mail .zb-note { color:var(--zb-subtle); font-size:0.82rem; margin-top:0.55rem; }
+        .zb-modal-backdrop { position:fixed; inset:0; background:rgba(15, 23, 42, 0.55); display:none; align-items:center; justify-content:center; z-index:99999; padding:2rem 1rem; }
+        .zb-modal-backdrop.open { display:flex; }
+        .zb-modal { width:70vw; max-width:1100px; height:70vh; max-height:70vh; overflow:hidden; background:#fff; border-radius:14px; border:1px solid var(--zb-border); box-shadow:0 20px 40px rgba(0,0,0,0.2); display:flex; flex-direction:column; }
+        .zb-modal-head { padding:0.8rem 1rem; border-bottom:1px solid var(--zb-border); display:flex; justify-content:space-between; align-items:center; flex:0 0 auto; }
+        .zb-modal-body { padding:1rem; overflow:auto; flex:1 1 auto; }
+        .zb-modal-close { border:1px solid var(--zb-border); background:#fff; border-radius:8px; padding:0.2rem 0.55rem; cursor:pointer; }
+        .zb-modal-backdrop.open .zb-body { max-height:none; }
+        @media (max-width: 900px) { .zb-modal { width:94vw; height:82vh; max-height:82vh; } }
+        @media (max-width: 1100px) { .zeebroo-mail { overflow:visible; } .zeebroo-mail .zb-main-card { position:relative; top:auto; left:auto; right:auto; bottom:auto; height:auto; min-height:0; max-height:none; } .zeebroo-mail .zb-frame { height:auto; max-height:none; } .zeebroo-mail .zb-shell { grid-template-columns:1fr; height:auto; } .zeebroo-mail .zb-side, .zeebroo-mail .zb-list { border-right:none; border-bottom:1px solid var(--zb-border); } }
     </style>
-    <header class="topbar">
-        <div>
-            <p class="eyebrow">Email</p>
-            <h1>ZeeBroo Mail</h1>
-            <p class="subtle">Host mailbox client for reading and sending emails.</p>
-        </div>
-        <div class="topbar-actions">
-            <a class="btn-secondary" href="{{ route('hosts.panel', $hosting) }}">Back to Host Panel</a>
-            @if ($emailModuleEnabled && \Illuminate\Support\Facades\Route::has('hosts.email.index'))
-                <a class="btn-secondary" href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts']) }}">Manage Mailboxes</a>
-            @endif
-        </div>
-    </header>
-
-    @if (session('success'))
-        <div class="server-card" id="zb-flash-success" style="border-left:4px solid #16a34a; margin-bottom:1rem;">
-            <p class="subtle" id="zb-flash-success-text" style="margin:0;">{{ session('success') }}</p>
-        </div>
-    @endif
-    @if ($errors->any())
-        <div class="server-card" id="zb-flash-error" style="border-left:4px solid #dc2626; margin-bottom:1rem;">
-            <p class="subtle" id="zb-flash-error-text" style="margin:0;">{{ $errors->first() }}</p>
-        </div>
-    @endif
+    @php
+        $devImapDisabled = str_contains(mb_strtolower((string) ($mailboxResult['error'] ?? '')), 'disabled by environment');
+    @endphp
 
     @if (! $emailModuleEnabled)
         <section class="server-card">
@@ -88,37 +80,75 @@
         </section>
     @else
         @php $selectedAccount = $accounts->firstWhere('id', $selectedAccountId); @endphp
-        <section class="server-card" style="padding:0.75rem;">
+        <section class="server-card zb-main-card" style="padding:0.75rem;">
             <div class="zb-frame">
+                <div style="padding:0.75rem 0.75rem 0;">
+                    @if (session('success'))
+                        <div class="server-card" id="zb-flash-success" style="border-left:4px solid #16a34a; margin-bottom:0.75rem;">
+                            <p class="subtle" id="zb-flash-success-text" style="margin:0;">{{ session('success') }}</p>
+                        </div>
+                    @endif
+                    @if ($errors->any())
+                        <div class="server-card" id="zb-flash-error" style="border-left:4px solid #dc2626; margin-bottom:0.75rem;">
+                            <p class="subtle" id="zb-flash-error-text" style="margin:0;">{{ $errors->first() }}</p>
+                        </div>
+                    @endif
+                    @if ($devImapDisabled)
+                        <div class="server-card" style="border-left:4px solid #4f46e5; margin-bottom:0.75rem;">
+                            <p class="subtle" style="margin:0;">Development mode active: mailbox preview is disabled.</p>
+                        </div>
+                    @endif
+                </div>
                 <div class="zb-shell">
                     <aside class="zb-side">
                         <div class="zb-user">
                             <span>{{ $selectedAccount ? $selectedAccount->local_part.'@'.$selectedAccount->domain : 'Mailbox' }}</span>
                             <span>⋮</span>
                         </div>
-                        <form method="get" action="{{ route('hosts.zeebroo-mail.index', $hosting) }}">
-                            <label>
-                                <span>Account</span>
-                                <select id="zb-account-select" name="account_id" required onchange="this.form.submit()">
-                                    @foreach ($accounts as $account)
-                                        <option value="{{ $account->id }}" @selected((int) $selectedAccountId === (int) $account->id)>
-                                            {{ $account->local_part }}@{{ $account->domain }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </label>
-                            <noscript><button type="submit" class="btn-primary" style="margin-top:0.45rem;">Load mailbox</button></noscript>
-                        </form>
 
-                        <p class="zb-section-title">Folders</p>
+                        @php
+                            $defaultFolders = ['INBOX', 'Send', 'Draft', 'Spam', 'Filters', 'Settings'];
+                            $uiFolders = collect(array_merge($defaultFolders, (array) ($foldersResult['folders'] ?? [])))
+                                ->filter(fn ($name) => is_string($name) && trim($name) !== '')
+                                ->unique()
+                                ->values()
+                                ->all();
+                        @endphp
                         <div class="zb-folder-list" id="zb-folder-list">
-                            @foreach (($foldersResult['folders'] ?? ['INBOX']) as $folderName)
+                            @foreach ($uiFolders as $folderName)
+                                @php
+                                    $normalizedFolder = mb_strtolower(trim((string) $folderName));
+                                    $folderIcon = match ($normalizedFolder) {
+                                        'inbox' => 'fa-inbox',
+                                        'send', 'sent', 'sent items' => 'fa-paper-plane',
+                                        'draft', 'drafts' => 'fa-file-alt',
+                                        'spam', 'junk' => 'fa-ban',
+                                        'trash', 'bin', 'deleted', 'deleted items' => 'fa-trash',
+                                        'archive' => 'fa-archive',
+                                        'filters' => 'fa-filter',
+                                        'settings' => 'fa-cog',
+                                        default => 'fa-folder',
+                                    };
+                                @endphp
                                 <a href="{{ route('hosts.zeebroo-mail.index', ['hosting' => $hosting, 'account_id' => $selectedAccountId, 'folder' => $folderName]) }}" data-folder="{{ $folderName }}" class="zb-folder-item {{ $folder === $folderName ? 'active' : '' }}">
-                                    <span>{{ $folderName }}</span><span>{{ $folder === $folderName ? '•' : '' }}</span>
+                                    <span class="zb-folder-main"><i class="fa {{ $folderIcon }}" aria-hidden="true"></i><span>{{ $folderName }}</span></span><span>{{ $folder === $folderName ? '•' : '' }}</span>
                                 </a>
                             @endforeach
                         </div>
-                        <p class="zb-error" id="zb-folder-error" @if (($foldersResult['ok'] ?? false) || empty($foldersResult['error'])) style="display:none;" @endif>{{ $foldersResult['error'] ?? '' }}</p>
+                        @php
+                            $folderErrorText = (string) ($foldersResult['error'] ?? '');
+                            $folderErrorIsDevNote = str_contains(mb_strtolower($folderErrorText), 'disabled by environment');
+                            if ($folderErrorIsDevNote) {
+                                $folderErrorText = '';
+                            }
+                        @endphp
+                        <p
+                            class="{{ $folderErrorIsDevNote ? 'zb-note' : 'zb-error' }}"
+                            id="zb-folder-error"
+                            @if (($foldersResult['ok'] ?? false) || $folderErrorText === '') style="display:none;" @endif
+                        >
+                            {{ $folderErrorText }}
+                        </p>
                     </aside>
 
                     <main class="zb-list">
@@ -132,7 +162,13 @@
                         </div>
                         <div class="zb-message-list" id="zb-message-list">
                             @if (! $mailboxResult['ok'])
-                                <p class="zb-empty" style="padding:0.75rem;">{{ $mailboxResult['error'] ?: 'Choose a mailbox to load messages.' }}</p>
+                                @php
+                                    $mailboxErrorText = (string) ($mailboxResult['error'] ?? '');
+                                    $mailboxErrorIsDevNote = str_contains(mb_strtolower($mailboxErrorText), 'disabled by environment');
+                                @endphp
+                                @if (! $mailboxErrorIsDevNote)
+                                    <p class="zb-empty" style="padding:0.75rem;">{{ $mailboxErrorText ?: 'Choose a mailbox to load messages.' }}</p>
+                                @endif
                             @elseif (empty($mailboxResult['messages']))
                                 <p class="zb-empty" style="padding:0.75rem;">No messages found in this folder.</p>
                             @else
@@ -152,52 +188,21 @@
                             @endif
                         </div>
                     </main>
-
-                    <aside class="zb-read">
-                        <div class="zb-read-top"><strong>Message</strong></div>
-                        <div class="zb-read-scroll" id="zb-reader">
-                            @if (! $messageResult || ! ($messageResult['ok'] ?? false))
-                                <p class="zb-empty">{{ $messageResult['error'] ?? 'Select a message from inbox to read.' }}</p>
-                            @else
-                                @php $opened = $messageResult['message']; @endphp
-                                <article class="zb-message-card">
-                                    <h3>{{ $opened['subject'] }}</h3>
-                                    <div class="zb-meta-grid">
-                                        <span><strong>From:</strong> {{ $opened['from'] }}</span>
-                                        <span><strong>To:</strong> {{ $opened['to'] }}</span>
-                                        <span><strong>Date:</strong> {{ $opened['date'] }}</span>
-                                    </div>
-                                    <div class="zb-body"><pre style="margin:0;white-space:pre-wrap;font-family:inherit;">{{ $opened['body'] }}</pre></div>
-                                </article>
-                            @endif
-
-                            <div class="zb-compose">
-                                <h4>Compose</h4>
-                                <form id="zb-compose-form" method="post" action="{{ route('hosts.zeebroo-mail.send', $hosting) }}" class="zb-compose-grid">
-                                    @csrf
-                                    <input type="hidden" name="_context" value="send_email">
-                                    <label>
-                                        <span>From</span>
-                                        <select name="from_account_id" required>
-                                            @foreach ($accounts as $account)
-                                                <option value="{{ $account->id }}" @selected((int) old('from_account_id', $selectedAccountId) === (int) $account->id)>
-                                                    {{ $account->local_part }}@{{ $account->domain }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </label>
-                                    <label><span>To</span><input type="email" name="to" value="{{ old('to') }}" required></label>
-                                    <label><span>Subject</span><input type="text" name="subject" value="{{ old('subject') }}" required></label>
-                                    <label><span>Message</span><textarea name="body" rows="6" required>{{ old('body') }}</textarea></label>
-                                    <button type="submit" class="btn-primary">Send Email</button>
-                                </form>
-                            </div>
-                        </div>
-                    </aside>
                 </div>
             </div>
         </section>
     @endif
+</div>
+<div class="zb-modal-backdrop" id="zb-message-modal">
+    <div class="zb-modal">
+        <div class="zb-modal-head">
+            <strong>Message</strong>
+            <button type="button" class="zb-modal-close" id="zb-modal-close">Close</button>
+        </div>
+        <div class="zb-modal-body" id="zb-modal-content">
+            <p class="zb-empty">Select a message from inbox to read.</p>
+        </div>
+    </div>
 </div>
 <script>
     (function () {
@@ -215,11 +220,12 @@
         const accountSelect = document.getElementById('zb-account-select');
         const folderList = document.getElementById('zb-folder-list');
         const messageList = document.getElementById('zb-message-list');
-        const reader = document.getElementById('zb-reader');
+        const modal = document.getElementById('zb-message-modal');
+        const modalContent = document.getElementById('zb-modal-content');
+        const modalClose = document.getElementById('zb-modal-close');
         const folderChip = document.getElementById('zb-folder-chip');
         const countChip = document.getElementById('zb-count-chip');
         const folderError = document.getElementById('zb-folder-error');
-        const composeForm = document.getElementById('zb-compose-form');
         const flashSuccess = document.getElementById('zb-flash-success');
         const flashSuccessText = document.getElementById('zb-flash-success-text');
         const flashError = document.getElementById('zb-flash-error');
@@ -238,6 +244,7 @@
                     flashError.style.display = 'block';
                 }
                 if (flashSuccess) flashSuccess.style.display = 'none';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
 
@@ -249,17 +256,38 @@
             renderMessages(data.mailbox_result);
             folderChip.textContent = 'Folder: ' + state.folder;
             countChip.textContent = 'Messages: ' + ((data.mailbox_result.messages || []).length);
-            renderReaderEmpty('Select a message from inbox to read.');
         }
 
         function renderFolders(foldersResult) {
-            const folders = (foldersResult && foldersResult.folders) ? foldersResult.folders : ['INBOX'];
+            const defaults = ['INBOX', 'Send', 'Draft', 'Spam', 'Filters', 'Settings'];
+            const dynamic = (foldersResult && Array.isArray(foldersResult.folders)) ? foldersResult.folders : [];
+            const folders = Array.from(new Set(defaults.concat(dynamic).filter((name) => typeof name === 'string' && name.trim() !== '')));
+            const folderIconClass = (name) => {
+                const normalized = String(name || '').trim().toLowerCase();
+                if (normalized === 'inbox') return 'fa-inbox';
+                if (['send', 'sent', 'sent items'].includes(normalized)) return 'fa-paper-plane';
+                if (['draft', 'drafts'].includes(normalized)) return 'fa-file-alt';
+                if (['spam', 'junk'].includes(normalized)) return 'fa-ban';
+                if (['trash', 'bin', 'deleted', 'deleted items'].includes(normalized)) return 'fa-trash';
+                if (normalized === 'archive') return 'fa-archive';
+                if (normalized === 'filters') return 'fa-filter';
+                if (normalized === 'settings') return 'fa-cog';
+                return 'fa-folder';
+            };
             folderList.innerHTML = folders.map((name) => {
                 const active = name === state.folder ? ' active' : '';
                 const dot = name === state.folder ? '•' : '';
-                return '<a href="#" data-folder="' + name + '" class="zb-folder-item' + active + '"><span>' + name + '</span><span>' + dot + '</span></a>';
+                const iconClass = folderIconClass(name);
+                return '<a href="#" data-folder="' + name + '" class="zb-folder-item' + active + '"><span class="zb-folder-main"><i class="fa ' + iconClass + '" aria-hidden="true"></i><span>' + escapeHtml(name) + '</span></span><span>' + dot + '</span></a>';
             }).join('');
             if (foldersResult && !foldersResult.ok && foldersResult.error) {
+                const isDevNote = String(foldersResult.error).toLowerCase().includes('disabled by environment');
+                if (isDevNote) {
+                    folderError.style.display = 'none';
+                    return;
+                }
+                folderError.classList.remove('zb-error', 'zb-note');
+                folderError.classList.add(isDevNote ? 'zb-note' : 'zb-error');
                 folderError.textContent = foldersResult.error;
                 folderError.style.display = 'block';
             } else {
@@ -270,7 +298,10 @@
         function renderMessages(mailboxResult) {
             if (!mailboxResult || !mailboxResult.ok) {
                 const msg = mailboxResult && mailboxResult.error ? mailboxResult.error : 'Choose a mailbox to load messages.';
-                messageList.innerHTML = '<p class="zb-empty" style="padding:0.75rem;">' + msg + '</p>';
+                const isDevNote = String(msg).toLowerCase().includes('disabled by environment');
+                messageList.innerHTML = isDevNote
+                    ? ''
+                    : '<p class="zb-empty" style="padding:0.75rem;">' + msg + '</p>';
                 return;
             }
             if (!mailboxResult.messages || mailboxResult.messages.length === 0) {
@@ -292,13 +323,13 @@
             const res = await fetch(urls.messageBase + '/' + uid + '/data?' + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const data = await res.json();
             if (!data.ok) {
-                renderReaderEmpty((data.message_result && data.message_result.error) ? data.message_result.error : 'Unable to open message.');
+                renderModalError((data.message_result && data.message_result.error) ? data.message_result.error : 'Unable to open message.');
                 return;
             }
             const opened = data.message_result.message;
-            reader.querySelectorAll('.zb-message-item.active').forEach((el) => el.classList.remove('active'));
+            messageList.querySelectorAll('.zb-message-item.active').forEach((el) => el.classList.remove('active'));
             if (anchor) anchor.classList.add('active');
-            reader.innerHTML = '<article class="zb-message-card">'
+            modalContent.innerHTML = '<article class="zb-message-card">'
                 + '<h3>' + escapeHtml(opened.subject) + '</h3>'
                 + '<div class="zb-meta-grid">'
                 + '<span><strong>From:</strong> ' + escapeHtml(opened.from) + '</span>'
@@ -306,42 +337,21 @@
                 + '<span><strong>Date:</strong> ' + escapeHtml(opened.date) + '</span>'
                 + '</div>'
                 + '<div class="zb-body"><pre style="margin:0;white-space:pre-wrap;font-family:inherit;">' + escapeHtml(opened.body) + '</pre></div>'
-                + '</article>' + composeForm.parentElement.outerHTML;
-            rebindCompose();
+                + '</article>';
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
         }
 
-        function renderReaderEmpty(message) {
-            const composeHtml = composeForm ? composeForm.parentElement.outerHTML : '';
-            reader.innerHTML = '<p class="zb-empty">' + escapeHtml(message) + '</p>' + composeHtml;
-            rebindCompose();
+        function renderModalError(message) {
+            modalContent.innerHTML = '<p class="zb-empty">' + escapeHtml(message) + '</p>';
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
         }
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, function (c) {
                 return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c];
             });
-        }
-
-        function rebindCompose() {
-            const form = document.getElementById('zb-compose-form');
-            if (!form) return;
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                const fd = new FormData(form);
-                const res = await fetch(urls.sendAjax, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': fd.get('_token') },
-                    body: fd
-                });
-                const data = await res.json();
-                if (!res.ok || !data.ok) {
-                    setFlash('error', data.error || 'Failed to send email.');
-                    return;
-                }
-                setFlash('success', data.message || 'Email sent successfully.');
-                form.reset();
-                if (accountSelect) accountSelect.value = String(state.accountId);
-            }, { once: true });
         }
 
         if (accountSelect) {
@@ -370,7 +380,27 @@
             });
         }
 
-        rebindCompose();
+        if (modalClose) {
+            modalClose.addEventListener('click', function () {
+                modal.classList.remove('open');
+                document.body.style.overflow = '';
+            });
+        }
+        if (modal) {
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    modal.classList.remove('open');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal && modal.classList.contains('open')) {
+                modal.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+        });
+
     })();
 </script>
 @endsection
@@ -379,4 +409,25 @@
 @endsection
 
 @section('disable_right_sidebar')
+@endsection
+
+@section('disable_top_nav_items')
+@endsection
+
+@section('disable_top_nav_user')
+@endsection
+
+@section('fix_left_quicklinks')
+@endsection
+
+@section('top_nav_extra')
+    <form class="zeebroo-mail-top-account" method="get" action="{{ route('hosts.zeebroo-mail.index', $hosting) }}">
+        <select id="zb-account-select" name="account_id" required onchange="this.form.submit()">
+            @foreach ($accounts as $account)
+                <option value="{{ $account->id }}" @selected((int) $selectedAccountId === (int) $account->id)>
+                    {{ $account->local_part }}@{{ $account->domain }}
+                </option>
+            @endforeach
+        </select>
+    </form>
 @endsection

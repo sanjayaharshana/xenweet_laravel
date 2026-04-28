@@ -35,9 +35,12 @@
 @endphp
 @php
     $disableRightSidebar = view()->hasSection('disable_right_sidebar');
+    $disableTopNavItems = view()->hasSection('disable_top_nav_items');
+    $disableTopNavUser = view()->hasSection('disable_top_nav_user');
+    $fixLeftQuicklinks = view()->hasSection('fix_left_quicklinks');
     $hasRightSidebar = ! $isFileManager && ! $disableRightSidebar && (view()->hasSection('right_sidebar') || isset($hosting));
 @endphp
-<body class="dashboard-body dashboard-body--host @if ($isFileManagerCodeEditor) dashboard-body--fm-code-editor @elseif ($isFileManager) dashboard-body--file-manager @endif">
+<body class="dashboard-body dashboard-body--host @if ($fixLeftQuicklinks) host-left-quicklinks-fixed @endif @if ($isFileManagerCodeEditor) dashboard-body--fm-code-editor @elseif ($isFileManager) dashboard-body--file-manager @endif">
     <nav class="host-main-navbar" aria-label="Host account">
         <div class="nav-inner host-nav-inner">
             @isset($hosting)
@@ -57,57 +60,64 @@
                 </span>
             @endisset
 
-            <div class="host-nav-center">
-                @isset($hosting)
-                    <a href="{{ route('hosts.panel', $hosting) }}" class="{{ request()->routeIs('hosts.panel') ? 'active' : '' }}">Overview</a>
-                    @if ($moduleEnabled('FileManager'))
-                        <a href="{{ route('hosts.files.index', $hosting) }}" class="{{ request()->routeIs('hosts.files.*') ? 'active' : '' }}">Files</a>
-                    @endif
-                    @if ($moduleEnabled('ManageDb'))
-                        <a href="{{ route('hosts.db.manage', $hosting) }}" class="{{ request()->routeIs('hosts.db.*') ? 'active' : '' }}">Databases</a>
-                    @endif
-                    @if ($moduleEnabled('PhpVersion'))
-                        <a href="{{ route('hosts.php-version', $hosting) }}" class="{{ request()->routeIs('hosts.php-version*') ? 'active' : '' }}">PHP</a>
-                    @endif
-                    @if ($moduleEnabled('SslTls'))
-                        <a href="{{ route('hosts.ssl-tls', $hosting) }}" class="{{ request()->routeIs('hosts.ssl-tls*') ? 'active' : '' }}">SSL</a>
-                    @endif
-                    @if ($moduleEnabled('Domains') && \Illuminate\Support\Facades\Route::has('hosts.domains.index'))
-                        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects']) }}" class="{{ request()->routeIs('hosts.domains.index') && request('tab') === 'redirects' ? 'active' : '' }}">Redirects</a>
-                        <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone']) }}" class="{{ request()->routeIs('hosts.domains.index') && request('tab') === 'zone' ? 'active' : '' }}">Zone Editor</a>
-                    @endif
-                    @if ($moduleEnabled('SshAccess'))
-                        <a href="{{ route('hosts.ssh-access', $hosting) }}" class="{{ request()->routeIs('hosts.ssh-access*') ? 'active' : '' }}">SSH</a>
-                        <a href="{{ route('hosts.terminal', $hosting) }}" class="{{ request()->routeIs('hosts.terminal') ? 'active' : '' }}">Terminal</a>
-                    @endif
-                    @if ($moduleEnabled('HotlinkProtection') && \Illuminate\Support\Facades\Route::has('hosts.hotlink-protection'))
-                        <a href="{{ route('hosts.hotlink-protection', $hosting) }}" class="{{ request()->routeIs('hosts.hotlink-protection*') ? 'active' : '' }}">Hotlink</a>
-                    @endif
-                    @if ($moduleEnabled('Email') && \Illuminate\Support\Facades\Route::has('hosts.email.index'))
-                        <a href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts']) }}" class="{{ request()->routeIs('hosts.email.*') ? 'active' : '' }}">Email</a>
-                    @endif
-                    @if ($moduleEnabled('ZeeBrooMail') && \Illuminate\Support\Facades\Route::has('hosts.zeebroo-mail.index'))
-                        <a href="{{ route('hosts.zeebroo-mail.index', $hosting) }}" class="{{ request()->routeIs('hosts.zeebroo-mail.*') ? 'active' : '' }}">ZeeBroo Mail</a>
-                    @endif
-                @endisset
-            </div>
+            @if (! $disableTopNavItems)
+                <div class="host-nav-center">
+                    @isset($hosting)
+                        <a href="{{ route('hosts.panel', $hosting) }}" class="{{ request()->routeIs('hosts.panel') ? 'active' : '' }}">Overview</a>
+                        @if ($moduleEnabled('FileManager'))
+                            <a href="{{ route('hosts.files.index', $hosting) }}" class="{{ request()->routeIs('hosts.files.*') ? 'active' : '' }}">Files</a>
+                        @endif
+                        @if ($moduleEnabled('ManageDb'))
+                            <a href="{{ route('hosts.db.manage', $hosting) }}" class="{{ request()->routeIs('hosts.db.*') ? 'active' : '' }}">Databases</a>
+                        @endif
+                        @if ($moduleEnabled('PhpVersion'))
+                            <a href="{{ route('hosts.php-version', $hosting) }}" class="{{ request()->routeIs('hosts.php-version*') ? 'active' : '' }}">PHP</a>
+                        @endif
+                        @if ($moduleEnabled('SslTls'))
+                            <a href="{{ route('hosts.ssl-tls', $hosting) }}" class="{{ request()->routeIs('hosts.ssl-tls*') ? 'active' : '' }}">SSL</a>
+                        @endif
+                        @if ($moduleEnabled('Domains') && \Illuminate\Support\Facades\Route::has('hosts.domains.index'))
+                            <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'redirects']) }}" class="{{ request()->routeIs('hosts.domains.index') && request('tab') === 'redirects' ? 'active' : '' }}">Redirects</a>
+                            <a href="{{ route('hosts.domains.index', ['hosting' => $hosting, 'tab' => 'zone']) }}" class="{{ request()->routeIs('hosts.domains.index') && request('tab') === 'zone' ? 'active' : '' }}">Zone Editor</a>
+                        @endif
+                        @if ($moduleEnabled('SshAccess'))
+                            <a href="{{ route('hosts.ssh-access', $hosting) }}" class="{{ request()->routeIs('hosts.ssh-access*') ? 'active' : '' }}">SSH</a>
+                            <a href="{{ route('hosts.terminal', $hosting) }}" class="{{ request()->routeIs('hosts.terminal') ? 'active' : '' }}">Terminal</a>
+                        @endif
+                        @if ($moduleEnabled('HotlinkProtection') && \Illuminate\Support\Facades\Route::has('hosts.hotlink-protection'))
+                            <a href="{{ route('hosts.hotlink-protection', $hosting) }}" class="{{ request()->routeIs('hosts.hotlink-protection*') ? 'active' : '' }}">Hotlink</a>
+                        @endif
+                        @if ($moduleEnabled('Email') && \Illuminate\Support\Facades\Route::has('hosts.email.index'))
+                            <a href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts']) }}" class="{{ request()->routeIs('hosts.email.*') ? 'active' : '' }}">Email</a>
+                        @endif
+                        @if ($moduleEnabled('ZeeBrooMail') && \Illuminate\Support\Facades\Route::has('hosts.zeebroo-mail.index'))
+                            <a href="{{ route('hosts.zeebroo-mail.index', $hosting) }}" class="{{ request()->routeIs('hosts.zeebroo-mail.*') ? 'active' : '' }}">ZeeBroo Mail</a>
+                        @endif
+                    @endisset
+                </div>
+            @endif
 
             <div class="nav-right">
-                <div class="nav-user">
-                    @if (auth()->check())
-                        <span>{{ auth()->user()->name }}</span>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button class="btn-secondary" type="submit">Logout</button>
-                        </form>
-                    @elseif (isset($hosting))
-                        <span>{{ $hosting->panel_username }}</span>
-                        <form method="POST" action="{{ route('hosts.auth.logout', $hosting) }}">
-                            @csrf
-                            <button class="btn-secondary" type="submit">Logout</button>
-                        </form>
-                    @endif
-                </div>
+                @hasSection('top_nav_extra')
+                    @yield('top_nav_extra')
+                @endif
+                @if (! $disableTopNavUser)
+                    <div class="nav-user">
+                        @if (auth()->check())
+                            <span>{{ auth()->user()->name }}</span>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button class="btn-secondary" type="submit">Logout</button>
+                            </form>
+                        @elseif (isset($hosting))
+                            <span>{{ $hosting->panel_username }}</span>
+                            <form method="POST" action="{{ route('hosts.auth.logout', $hosting) }}">
+                                @csrf
+                                <button class="btn-secondary" type="submit">Logout</button>
+                            </form>
+                        @endif
+                    </div>
+                @endif
                 <div class="nav-theme" role="group" aria-label="Color theme">
                     <button
                         type="button"

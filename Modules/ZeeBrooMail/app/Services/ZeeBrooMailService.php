@@ -140,6 +140,10 @@ class ZeeBrooMailService
 
     public function sendMessage(Hosting $hosting, int $fromAccountId, string $to, string $subject, string $body): array
     {
+        if ($this->connectionsDisabled()) {
+            return ['ok' => false, 'error' => 'ZeeBroo Mail live SMTP is disabled by environment for development.'];
+        }
+
         $account = $this->accountsForHosting($hosting)->firstWhere('id', $fromAccountId);
         if (! $account) {
             return ['ok' => false, 'error' => 'Selected sender mailbox is invalid.'];
@@ -176,6 +180,14 @@ class ZeeBrooMailService
 
     private function openMailboxConnection(Hosting $hosting, int $accountId, string $folder): array
     {
+        if ($this->connectionsDisabled()) {
+            return [
+                'ok' => false,
+                'error' => 'ZeeBroo Mail live IMAP is disabled by environment for development.',
+                'messages' => [],
+            ];
+        }
+
         if (! function_exists('imap_open')) {
             return ['ok' => false, 'error' => 'PHP IMAP extension is not installed on this server.', 'messages' => []];
         }
@@ -193,13 +205,43 @@ class ZeeBrooMailService
         $imapFlags = '/imap'.($imapEncryption !== '' ? '/'.$imapEncryption : '').'/novalidate-cert';
         $imapBase = '{'.$imapHost.':'.$imapPort.$imapFlags.'}';
         $mailbox = $imapBase.trim($folder);
-        $stream = @imap_open($mailbox, $username, $password);
+
+        // Keep IMAP failures controlled in app flow (instead of shutdown warnings).
+        imap_errors();
+        imap_alerts();
+        if (function_exists('imap_timeout')) {
+            @imap_timeout(IMAP_OPENTIMEOUT, 8);
+            @imap_timeout(IMAP_READTIMEOUT, 8);
+            @imap_timeout(IMAP_WRITETIMEOUT, 8);
+            @imap_timeout(IMAP_CLOSETIMEOUT, 8);
+        }
+
+        $imapOpenError = null;
+        set_error_handler(static function (int $severity, string $message) use (&$imapOpenError): bool {
+            $imapOpenError = $message;
+
+            return true;
+        });
+        try {
+            $stream = imap_open($mailbox, $username, $password);
+        } finally {
+            restore_error_handler();
+        }
 
         if (! $stream) {
-            return ['ok' => false, 'error' => (string) (imap_last_error() ?: 'Unable to connect to mailbox.'), 'messages' => []];
+            $imapErrors = imap_errors();
+            $lastImapError = is_array($imapErrors) && ! empty($imapErrors) ? (string) end($imapErrors) : null;
+            $error = $lastImapError ?: $imapOpenError ?: 'Unable to connect to mailbox.';
+
+            return ['ok' => false, 'error' => $error, 'messages' => []];
         }
 
         return ['ok' => true, 'error' => null, 'account' => $account, 'stream' => $stream, 'imap_base' => $imapBase];
+    }
+
+    private function connectionsDisabled(): bool
+    {
+        return (bool) Config::get('zeebroo_mail.disable_connections', false);
     }
 
     private function normalizeBodyForDisplay(string $rawBody): string
