@@ -206,6 +206,11 @@ class ZeeBrooMailService
         $imapBase = '{'.$imapHost.':'.$imapPort.$imapFlags.'}';
         $mailbox = $imapBase.trim($folder);
 
+        $socketCheck = $this->preflightImapSocket($imapHost, $imapPort);
+        if (! $socketCheck['ok']) {
+            return ['ok' => false, 'error' => $socketCheck['error'], 'messages' => []];
+        }
+
         // Keep IMAP failures controlled in app flow (instead of shutdown warnings).
         imap_errors();
         imap_alerts();
@@ -237,6 +242,34 @@ class ZeeBrooMailService
         }
 
         return ['ok' => true, 'error' => null, 'account' => $account, 'stream' => $stream, 'imap_base' => $imapBase];
+    }
+
+    private function preflightImapSocket(string $host, int $port): array
+    {
+        $errorNumber = 0;
+        $errorMessage = '';
+        $connection = @stream_socket_client(
+            'tcp://'.$host.':'.$port,
+            $errorNumber,
+            $errorMessage,
+            2
+        );
+
+        if (! is_resource($connection)) {
+            $reason = trim((string) $errorMessage);
+            if ($reason === '') {
+                $reason = 'Connection refused or timed out.';
+            }
+
+            return [
+                'ok' => false,
+                'error' => "Unable to reach IMAP server {$host}:{$port}. {$reason}",
+            ];
+        }
+
+        fclose($connection);
+
+        return ['ok' => true, 'error' => null];
     }
 
     private function connectionsDisabled(): bool
