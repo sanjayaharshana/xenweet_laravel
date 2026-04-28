@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Hosting;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -9,7 +10,7 @@ use Throwable;
 
 class MailStackProvisioner
 {
-    public function provisionMailbox(string $email, string $passwordHash): array
+    public function provisionMailbox(Hosting $hosting, string $email, string $passwordHash): array
     {
         if (! config('mail_stack.enabled')) {
             return ['ok' => true, 'message' => 'Mail stack provisioning disabled.'];
@@ -25,13 +26,13 @@ class MailStackProvisioner
             return ['ok' => false, 'message' => 'Invalid mailbox email format.'];
         }
 
-        $stateRoot = $this->resolveWritableStateRoot();
-        if ($stateRoot === null) {
-            return ['ok' => false, 'message' => 'Mail stack state root is not writable. Check MAIL_STACK_STATE_ROOT permissions.'];
+        $mailRoot = $this->resolveWritableMailRoot($hosting);
+        if ($mailRoot === null) {
+            return ['ok' => false, 'message' => 'Mail storage root is not writable. Check host path permissions.'];
         }
 
         $process = new Process(
-            ['bash', $script, $domain, $localPart, $passwordHash, $stateRoot],
+            ['bash', $script, $domain, $localPart, $passwordHash, $mailRoot],
             base_path(),
             [],
             null,
@@ -45,14 +46,14 @@ class MailStackProvisioner
 
             return [
                 'ok' => false,
-                'message' => $msg.' (state root: '.$stateRoot.')',
+                'message' => $msg.' (mail root: '.$mailRoot.')',
             ];
         }
 
         return ['ok' => true, 'message' => $output !== '' ? $output : 'Mailbox provisioned.'];
     }
 
-    public function removeMailbox(string $email): array
+    public function removeMailbox(Hosting $hosting, string $email): array
     {
         if (! config('mail_stack.enabled')) {
             return ['ok' => true, 'message' => 'Mail stack provisioning disabled.'];
@@ -68,13 +69,13 @@ class MailStackProvisioner
             return ['ok' => false, 'message' => 'Invalid mailbox email format.'];
         }
 
-        $stateRoot = $this->resolveWritableStateRoot();
-        if ($stateRoot === null) {
-            return ['ok' => false, 'message' => 'Mail stack state root is not writable. Check MAIL_STACK_STATE_ROOT permissions.'];
+        $mailRoot = $this->resolveWritableMailRoot($hosting);
+        if ($mailRoot === null) {
+            return ['ok' => false, 'message' => 'Mail storage root is not writable. Check host path permissions.'];
         }
 
         $process = new Process(
-            ['bash', $script, $domain, $localPart, $stateRoot],
+            ['bash', $script, $domain, $localPart, $mailRoot],
             base_path(),
             [],
             null,
@@ -88,26 +89,32 @@ class MailStackProvisioner
 
             return [
                 'ok' => false,
-                'message' => $msg.' (state root: '.$stateRoot.')',
+                'message' => $msg.' (mail root: '.$mailRoot.')',
             ];
         }
 
         return ['ok' => true, 'message' => $output !== '' ? $output : 'Mailbox removed.'];
     }
 
-    private function resolveWritableStateRoot(): ?string
+    private function resolveWritableMailRoot(Hosting $hosting): ?string
     {
+        $hostRoot = trim((string) $hosting->host_root_path);
+        $hostMailRoot = $hostRoot !== ''
+            ? rtrim($hostRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.(string) config('mail_stack.host_mail_dir', 'mail')
+            : '';
+
         $configured = trim((string) config('mail_stack.state_root'));
         $fallback = storage_path('app/mailstack');
-        $candidateRoots = array_values(array_unique(array_filter([$configured, $fallback])));
+        $candidateRoots = array_values(array_unique(array_filter([$hostMailRoot, $configured, $fallback])));
 
         foreach ($candidateRoots as $root) {
             try {
                 File::ensureDirectoryExists($root);
                 if (is_dir($root) && is_writable($root)) {
-                    if ($root !== $configured && $configured !== '') {
-                        Log::warning('mail_stack_state_root_fallback', [
-                            'configured' => $configured,
+                    if ($hostMailRoot !== '' && $root !== $hostMailRoot) {
+                        Log::warning('mail_stack_host_root_fallback', [
+                            'hosting_id' => $hosting->id,
+                            'host_mail_root' => $hostMailRoot,
                             'fallback' => $root,
                         ]);
                     }
@@ -115,7 +122,8 @@ class MailStackProvisioner
                     return $root;
                 }
             } catch (Throwable $e) {
-                Log::warning('mail_stack_state_root_unwritable', [
+                Log::warning('mail_stack_root_unwritable', [
+                    'hosting_id' => $hosting->id,
                     'path' => $root,
                     'message' => $e->getMessage(),
                 ]);

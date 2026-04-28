@@ -9,5 +9,6 @@
     "ManageSetting": true,
     "Domains": true,
     "HotlinkProtection": true,
-    "Email": true
+    "Email": true,
+    "ZeeBrooMail": true
 }

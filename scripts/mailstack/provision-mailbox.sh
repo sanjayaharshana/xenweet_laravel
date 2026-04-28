@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Args: domain local_part mail_password_hash state_root
+# Args: domain local_part mail_password_hash mail_root
 DOMAIN="${1:-}"
 LOCAL="${2:-}"
 PASS_HASH="${3:-}"
-STATE_ROOT="${4:-}"
+MAIL_ROOT="${4:-}"
 
-if [[ -z "$DOMAIN" || -z "$LOCAL" || -z "$PASS_HASH" || -z "$STATE_ROOT" ]]; then
-  echo "usage: provision-mailbox.sh <domain> <local_part> <mail_password_hash> <state_root>" >&2
+if [[ -z "$DOMAIN" || -z "$LOCAL" || -z "$PASS_HASH" || -z "$MAIL_ROOT" ]]; then
+  echo "usage: provision-mailbox.sh <domain> <local_part> <mail_password_hash> <mail_root>" >&2
   exit 2
 fi
 
 MAILBOX="${LOCAL}@${DOMAIN}"
-PASSWD_DIR="${STATE_ROOT}/dovecot"
+PASSWD_DIR="${MAIL_ROOT}/dovecot"
 PASSWD_FILE="${PASSWD_DIR}/users.passwd"
-DOMAIN_VMAIL_DIR="${STATE_ROOT}/vmail/${DOMAIN}"
-VMAIL_DIR="${STATE_ROOT}/vmail/${DOMAIN}/${LOCAL}"
+DOMAIN_VMAIL_DIR="${MAIL_ROOT}/vmail/${DOMAIN}"
+VMAIL_DIR="${MAIL_ROOT}/vmail/${DOMAIN}/${LOCAL}"
 
 mkdir -p "$PASSWD_DIR"
 
@@ -24,8 +24,8 @@ mkdir -p "$PASSWD_DIR"
 if [[ -d "$DOMAIN_VMAIL_DIR" && ! -w "$DOMAIN_VMAIL_DIR" ]]; then
   echo "Error: $DOMAIN_VMAIL_DIR is not writable by this process (often mode 0700 for vmail only). " >&2
   echo "As root, fix the tree so the panel can create \`${LOCAL}/\` and delivery still works, e.g.:" >&2
-  echo "  chown vmail:vmail $STATE_ROOT/vmail $DOMAIN_VMAIL_DIR && chmod 2770 $STATE_ROOT/vmail $DOMAIN_VMAIL_DIR" >&2
-  echo "  # or: find $STATE_ROOT/vmail -type d -exec chmod 2770 {} \;" >&2
+  echo "  chown vmail:vmail $MAIL_ROOT/vmail $DOMAIN_VMAIL_DIR && chmod 2770 $MAIL_ROOT/vmail $DOMAIN_VMAIL_DIR" >&2
+  echo "  # or: find $MAIL_ROOT/vmail -type d -exec chmod 2770 {} \;" >&2
   exit 1
 fi
 

@@ -120,6 +120,7 @@ class EmailAccountsService
         ]);
 
         $mailStackResult = $this->mailStackProvisioner->provisionMailbox(
+            $hosting,
             $account->local_part.'@'.$account->domain,
             (string) $account->mail_password_hash
         );
@@ -148,7 +149,7 @@ class EmailAccountsService
         }
 
         $email = $account->local_part.'@'.$account->domain;
-        $mailStackResult = $this->mailStackProvisioner->removeMailbox($email);
+        $mailStackResult = $this->mailStackProvisioner->removeMailbox($hosting, $email);
         if (! $mailStackResult['ok']) {
             return [
                 'ok' => false,

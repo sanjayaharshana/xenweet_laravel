@@ -7,6 +7,8 @@
     $activeTab = in_array($tab ?? 'accounts', ['accounts', 'forwarders', 'autoresponders', 'filters', 'usage'], true)
         ? ($tab ?? 'accounts')
         : 'accounts';
+    $zeeBrooMailEnabled = \Nwidart\Modules\Facades\Module::isEnabled('ZeeBrooMail')
+        && \Illuminate\Support\Facades\Route::has('hosts.zeebroo-mail.index');
 @endphp
 <div class="host-panel-scope managedb-scope">
     <header class="topbar">
@@ -92,6 +94,7 @@
                     <span>Email</span>
                     <span>Quota</span>
                     <span>Status</span>
+                    <span>Mailbox</span>
                     <span>Action</span>
                 </div>
                 @foreach ($accounts as $account)
@@ -107,6 +110,18 @@
                         <span>{{ $displayEmail }}</span>
                         <span>{{ number_format((int) $account->quota_mb) }} MB</span>
                         <span>{{ ucfirst((string) $account->status) }}</span>
+                        <span>
+                            @if ($zeeBrooMailEnabled)
+                                <a
+                                    class="btn-secondary"
+                                    href="{{ route('hosts.zeebroo-mail.index', ['hosting' => $hosting, 'account_id' => $account->id, 'folder' => 'INBOX']) }}"
+                                >
+                                    Open ZeeBroo Mail
+                                </a>
+                            @else
+                                <span class="subtle">Unavailable</span>
+                            @endif
+                        </span>
                         <span>
                             <form method="post" action="{{ route('hosts.email.accounts.destroy', ['hosting' => $hosting, 'emailAccount' => $account->id]) }}" onsubmit="return confirm('Delete this email account?');">
                                 @csrf

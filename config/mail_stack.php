@@ -14,7 +14,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Storage root for generated artifacts
+    | Host-local mail folder name
+    |--------------------------------------------------------------------------
+    |
+    | Preferred storage is <host_root_path>/<host_mail_dir>. If unavailable,
+    | provisioner falls back to MAIL_STACK_STATE_ROOT.
+    |
+    */
+    'host_mail_dir' => env('MAIL_STACK_HOST_MAIL_DIR', 'mail'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fallback storage root for generated artifacts
     |--------------------------------------------------------------------------
     */
     'state_root' => env('MAIL_STACK_STATE_ROOT', storage_path('app/mailstack')),

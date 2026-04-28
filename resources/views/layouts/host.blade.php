@@ -83,6 +83,9 @@
                     @if ($moduleEnabled('Email') && \Illuminate\Support\Facades\Route::has('hosts.email.index'))
                         <a href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts']) }}" class="{{ request()->routeIs('hosts.email.*') ? 'active' : '' }}">Email</a>
                     @endif
+                    @if ($moduleEnabled('ZeeBrooMail') && \Illuminate\Support\Facades\Route::has('hosts.zeebroo-mail.index'))
+                        <a href="{{ route('hosts.zeebroo-mail.index', $hosting) }}" class="{{ request()->routeIs('hosts.zeebroo-mail.*') ? 'active' : '' }}">ZeeBroo Mail</a>
+                    @endif
                 @endisset
             </div>
 

@@ -1,0 +1,11 @@
+{
+    "name": "ZeeBrooMail",
+    "alias": "zeebroomail",
+    "description": "ZeeBroo Mail host webmail client",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ZeeBrooMail\\Providers\\ZeeBrooMailServiceProvider"
+    ],
+    "files": []
+}

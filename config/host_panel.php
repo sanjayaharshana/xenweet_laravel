@@ -172,6 +172,12 @@ return [
                     'route_parameters' => ['tab' => 'usage'],
                 ],
                 [
+                    'label' => 'ZeeBroo Mail',
+                    'description' => 'Open ZeeBroo Mail client for inbox and compose',
+                    'icon' => 'fa fa-envelope-open',
+                    'route' => 'hosts.zeebroo-mail.index',
+                ],
+                [
                     'label' => 'Global Email Filters',
                     'description' => 'Define account-wide filtering rules',
                     'icon' => 'fa fa-globe',

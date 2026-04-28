@@ -507,12 +507,18 @@ class HostingCliProvisioner
         $logPath = $hostRootPath.DIRECTORY_SEPARATOR.'logs';
         $backupPath = $hostRootPath.DIRECTORY_SEPARATOR.'backups';
         $sslPath = $hostRootPath.DIRECTORY_SEPARATOR.'ssl';
+        $mailPath = $hostRootPath.DIRECTORY_SEPARATOR.(string) config('mail_stack.host_mail_dir', 'mail');
+        $mailVmailPath = $mailPath.DIRECTORY_SEPARATOR.'vmail';
+        $mailAuthPath = $mailPath.DIRECTORY_SEPARATOR.'dovecot';
 
         $this->mkdirSafe($hostRootPath);
         $this->mkdirSafe($webRootPath);
         $this->mkdirSafe($logPath);
         $this->mkdirSafe($backupPath);
         $this->mkdirSafe($sslPath);
+        $this->mkdirSafe($mailPath);
+        $this->mkdirSafe($mailVmailPath);
+        $this->mkdirSafe($mailAuthPath);
 
         $indexFile = $webRootPath.DIRECTORY_SEPARATOR.'index.html';
         if (! File::exists($indexFile)) {
