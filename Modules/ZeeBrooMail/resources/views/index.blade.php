@@ -377,3 +377,6 @@
 
 @section('right_sidebar')
 @endsection
+
+@section('disable_right_sidebar')
+@endsection

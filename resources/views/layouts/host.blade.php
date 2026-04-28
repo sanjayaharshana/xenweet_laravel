@@ -25,7 +25,6 @@
     $isFileManager = request()->routeIs('hosts.files.*');
     $isFileManagerCodeEditor = request()->routeIs('hosts.files.code-editor');
     $showHostQuickSidebar = isset($hosting) && ! $isFileManager;
-    $hasRightSidebar = ! $isFileManager && (view()->hasSection('right_sidebar') || isset($hosting));
     $moduleEnabled = function (string $name): bool {
         if (! class_exists(\Nwidart\Modules\Facades\Module::class)) {
             return false;
@@ -33,6 +32,10 @@
 
         return \Nwidart\Modules\Facades\Module::isEnabled($name);
     };
+@endphp
+@php
+    $disableRightSidebar = view()->hasSection('disable_right_sidebar');
+    $hasRightSidebar = ! $isFileManager && ! $disableRightSidebar && (view()->hasSection('right_sidebar') || isset($hosting));
 @endphp
 <body class="dashboard-body dashboard-body--host @if ($isFileManagerCodeEditor) dashboard-body--fm-code-editor @elseif ($isFileManager) dashboard-body--file-manager @endif">
     <nav class="host-main-navbar" aria-label="Host account">
