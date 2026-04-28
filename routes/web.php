@@ -6,9 +6,14 @@ use App\Http\Controllers\HostAuthController;
 use App\Http\Controllers\HostTwoFactorController;
 use App\Http\Controllers\LogViewerController;
 use App\Http\Controllers\PanelController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login');
+Route::get('/', function () {
+    return Auth::check()
+        ? redirect()->route('panel')
+        : redirect()->route('login');
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

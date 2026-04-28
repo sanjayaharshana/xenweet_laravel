@@ -176,28 +176,4 @@ class EmailAccountsController extends Controller
             ->with('success', 'Filter removed: '.$result['name']);
     }
 
-    public function roundcubeAutoLogin(Request $request, Hosting $hosting, HostEmailAccount $emailAccount): View|RedirectResponse
-    {
-        if ((int) $emailAccount->hosting_id !== (int) $hosting->id) {
-            return redirect()
-                ->route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts'])
-                ->with('error', 'Selected email account does not belong to this host.');
-        }
-
-        $email = $emailAccount->local_part.'@'.$emailAccount->domain;
-        $password = (string) $emailAccount->password;
-        if ($password === '') {
-            return redirect()
-                ->route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'accounts'])
-                ->with('error', 'Cannot auto-login because mailbox password is empty.');
-        }
-
-        $base = rtrim($request->getSchemeAndHttpHost().$request->getBaseUrl(), '/');
-
-        return view('email::roundcube-autologin', [
-            'email' => $email,
-            'password' => $password,
-            'roundcubeBase' => $base.'/roundcube/',
-        ]);
-    }
 }

@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $activeTab = in_array($tab ?? 'accounts', ['accounts', 'forwarders', 'autoresponders', 'filters', 'usage', 'webmail'], true)
+    $activeTab = in_array($tab ?? 'accounts', ['accounts', 'forwarders', 'autoresponders', 'filters', 'usage'], true)
         ? ($tab ?? 'accounts')
         : 'accounts';
 @endphp
@@ -17,12 +17,11 @@
         </div>
         <div class="topbar-actions">
             <a class="btn-secondary" href="{{ route('hosts.panel', $hosting) }}">Back to Host Panel</a>
-            <a class="btn-primary" href="{{ url('/roundcube/') }}" target="_blank" rel="noopener noreferrer">Open Webmail</a>
         </div>
     </header>
     <div class="server-card" style="margin-bottom:1rem;border-left:4px solid #16a34a;">
         <p class="subtle" style="margin:0;">
-            Local mail stack mode is enabled. Mailboxes are provisioned for IMAP/SMTP auth and can sign in to Roundcube using
+            Local mail stack mode is enabled. Mailboxes are provisioned for IMAP/SMTP authentication using
             <strong>username@domain</strong>.
         </p>
     </div>
@@ -50,7 +49,6 @@
             <a class="btn-secondary" href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'autoresponders']) }}">Auto Responders</a>
             <a class="btn-secondary" href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'filters']) }}">Filters</a>
             <a class="btn-secondary" href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'usage']) }}">Usage</a>
-            <a class="btn-secondary" href="{{ route('hosts.email.index', ['hosting' => $hosting, 'tab' => 'webmail']) }}">Webmail</a>
         </div>
     </section>
 
@@ -94,7 +92,6 @@
                     <span>Email</span>
                     <span>Quota</span>
                     <span>Status</span>
-                    <span>Webmail</span>
                     <span>Action</span>
                 </div>
                 @foreach ($accounts as $account)
@@ -110,12 +107,6 @@
                         <span>{{ $displayEmail }}</span>
                         <span>{{ number_format((int) $account->quota_mb) }} MB</span>
                         <span>{{ ucfirst((string) $account->status) }}</span>
-                        <span>
-                            <form method="post" action="{{ route('hosts.email.accounts.roundcube-login', ['hosting' => $hosting, 'emailAccount' => $account->id]) }}" target="_blank">
-                                @csrf
-                                <button type="submit" class="btn-secondary">Auto Login</button>
-                            </form>
-                        </span>
                         <span>
                             <form method="post" action="{{ route('hosts.email.accounts.destroy', ['hosting' => $hosting, 'emailAccount' => $account->id]) }}" onsubmit="return confirm('Delete this email account?');">
                                 @csrf
@@ -333,13 +324,5 @@
     </section>
     @endif
 
-    @if ($activeTab === 'webmail')
-    <section class="server-card">
-        <h2 class="host-sidebar-meta-title" style="margin-top:0;">Roundcube Webmail</h2>
-        <p class="subtle">Open Roundcube in a new tab. Use mailbox credentials in <strong>username@domain</strong> format.</p>
-        <p class="subtle">Mailbox credentials are provisioned to the local mail stack during create/delete operations.</p>
-        <a class="btn-primary" href="{{ url('/roundcube/') }}" target="_blank" rel="noopener noreferrer">Launch Roundcube</a>
-    </section>
-    @endif
 </div>
 @endsection

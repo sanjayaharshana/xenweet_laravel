@@ -12,9 +12,6 @@ Route::middleware(['host.access'])->group(function () {
     Route::delete('/hosts/{hosting}/email/accounts/{emailAccount}', [EmailAccountsController::class, 'destroy'])
         ->middleware('throttle:30,1')
         ->name('hosts.email.accounts.destroy');
-    Route::post('/hosts/{hosting}/email/accounts/{emailAccount}/roundcube-login', [EmailAccountsController::class, 'roundcubeAutoLogin'])
-        ->middleware('throttle:20,1')
-        ->name('hosts.email.accounts.roundcube-login');
 
     Route::post('/hosts/{hosting}/email/forwarders', [EmailAccountsController::class, 'storeForwarder'])
         ->middleware('throttle:30,1')
