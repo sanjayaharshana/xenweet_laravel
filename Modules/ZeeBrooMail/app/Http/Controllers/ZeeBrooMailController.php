@@ -4,6 +4,7 @@ namespace Modules\ZeeBrooMail\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hosting;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,27 +16,15 @@ class ZeeBrooMailController extends Controller
 {
     public function index(Request $request, Hosting $hosting, ZeeBrooMailService $service): View
     {
-        $accounts = $service->accountsForHosting($hosting);
-        $selectedAccountId = (int) $request->query('account_id', (int) ($accounts->first()->id ?? 0));
-        $folder = (string) $request->query('folder', 'INBOX');
-        $foldersResult = ['ok' => false, 'error' => null, 'folders' => ['INBOX']];
-        $mailboxResult = ['ok' => false, 'error' => null, 'messages' => []];
-
-        if ($selectedAccountId > 0) {
-            $foldersResult = $service->listFolders($hosting, $selectedAccountId);
-            if ($foldersResult['ok'] && ! in_array($folder, $foldersResult['folders'], true)) {
-                $folder = (string) ($foldersResult['folders'][0] ?? 'INBOX');
-            }
-            $mailboxResult = $service->listMessages($hosting, $selectedAccountId, $folder);
-        }
+        $state = $this->mailboxState($request, $hosting, $service);
 
         return view('zeebroomail::index', [
             'hosting' => $hosting,
-            'accounts' => $accounts,
-            'selectedAccountId' => $selectedAccountId,
-            'folder' => $folder,
-            'foldersResult' => $foldersResult,
-            'mailboxResult' => $mailboxResult,
+            'accounts' => $state['accounts'],
+            'selectedAccountId' => $state['selectedAccountId'],
+            'folder' => $state['folder'],
+            'foldersResult' => $state['foldersResult'],
+            'mailboxResult' => $state['mailboxResult'],
             'messageResult' => null,
             'emailModuleEnabled' => Module::isEnabled('Email'),
         ]);
@@ -43,31 +32,52 @@ class ZeeBrooMailController extends Controller
 
     public function show(Request $request, Hosting $hosting, int $uid, ZeeBrooMailService $service): View
     {
-        $accounts = $service->accountsForHosting($hosting);
-        $selectedAccountId = (int) $request->query('account_id', (int) ($accounts->first()->id ?? 0));
-        $folder = (string) $request->query('folder', 'INBOX');
-        $foldersResult = ['ok' => false, 'error' => null, 'folders' => ['INBOX']];
-        $mailboxResult = ['ok' => false, 'error' => null, 'messages' => []];
+        $state = $this->mailboxState($request, $hosting, $service);
         $messageResult = ['ok' => false, 'error' => 'No message selected.', 'message' => null];
 
-        if ($selectedAccountId > 0) {
-            $foldersResult = $service->listFolders($hosting, $selectedAccountId);
-            if ($foldersResult['ok'] && ! in_array($folder, $foldersResult['folders'], true)) {
-                $folder = (string) ($foldersResult['folders'][0] ?? 'INBOX');
-            }
-            $mailboxResult = $service->listMessages($hosting, $selectedAccountId, $folder);
-            $messageResult = $service->getMessage($hosting, $selectedAccountId, $folder, $uid);
+        if ($state['selectedAccountId'] > 0) {
+            $messageResult = $service->getMessage($hosting, $state['selectedAccountId'], $state['folder'], $uid);
         }
 
         return view('zeebroomail::index', [
             'hosting' => $hosting,
-            'accounts' => $accounts,
-            'selectedAccountId' => $selectedAccountId,
-            'folder' => $folder,
-            'foldersResult' => $foldersResult,
-            'mailboxResult' => $mailboxResult,
+            'accounts' => $state['accounts'],
+            'selectedAccountId' => $state['selectedAccountId'],
+            'folder' => $state['folder'],
+            'foldersResult' => $state['foldersResult'],
+            'mailboxResult' => $state['mailboxResult'],
             'messageResult' => $messageResult,
             'emailModuleEnabled' => Module::isEnabled('Email'),
+        ]);
+    }
+
+    public function mailboxData(Request $request, Hosting $hosting, ZeeBrooMailService $service): JsonResponse
+    {
+        $state = $this->mailboxState($request, $hosting, $service);
+
+        return response()->json([
+            'ok' => true,
+            'selected_account_id' => $state['selectedAccountId'],
+            'folder' => $state['folder'],
+            'folders_result' => $state['foldersResult'],
+            'mailbox_result' => $state['mailboxResult'],
+        ]);
+    }
+
+    public function messageData(Request $request, Hosting $hosting, int $uid, ZeeBrooMailService $service): JsonResponse
+    {
+        $state = $this->mailboxState($request, $hosting, $service);
+        $messageResult = ['ok' => false, 'error' => 'No message selected.', 'message' => null];
+
+        if ($state['selectedAccountId'] > 0) {
+            $messageResult = $service->getMessage($hosting, $state['selectedAccountId'], $state['folder'], $uid);
+        }
+
+        return response()->json([
+            'ok' => (bool) ($messageResult['ok'] ?? false),
+            'selected_account_id' => $state['selectedAccountId'],
+            'folder' => $state['folder'],
+            'message_result' => $messageResult,
         ]);
     }
 
@@ -99,5 +109,61 @@ class ZeeBrooMailController extends Controller
         return redirect()
             ->route('hosts.zeebroo-mail.index', ['hosting' => $hosting, 'account_id' => $validated['from_account_id']])
             ->with('success', 'Email sent successfully.');
+    }
+
+    public function sendAjax(Request $request, Hosting $hosting, ZeeBrooMailService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'from_account_id' => ['required', 'integer', 'min:1'],
+            'to' => ['required', 'email:rfc,dns', 'max:255'],
+            'subject' => ['required', 'string', 'max:255'],
+            'body' => ['required', 'string', 'max:10000'],
+            '_context' => ['nullable', 'string', Rule::in(['send_email'])],
+        ]);
+
+        $result = $service->sendMessage(
+            $hosting,
+            (int) $validated['from_account_id'],
+            (string) $validated['to'],
+            (string) $validated['subject'],
+            (string) $validated['body'],
+        );
+
+        if (! $result['ok']) {
+            return response()->json([
+                'ok' => false,
+                'error' => (string) ($result['error'] ?? 'Failed to send email.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Email sent successfully.',
+        ]);
+    }
+
+    private function mailboxState(Request $request, Hosting $hosting, ZeeBrooMailService $service): array
+    {
+        $accounts = $service->accountsForHosting($hosting);
+        $selectedAccountId = (int) $request->query('account_id', (int) ($accounts->first()->id ?? 0));
+        $folder = (string) $request->query('folder', 'INBOX');
+        $foldersResult = ['ok' => false, 'error' => null, 'folders' => ['INBOX']];
+        $mailboxResult = ['ok' => false, 'error' => null, 'messages' => []];
+
+        if ($selectedAccountId > 0) {
+            $foldersResult = $service->listFolders($hosting, $selectedAccountId);
+            if ($foldersResult['ok'] && ! in_array($folder, $foldersResult['folders'], true)) {
+                $folder = (string) ($foldersResult['folders'][0] ?? 'INBOX');
+            }
+            $mailboxResult = $service->listMessages($hosting, $selectedAccountId, $folder);
+        }
+
+        return [
+            'accounts' => $accounts,
+            'selectedAccountId' => $selectedAccountId,
+            'folder' => $folder,
+            'foldersResult' => $foldersResult,
+            'mailboxResult' => $mailboxResult,
+        ];
     }
 }

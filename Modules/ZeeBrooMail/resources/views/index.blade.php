@@ -66,13 +66,13 @@
     </header>
 
     @if (session('success'))
-        <div class="server-card" style="border-left:4px solid #16a34a; margin-bottom:1rem;">
-            <p class="subtle" style="margin:0;">{{ session('success') }}</p>
+        <div class="server-card" id="zb-flash-success" style="border-left:4px solid #16a34a; margin-bottom:1rem;">
+            <p class="subtle" id="zb-flash-success-text" style="margin:0;">{{ session('success') }}</p>
         </div>
     @endif
     @if ($errors->any())
-        <div class="server-card" style="border-left:4px solid #dc2626; margin-bottom:1rem;">
-            <p class="subtle" style="margin:0;">{{ $errors->first() }}</p>
+        <div class="server-card" id="zb-flash-error" style="border-left:4px solid #dc2626; margin-bottom:1rem;">
+            <p class="subtle" id="zb-flash-error-text" style="margin:0;">{{ $errors->first() }}</p>
         </div>
     @endif
 
@@ -99,7 +99,7 @@
                         <form method="get" action="{{ route('hosts.zeebroo-mail.index', $hosting) }}">
                             <label>
                                 <span>Account</span>
-                                <select name="account_id" required onchange="this.form.submit()">
+                                <select id="zb-account-select" name="account_id" required onchange="this.form.submit()">
                                     @foreach ($accounts as $account)
                                         <option value="{{ $account->id }}" @selected((int) $selectedAccountId === (int) $account->id)>
                                             {{ $account->local_part }}@{{ $account->domain }}
@@ -111,28 +111,26 @@
                         </form>
 
                         <p class="zb-section-title">Folders</p>
-                        <div class="zb-folder-list">
+                        <div class="zb-folder-list" id="zb-folder-list">
                             @foreach (($foldersResult['folders'] ?? ['INBOX']) as $folderName)
-                                <a href="{{ route('hosts.zeebroo-mail.index', ['hosting' => $hosting, 'account_id' => $selectedAccountId, 'folder' => $folderName]) }}" class="zb-folder-item {{ $folder === $folderName ? 'active' : '' }}">
+                                <a href="{{ route('hosts.zeebroo-mail.index', ['hosting' => $hosting, 'account_id' => $selectedAccountId, 'folder' => $folderName]) }}" data-folder="{{ $folderName }}" class="zb-folder-item {{ $folder === $folderName ? 'active' : '' }}">
                                     <span>{{ $folderName }}</span><span>{{ $folder === $folderName ? '•' : '' }}</span>
                                 </a>
                             @endforeach
                         </div>
-                        @if (! ($foldersResult['ok'] ?? false) && ! empty($foldersResult['error']))
-                            <p class="zb-error">{{ $foldersResult['error'] }}</p>
-                        @endif
+                        <p class="zb-error" id="zb-folder-error" @if (($foldersResult['ok'] ?? false) || empty($foldersResult['error'])) style="display:none;" @endif>{{ $foldersResult['error'] ?? '' }}</p>
                     </aside>
 
                     <main class="zb-list">
                         <div class="zb-list-top">
                             <div class="zb-search">Search...</div>
                             <div class="zb-actions">
-                                <span class="zb-chip">Folder: {{ $folder }}</span>
-                                <span class="zb-chip">Messages: {{ is_array($mailboxResult['messages'] ?? null) ? count($mailboxResult['messages']) : 0 }}</span>
+                                <span class="zb-chip" id="zb-folder-chip">Folder: {{ $folder }}</span>
+                                <span class="zb-chip" id="zb-count-chip">Messages: {{ is_array($mailboxResult['messages'] ?? null) ? count($mailboxResult['messages']) : 0 }}</span>
                                 <span class="zb-chip">{{ now()->format('d M') }}</span>
                             </div>
                         </div>
-                        <div class="zb-message-list">
+                        <div class="zb-message-list" id="zb-message-list">
                             @if (! $mailboxResult['ok'])
                                 <p class="zb-empty" style="padding:0.75rem;">{{ $mailboxResult['error'] ?: 'Choose a mailbox to load messages.' }}</p>
                             @elseif (empty($mailboxResult['messages']))
@@ -141,7 +139,7 @@
                                 @foreach ($mailboxResult['messages'] as $message)
                                     @php $isOpened = (int) (($messageResult['message']['uid'] ?? 0)) === (int) ($message['uid'] ?? 0); @endphp
                                     @if (($message['uid'] ?? 0) > 0)
-                                        <a href="{{ route('hosts.zeebroo-mail.show', ['hosting' => $hosting, 'uid' => $message['uid'], 'account_id' => $selectedAccountId, 'folder' => $folder]) }}" class="zb-message-item {{ $isOpened ? 'active' : '' }}">
+                                        <a href="{{ route('hosts.zeebroo-mail.show', ['hosting' => $hosting, 'uid' => $message['uid'], 'account_id' => $selectedAccountId, 'folder' => $folder]) }}" data-uid="{{ $message['uid'] }}" class="zb-message-item {{ $isOpened ? 'active' : '' }}">
                                             <div class="zb-message-line">
                                                 <span class="zb-from">{{ $message['from'] }}</span>
                                                 <span class="zb-date">{{ $message['date'] }}</span>
@@ -157,7 +155,7 @@
 
                     <aside class="zb-read">
                         <div class="zb-read-top"><strong>Message</strong></div>
-                        <div class="zb-read-scroll">
+                        <div class="zb-read-scroll" id="zb-reader">
                             @if (! $messageResult || ! ($messageResult['ok'] ?? false))
                                 <p class="zb-empty">{{ $messageResult['error'] ?? 'Select a message from inbox to read.' }}</p>
                             @else
@@ -175,7 +173,7 @@
 
                             <div class="zb-compose">
                                 <h4>Compose</h4>
-                                <form method="post" action="{{ route('hosts.zeebroo-mail.send', $hosting) }}" class="zb-compose-grid">
+                                <form id="zb-compose-form" method="post" action="{{ route('hosts.zeebroo-mail.send', $hosting) }}" class="zb-compose-grid">
                                     @csrf
                                     <input type="hidden" name="_context" value="send_email">
                                     <label>
@@ -201,6 +199,180 @@
         </section>
     @endif
 </div>
+<script>
+    (function () {
+        const state = {
+            accountId: {{ (int) $selectedAccountId }},
+            folder: @json($folder),
+            hostingId: {{ (int) $hosting->id }},
+        };
+        const urls = {
+            data: @json(route('hosts.zeebroo-mail.data', ['hosting' => $hosting])),
+            messageBase: @json(url('/hosts/'.$hosting->id.'/zeebroo-mail/message')),
+            sendAjax: @json(route('hosts.zeebroo-mail.send-ajax', ['hosting' => $hosting])),
+        };
+
+        const accountSelect = document.getElementById('zb-account-select');
+        const folderList = document.getElementById('zb-folder-list');
+        const messageList = document.getElementById('zb-message-list');
+        const reader = document.getElementById('zb-reader');
+        const folderChip = document.getElementById('zb-folder-chip');
+        const countChip = document.getElementById('zb-count-chip');
+        const folderError = document.getElementById('zb-folder-error');
+        const composeForm = document.getElementById('zb-compose-form');
+        const flashSuccess = document.getElementById('zb-flash-success');
+        const flashSuccessText = document.getElementById('zb-flash-success-text');
+        const flashError = document.getElementById('zb-flash-error');
+        const flashErrorText = document.getElementById('zb-flash-error-text');
+
+        function setFlash(type, message) {
+            if (type === 'success') {
+                if (flashSuccess && flashSuccessText) {
+                    flashSuccessText.textContent = message;
+                    flashSuccess.style.display = 'block';
+                }
+                if (flashError) flashError.style.display = 'none';
+            } else {
+                if (flashError && flashErrorText) {
+                    flashErrorText.textContent = message;
+                    flashError.style.display = 'block';
+                }
+                if (flashSuccess) flashSuccess.style.display = 'none';
+            }
+        }
+
+        async function fetchMailbox() {
+            const params = new URLSearchParams({ account_id: String(state.accountId), folder: state.folder });
+            const res = await fetch(urls.data + '?' + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await res.json();
+            renderFolders(data.folders_result);
+            renderMessages(data.mailbox_result);
+            folderChip.textContent = 'Folder: ' + state.folder;
+            countChip.textContent = 'Messages: ' + ((data.mailbox_result.messages || []).length);
+            renderReaderEmpty('Select a message from inbox to read.');
+        }
+
+        function renderFolders(foldersResult) {
+            const folders = (foldersResult && foldersResult.folders) ? foldersResult.folders : ['INBOX'];
+            folderList.innerHTML = folders.map((name) => {
+                const active = name === state.folder ? ' active' : '';
+                const dot = name === state.folder ? '•' : '';
+                return '<a href="#" data-folder="' + name + '" class="zb-folder-item' + active + '"><span>' + name + '</span><span>' + dot + '</span></a>';
+            }).join('');
+            if (foldersResult && !foldersResult.ok && foldersResult.error) {
+                folderError.textContent = foldersResult.error;
+                folderError.style.display = 'block';
+            } else {
+                folderError.style.display = 'none';
+            }
+        }
+
+        function renderMessages(mailboxResult) {
+            if (!mailboxResult || !mailboxResult.ok) {
+                const msg = mailboxResult && mailboxResult.error ? mailboxResult.error : 'Choose a mailbox to load messages.';
+                messageList.innerHTML = '<p class="zb-empty" style="padding:0.75rem;">' + msg + '</p>';
+                return;
+            }
+            if (!mailboxResult.messages || mailboxResult.messages.length === 0) {
+                messageList.innerHTML = '<p class="zb-empty" style="padding:0.75rem;">No messages found in this folder.</p>';
+                return;
+            }
+            messageList.innerHTML = mailboxResult.messages.map((m) => {
+                if (!m.uid) return '';
+                return '<a href="#" data-uid="' + m.uid + '" class="zb-message-item">'
+                    + '<div class="zb-message-line"><span class="zb-from">' + escapeHtml(m.from) + '</span><span class="zb-date">' + escapeHtml(m.date) + '</span></div>'
+                    + '<div class="zb-subject">' + escapeHtml(m.subject) + '</div>'
+                    + '<div class="zb-status">' + (m.seen ? 'Read' : 'Unread') + '</div>'
+                    + '</a>';
+            }).join('');
+        }
+
+        async function openMessage(uid, anchor) {
+            const params = new URLSearchParams({ account_id: String(state.accountId), folder: state.folder });
+            const res = await fetch(urls.messageBase + '/' + uid + '/data?' + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await res.json();
+            if (!data.ok) {
+                renderReaderEmpty((data.message_result && data.message_result.error) ? data.message_result.error : 'Unable to open message.');
+                return;
+            }
+            const opened = data.message_result.message;
+            reader.querySelectorAll('.zb-message-item.active').forEach((el) => el.classList.remove('active'));
+            if (anchor) anchor.classList.add('active');
+            reader.innerHTML = '<article class="zb-message-card">'
+                + '<h3>' + escapeHtml(opened.subject) + '</h3>'
+                + '<div class="zb-meta-grid">'
+                + '<span><strong>From:</strong> ' + escapeHtml(opened.from) + '</span>'
+                + '<span><strong>To:</strong> ' + escapeHtml(opened.to) + '</span>'
+                + '<span><strong>Date:</strong> ' + escapeHtml(opened.date) + '</span>'
+                + '</div>'
+                + '<div class="zb-body"><pre style="margin:0;white-space:pre-wrap;font-family:inherit;">' + escapeHtml(opened.body) + '</pre></div>'
+                + '</article>' + composeForm.parentElement.outerHTML;
+            rebindCompose();
+        }
+
+        function renderReaderEmpty(message) {
+            const composeHtml = composeForm ? composeForm.parentElement.outerHTML : '';
+            reader.innerHTML = '<p class="zb-empty">' + escapeHtml(message) + '</p>' + composeHtml;
+            rebindCompose();
+        }
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>"']/g, function (c) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c];
+            });
+        }
+
+        function rebindCompose() {
+            const form = document.getElementById('zb-compose-form');
+            if (!form) return;
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const fd = new FormData(form);
+                const res = await fetch(urls.sendAjax, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': fd.get('_token') },
+                    body: fd
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    setFlash('error', data.error || 'Failed to send email.');
+                    return;
+                }
+                setFlash('success', data.message || 'Email sent successfully.');
+                form.reset();
+                if (accountSelect) accountSelect.value = String(state.accountId);
+            }, { once: true });
+        }
+
+        if (accountSelect) {
+            accountSelect.addEventListener('change', function () {
+                state.accountId = parseInt(this.value, 10) || 0;
+                fetchMailbox().catch(() => setFlash('error', 'Failed to load mailbox.'));
+            });
+        }
+
+        if (folderList) {
+            folderList.addEventListener('click', function (e) {
+                const link = e.target.closest('a[data-folder]');
+                if (!link) return;
+                e.preventDefault();
+                state.folder = link.getAttribute('data-folder') || 'INBOX';
+                fetchMailbox().catch(() => setFlash('error', 'Failed to load folder.'));
+            });
+        }
+
+        if (messageList) {
+            messageList.addEventListener('click', function (e) {
+                const link = e.target.closest('a[data-uid]');
+                if (!link) return;
+                e.preventDefault();
+                openMessage(link.getAttribute('data-uid'), link).catch(() => setFlash('error', 'Failed to open message.'));
+            });
+        }
+
+        rebindCompose();
+    })();
+</script>
 @endsection
 
 @section('right_sidebar')
