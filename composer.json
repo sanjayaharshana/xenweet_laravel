@@ -59,9 +59,6 @@
             "Modules\\Email\\": "Modules/Email/app/",
             "Modules\\Email\\Database\\Factories\\": "Modules/Email/database/factories/",
             "Modules\\Email\\Database\\Seeders\\": "Modules/Email/database/seeders/",
-            "Modules\\WebMail\\": "Modules/WebMail/app/",
-            "Modules\\WebMail\\Database\\Factories\\": "Modules/WebMail/database/factories/",
-            "Modules\\WebMail\\Database\\Seeders\\": "Modules/WebMail/database/seeders/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

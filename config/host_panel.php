@@ -160,12 +160,6 @@ return [
                     'route_parameters' => ['tab' => 'autoresponders'],
                 ],
                 [
-                    'label' => 'WebMail Client',
-                    'description' => 'Read and send emails from mailbox accounts in the browser',
-                    'icon' => 'fa fa-envelope-open',
-                    'route' => 'hosts.webmail.index',
-                ],
-                [
                     'label' => 'Track Delivery',
                     'description' => 'Inspect delivery attempts and message flow',
                     'icon' => 'fa fa-search',

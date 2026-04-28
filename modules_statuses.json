@@ -9,6 +9,5 @@
     "ManageSetting": true,
     "Domains": true,
     "HotlinkProtection": true,
-    "Email": true,
-    "WebMail": true
+    "Email": true
 }
