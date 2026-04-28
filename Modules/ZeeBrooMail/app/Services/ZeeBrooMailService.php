@@ -138,7 +138,7 @@ class ZeeBrooMailService
         ];
     }
 
-    public function sendMessage(Hosting $hosting, int $fromAccountId, string $to, string $subject, string $body): array
+    public function sendMessage(Hosting $hosting, int $fromAccountId, array $to, array $cc, array $bcc, string $subject, string $body): array
     {
         if ($this->connectionsDisabled()) {
             return ['ok' => false, 'error' => 'ZeeBroo Mail live SMTP is disabled by environment for development.'];
@@ -165,11 +165,19 @@ class ZeeBrooMailService
             'local_domain' => null,
         ]);
 
+        $subject = trim($subject) !== '' ? $subject : '(No subject)';
+
         try {
-            Mail::mailer('zeebroo_smtp')->raw($body, function ($message) use ($to, $subject, $fromAddress): void {
+            Mail::mailer('zeebroo_smtp')->raw($body, function ($message) use ($to, $cc, $bcc, $subject, $fromAddress): void {
                 $message->from($fromAddress)
                     ->to($to)
                     ->subject($subject);
+                if ($cc !== []) {
+                    $message->cc($cc);
+                }
+                if ($bcc !== []) {
+                    $message->bcc($bcc);
+                }
             });
         } catch (\Throwable $throwable) {
             return ['ok' => false, 'error' => $throwable->getMessage()];

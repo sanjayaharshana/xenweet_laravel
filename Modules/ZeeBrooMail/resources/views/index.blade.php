@@ -25,6 +25,10 @@
         .zeebroo-mail .zb-folder-item:hover { background:#f1f3f4; }
         .zeebroo-mail .zb-folder-item.active { background:var(--zb-primary-soft); color:var(--zb-primary); font-weight:700; border-color:#d3e3fd; }
         .zeebroo-mail .zb-list-top { padding:0.72rem; border-bottom:1px solid var(--zb-border); display:grid; gap:0.55rem; position:sticky; top:0; background:var(--zb-surface); z-index:2; }
+        .zeebroo-mail .zb-search-row { display:flex; align-items:center; gap:0.55rem; }
+        .zeebroo-mail .zb-search-row .zb-search { flex:1; }
+        .zeebroo-mail .zb-compose-btn { border:1px solid #bfdbfe; background:linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%); color:#1e3a8a; border-radius:999px; padding:0.5rem 0.9rem; font-size:0.84rem; font-weight:700; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:0.42rem; box-shadow:0 1px 2px rgba(30, 64, 175, 0.18); transition:all 0.16s ease; }
+        .zeebroo-mail .zb-compose-btn:hover { background:linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%); box-shadow:0 6px 16px rgba(37, 99, 235, 0.18); transform:translateY(-1px); }
         .zeebroo-mail .zb-search { border:1px solid var(--zb-border); background:#f1f3f4; border-radius:999px; padding:0.52rem 0.78rem; color:var(--zb-subtle); font-size:0.9rem; }
         .zeebroo-mail .zb-actions { display:flex; gap:0.4rem; flex-wrap:wrap; }
         .zeebroo-mail .zb-chip { border:1px solid var(--zb-border); background:#fff; color:var(--zb-subtle); font-size:0.78rem; padding:0.2rem 0.48rem; border-radius:999px; }
@@ -61,6 +65,27 @@
         .zb-modal-body { padding:1rem; overflow:auto; flex:1 1 auto; }
         .zb-modal-close { border:1px solid var(--zb-border); background:#fff; border-radius:8px; padding:0.2rem 0.55rem; cursor:pointer; }
         .zb-modal-backdrop.open .zb-body { max-height:none; }
+        .zb-compose-modal .zb-modal { width:min(760px, 92vw); height:auto; max-height:88vh; border-radius:16px; }
+        .zb-compose-modal .zb-modal-head { background:linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%); }
+        .zb-compose-modal .zb-modal-body { background:#fff; }
+        .zb-compose-form { display:grid; gap:0.88rem; background:#f8fbff; border:1px solid #dbe5f1; border-radius:12px; padding:1rem; }
+        .zb-compose-from { margin:0; padding:0.55rem 0.65rem; border:1px dashed #cbd5e1; border-radius:9px; background:#fff; color:#334155; font-size:0.84rem; }
+        .zb-compose-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+        .zb-compose-form label { display:grid; gap:0.32rem; }
+        .zb-compose-form label > span { margin:0; font-weight:700; font-size:0.75rem; letter-spacing:0.02em; color:#475569; }
+        .zb-compose-form input,
+        .zb-compose-form textarea { width:100%; background:#fff; border:1px solid #cfd8e3; border-radius:10px; padding:0.58rem 0.62rem; font-size:0.88rem; }
+        .zb-compose-form input:focus,
+        .zb-compose-form textarea:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.16); }
+        .zb-compose-form textarea { min-height:260px; resize:vertical; }
+        .zb-compose-actions { display:flex; justify-content:flex-end; gap:0.5rem; }
+        .zb-send-btn { border:1px solid #1d4ed8; background:linear-gradient(180deg, #3b82f6 0%, #2563eb 100%); color:#fff; border-radius:10px; padding:0.5rem 1rem; font-size:0.84rem; font-weight:700; cursor:pointer; box-shadow:0 6px 16px rgba(37, 99, 235, 0.22); transition:all 0.15s ease; }
+        .zb-send-btn:hover { background:linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%); transform:translateY(-1px); }
+        .zb-send-btn:disabled { opacity:0.72; cursor:not-allowed; transform:none; box-shadow:none; }
+        @media (max-width: 760px) {
+            .zb-compose-grid { grid-template-columns:1fr; }
+            .zb-compose-form textarea { min-height:190px; }
+        }
         @media (max-width: 900px) { .zb-modal { width:94vw; height:82vh; max-height:82vh; } }
         @media (max-width: 1100px) { .zeebroo-mail { overflow:visible; } .zeebroo-mail .zb-main-card { position:relative; top:auto; left:auto; right:auto; bottom:auto; height:auto; min-height:0; max-height:none; } .zeebroo-mail .zb-frame { height:auto; max-height:none; } .zeebroo-mail .zb-shell { grid-template-columns:1fr; height:auto; } .zeebroo-mail .zb-side, .zeebroo-mail .zb-list { border-right:none; border-bottom:1px solid var(--zb-border); } }
     </style>
@@ -153,7 +178,10 @@
 
                     <main class="zb-list">
                         <div class="zb-list-top">
-                            <div class="zb-search">Search...</div>
+                            <div class="zb-search-row">
+                                <div class="zb-search">Search...</div>
+                                <button type="button" class="zb-compose-btn" id="zb-compose-open"><i class="fa fa-pen" aria-hidden="true"></i> Compose</button>
+                            </div>
                             <div class="zb-actions">
                                 <span class="zb-chip" id="zb-folder-chip">Folder: {{ $folder }}</span>
                                 <span class="zb-chip" id="zb-count-chip">Messages: {{ is_array($mailboxResult['messages'] ?? null) ? count($mailboxResult['messages']) : 0 }}</span>
@@ -204,6 +232,49 @@
         </div>
     </div>
 </div>
+<div class="zb-modal-backdrop zb-compose-modal" id="zb-compose-modal">
+    <div class="zb-modal">
+        <div class="zb-modal-head">
+            <strong><i class="fa fa-pen-nib" aria-hidden="true" style="margin-right:0.45rem;"></i>Compose Mail</strong>
+            <button type="button" class="zb-modal-close" id="zb-compose-close">Close</button>
+        </div>
+        <div class="zb-modal-body">
+            <form class="zb-compose-form" id="zb-compose-form">
+                <label>
+                    <span>From</span>
+                    <p class="zb-compose-from" id="zb-compose-from">{{ $selectedAccount ? $selectedAccount->local_part.'@'.$selectedAccount->domain : 'No sender account selected' }}</p>
+                </label>
+                <div class="zb-compose-grid">
+                    <label>
+                        <span>To</span>
+                        <input type="text" name="to" id="zb-compose-to" placeholder="name@example.com, second@example.com" required>
+                    </label>
+                    <label>
+                        <span>Subject</span>
+                        <input type="text" name="subject" id="zb-compose-subject" placeholder="Subject">
+                    </label>
+                </div>
+                <div class="zb-compose-grid">
+                    <label>
+                        <span>Cc</span>
+                        <input type="text" name="cc" id="zb-compose-cc" placeholder="Optional">
+                    </label>
+                    <label>
+                        <span>Bcc</span>
+                        <input type="text" name="bcc" id="zb-compose-bcc" placeholder="Optional">
+                    </label>
+                </div>
+                <label>
+                    <span>Body</span>
+                    <textarea name="body" id="zb-compose-body" placeholder="Write your message..." required></textarea>
+                </label>
+                <div class="zb-compose-actions">
+                    <button type="submit" class="zb-send-btn" id="zb-compose-send">Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
         const state = {
@@ -211,6 +282,7 @@
             folder: @json($folder),
             hostingId: {{ (int) $hosting->id }},
         };
+        const accountEmails = @json($accounts->mapWithKeys(fn ($account) => [(int) $account->id => (string) $account->local_part.'@'.(string) $account->domain])->all());
         const urls = {
             data: @json(route('hosts.zeebroo-mail.data', ['hosting' => $hosting])),
             messageBase: @json(url('/hosts/'.$hosting->id.'/zeebroo-mail/message')),
@@ -223,6 +295,17 @@
         const modal = document.getElementById('zb-message-modal');
         const modalContent = document.getElementById('zb-modal-content');
         const modalClose = document.getElementById('zb-modal-close');
+        const composeModal = document.getElementById('zb-compose-modal');
+        const composeOpen = document.getElementById('zb-compose-open');
+        const composeClose = document.getElementById('zb-compose-close');
+        const composeForm = document.getElementById('zb-compose-form');
+        const composeFrom = document.getElementById('zb-compose-from');
+        const composeTo = document.getElementById('zb-compose-to');
+        const composeCc = document.getElementById('zb-compose-cc');
+        const composeBcc = document.getElementById('zb-compose-bcc');
+        const composeSubject = document.getElementById('zb-compose-subject');
+        const composeBody = document.getElementById('zb-compose-body');
+        const composeSend = document.getElementById('zb-compose-send');
         const folderChip = document.getElementById('zb-folder-chip');
         const countChip = document.getElementById('zb-count-chip');
         const folderError = document.getElementById('zb-folder-error');
@@ -230,6 +313,7 @@
         const flashSuccessText = document.getElementById('zb-flash-success-text');
         const flashError = document.getElementById('zb-flash-error');
         const flashErrorText = document.getElementById('zb-flash-error-text');
+        const csrfToken = @json(csrf_token());
 
         function setFlash(type, message) {
             if (type === 'success') {
@@ -348,6 +432,71 @@
             document.body.style.overflow = 'hidden';
         }
 
+        function openComposeModal() {
+            if (!composeModal) return;
+            if (composeFrom) {
+                composeFrom.textContent = accountEmails[state.accountId] || 'No sender account selected';
+            }
+            composeModal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            if (composeTo) composeTo.focus();
+        }
+
+        function closeComposeModal() {
+            if (!composeModal) return;
+            composeModal.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        async function sendComposeMail() {
+            const to = composeTo ? composeTo.value.trim() : '';
+            const cc = composeCc ? composeCc.value.trim() : '';
+            const bcc = composeBcc ? composeBcc.value.trim() : '';
+            const subject = composeSubject ? composeSubject.value.trim() : '';
+            const body = composeBody ? composeBody.value.trim() : '';
+            if (!to || !body) {
+                setFlash('error', 'Recipient and body are required.');
+                return;
+            }
+
+            if (composeSend) {
+                composeSend.disabled = true;
+                composeSend.textContent = 'Sending...';
+            }
+
+            try {
+                const payload = new FormData();
+                payload.append('_token', csrfToken);
+                payload.append('from_account_id', String(state.accountId));
+                payload.append('to', to);
+                payload.append('cc', cc);
+                payload.append('bcc', bcc);
+                payload.append('subject', subject);
+                payload.append('body', body);
+                const res = await fetch(urls.sendAjax, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: payload,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error((data && data.error) ? data.error : 'Unable to send message.');
+                }
+
+                setFlash('success', data.message || 'Message sent successfully.');
+                if (composeForm) composeForm.reset();
+                closeComposeModal();
+                await fetchMailbox();
+            } catch (error) {
+                setFlash('error', error.message || 'Failed to send message.');
+            } finally {
+                if (composeSend) {
+                    composeSend.disabled = false;
+                    composeSend.textContent = 'Send';
+                }
+            }
+        }
+
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, function (c) {
                 return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c];
@@ -394,10 +543,36 @@
                 }
             });
         }
+        if (composeOpen) {
+            composeOpen.addEventListener('click', function () {
+                openComposeModal();
+            });
+        }
+        if (composeClose) {
+            composeClose.addEventListener('click', function () {
+                closeComposeModal();
+            });
+        }
+        if (composeModal) {
+            composeModal.addEventListener('click', function (e) {
+                if (e.target === composeModal) {
+                    closeComposeModal();
+                }
+            });
+        }
+        if (composeForm) {
+            composeForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                sendComposeMail();
+            });
+        }
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && modal && modal.classList.contains('open')) {
                 modal.classList.remove('open');
                 document.body.style.overflow = '';
+            }
+            if (e.key === 'Escape' && composeModal && composeModal.classList.contains('open')) {
+                closeComposeModal();
             }
         });
 

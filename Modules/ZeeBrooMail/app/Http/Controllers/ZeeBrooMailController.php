@@ -85,17 +85,32 @@ class ZeeBrooMailController extends Controller
     {
         $validated = $request->validate([
             'from_account_id' => ['required', 'integer', 'min:1'],
-            'to' => ['required', 'email:rfc,dns', 'max:255'],
-            'subject' => ['required', 'string', 'max:255'],
+            'to' => ['required', 'string', 'max:1000'],
+            'cc' => ['nullable', 'string', 'max:1000'],
+            'bcc' => ['nullable', 'string', 'max:1000'],
+            'subject' => ['nullable', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:10000'],
             '_context' => ['nullable', 'string', Rule::in(['send_email'])],
         ]);
 
+        $toRecipients = $this->parseRecipients((string) $validated['to']);
+        $ccRecipients = $this->parseRecipients((string) ($validated['cc'] ?? ''));
+        $bccRecipients = $this->parseRecipients((string) ($validated['bcc'] ?? ''));
+
+        if ($toRecipients === []) {
+            return redirect()
+                ->route('hosts.zeebroo-mail.index', ['hosting' => $hosting, 'account_id' => $validated['from_account_id']])
+                ->withErrors(['zeebroo_mail' => 'Recipient email is required and must be valid.'])
+                ->withInput();
+        }
+
         $result = $service->sendMessage(
             $hosting,
             (int) $validated['from_account_id'],
-            (string) $validated['to'],
-            (string) $validated['subject'],
+            $toRecipients,
+            $ccRecipients,
+            $bccRecipients,
+            (string) ($validated['subject'] ?? ''),
             (string) $validated['body'],
         );
 
@@ -115,17 +130,32 @@ class ZeeBrooMailController extends Controller
     {
         $validated = $request->validate([
             'from_account_id' => ['required', 'integer', 'min:1'],
-            'to' => ['required', 'email:rfc,dns', 'max:255'],
-            'subject' => ['required', 'string', 'max:255'],
+            'to' => ['required', 'string', 'max:1000'],
+            'cc' => ['nullable', 'string', 'max:1000'],
+            'bcc' => ['nullable', 'string', 'max:1000'],
+            'subject' => ['nullable', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:10000'],
             '_context' => ['nullable', 'string', Rule::in(['send_email'])],
         ]);
 
+        $toRecipients = $this->parseRecipients((string) $validated['to']);
+        $ccRecipients = $this->parseRecipients((string) ($validated['cc'] ?? ''));
+        $bccRecipients = $this->parseRecipients((string) ($validated['bcc'] ?? ''));
+
+        if ($toRecipients === []) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Recipient email is required and must be valid.',
+            ], 422);
+        }
+
         $result = $service->sendMessage(
             $hosting,
             (int) $validated['from_account_id'],
-            (string) $validated['to'],
-            (string) $validated['subject'],
+            $toRecipients,
+            $ccRecipients,
+            $bccRecipients,
+            (string) ($validated['subject'] ?? ''),
             (string) $validated['body'],
         );
 
@@ -165,5 +195,19 @@ class ZeeBrooMailController extends Controller
             'foldersResult' => $foldersResult,
             'mailboxResult' => $mailboxResult,
         ];
+    }
+
+    private function parseRecipients(string $raw): array
+    {
+        $items = collect(preg_split('/[,\n;]+/', $raw) ?: [])
+            ->map(fn ($item) => mb_strtolower(trim((string) $item)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $items
+            ->filter(fn (string $email) => filter_var($email, FILTER_VALIDATE_EMAIL) !== false)
+            ->values()
+            ->all();
     }
 }
