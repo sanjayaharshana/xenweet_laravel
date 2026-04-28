@@ -49,6 +49,12 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
+        'imap' => [
+            'host' => env('IMAP_HOST', '127.0.0.1'),
+            'port' => (int) env('IMAP_PORT', 993),
+            'encryption' => env('IMAP_ENCRYPTION', 'ssl'),
+        ],
+
         'ses' => [
             'transport' => 'ses',
         ],
