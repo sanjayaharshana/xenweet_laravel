@@ -5,23 +5,41 @@
 @section('content')
 <div class="host-panel-scope managedb-scope webmail-client">
     <style>
-        .webmail-client .webmail-shell { display:grid; grid-template-columns:260px 1fr 360px; gap:1rem; align-items:start; }
-        .webmail-client .webmail-col { min-height:300px; }
-        .webmail-client .webmail-pane-title { margin:0 0 0.8rem 0; font-size:0.98rem; letter-spacing:0.01em; }
+        .webmail-client { --wm-border: rgba(148, 163, 184, 0.22); --wm-bg-soft: rgba(15, 23, 42, 0.2); --wm-bg-strong: rgba(15, 23, 42, 0.34); --wm-accent: #38bdf8; }
+        .webmail-client .webmail-toolbar { display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:1rem; padding:0.7rem 0.85rem; border:1px solid var(--wm-border); border-radius:12px; background:linear-gradient(180deg, rgba(30,41,59,0.42), rgba(15,23,42,0.3)); }
+        .webmail-client .webmail-toolbar-meta { display:flex; gap:0.5rem; flex-wrap:wrap; }
+        .webmail-client .webmail-pill { font-size:0.76rem; font-weight:600; letter-spacing:0.02em; padding:0.25rem 0.58rem; border-radius:999px; border:1px solid var(--wm-border); background:rgba(15,23,42,0.4); color:var(--text-soft, #cbd5e1); }
+        .webmail-client .webmail-shell { display:grid; grid-template-columns:260px 1fr 380px; gap:1rem; align-items:start; }
+        .webmail-client .webmail-col { min-height:300px; border:1px solid var(--wm-border); border-radius:14px; padding:0.9rem; background:var(--wm-bg-soft); box-shadow:0 8px 30px rgba(2, 6, 23, 0.12); }
+        .webmail-client .webmail-pane-title { margin:0 0 0.75rem 0; font-size:1rem; letter-spacing:0.01em; font-weight:700; }
+        .webmail-client .webmail-col main,
+        .webmail-client .webmail-col aside { min-width:0; }
         .webmail-client .webmail-folder-list,
         .webmail-client .webmail-message-list { display:flex; flex-direction:column; gap:0.45rem; }
         .webmail-client .webmail-folder-item,
-        .webmail-client .webmail-message-item { display:block; text-decoration:none; border:1px solid rgba(148, 163, 184, 0.2); border-radius:10px; padding:0.6rem 0.75rem; background:rgba(15, 23, 42, 0.14); }
+        .webmail-client .webmail-message-item { display:block; text-decoration:none; border:1px solid var(--wm-border); border-radius:10px; padding:0.68rem 0.78rem; background:var(--wm-bg-strong); transition:all 0.2s ease; }
+        .webmail-client .webmail-folder-item:hover,
+        .webmail-client .webmail-message-item:hover { border-color:rgba(56, 189, 248, 0.55); transform:translateY(-1px); }
         .webmail-client .webmail-folder-item.active,
-        .webmail-client .webmail-message-item.active { border-color:rgba(56, 189, 248, 0.7); background:rgba(14, 165, 233, 0.14); }
+        .webmail-client .webmail-message-item.active { border-color:rgba(56, 189, 248, 0.78); background:rgba(14, 165, 233, 0.16); box-shadow:inset 0 0 0 1px rgba(56, 189, 248, 0.4); }
         .webmail-client .webmail-folder-item .name { font-weight:600; display:block; }
         .webmail-client .webmail-message-item .subject { display:block; font-weight:600; margin-bottom:0.2rem; }
         .webmail-client .webmail-message-item .meta { display:flex; justify-content:space-between; gap:0.5rem; font-size:0.82rem; color:var(--text-soft, #94a3b8); }
         .webmail-client .webmail-read-view { display:flex; flex-direction:column; gap:0.75rem; }
-        .webmail-client .webmail-body { border:1px solid rgba(148, 163, 184, 0.2); border-radius:10px; padding:0.85rem; background:rgba(15,23,42,0.24); max-height:330px; overflow:auto; }
-        .webmail-client .webmail-compose { margin-top:1rem; border-top:1px solid rgba(148, 163, 184, 0.2); padding-top:1rem; }
+        .webmail-client .webmail-body { border:1px solid var(--wm-border); border-radius:10px; padding:0.85rem; background:rgba(15,23,42,0.3); max-height:330px; overflow:auto; }
+        .webmail-client .webmail-compose { margin-top:1rem; border-top:1px solid var(--wm-border); padding-top:1rem; }
         .webmail-client .webmail-compose-grid { display:grid; gap:0.65rem; }
         .webmail-client .webmail-muted { color:var(--text-soft, #94a3b8); font-size:0.88rem; margin:0; }
+        .webmail-client label { display:grid; gap:0.32rem; }
+        .webmail-client label > span { font-size:0.8rem; font-weight:600; color:var(--text-soft, #cbd5e1); letter-spacing:0.01em; }
+        .webmail-client select,
+        .webmail-client input,
+        .webmail-client textarea { width:100%; border:1px solid var(--wm-border); border-radius:9px; background:rgba(15, 23, 42, 0.52); color:var(--text-main, #e2e8f0); padding:0.56rem 0.62rem; font-size:0.9rem; }
+        .webmail-client textarea { min-height:120px; resize:vertical; }
+        .webmail-client select:focus,
+        .webmail-client input:focus,
+        .webmail-client textarea:focus { outline:none; border-color:rgba(56, 189, 248, 0.8); box-shadow:0 0 0 3px rgba(56, 189, 248, 0.18); }
+        .webmail-client .webmail-compose-grid .btn-primary { width:100%; margin-top:0.2rem; }
         @media (max-width: 1300px) { .webmail-client .webmail-shell { grid-template-columns:230px 1fr; } .webmail-client .webmail-col--reader { grid-column:1 / -1; } }
         @media (max-width: 900px) { .webmail-client .webmail-shell { grid-template-columns:1fr; } }
     </style>
@@ -63,6 +81,17 @@
         </section>
     @else
         <section class="server-card">
+            @php
+                $selectedAccount = $accounts->firstWhere('id', $selectedAccountId);
+            @endphp
+            <div class="webmail-toolbar">
+                <div class="webmail-toolbar-meta">
+                    <span class="webmail-pill">Account: {{ $selectedAccount ? $selectedAccount->local_part.'@'.$selectedAccount->domain : 'N/A' }}</span>
+                    <span class="webmail-pill">Folder: {{ $folder }}</span>
+                    <span class="webmail-pill">Messages: {{ is_array($mailboxResult['messages'] ?? null) ? count($mailboxResult['messages']) : 0 }}</span>
+                </div>
+                <span class="webmail-pill">{{ now()->format('d M Y') }}</span>
+            </div>
             <div class="webmail-shell">
                 <aside class="webmail-col">
                     <h2 class="webmail-pane-title">Mailbox</h2>
