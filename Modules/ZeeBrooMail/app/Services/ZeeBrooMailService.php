@@ -153,21 +153,30 @@ class ZeeBrooMailService
         $smtpHost = (string) Config::get('mail.mailers.smtp.host', $hosting->server_ip ?: '127.0.0.1');
         $smtpPort = (int) Config::get('mail.mailers.smtp.port', 587);
         $smtpEncryption = (string) Config::get('mail.mailers.smtp.encryption', 'tls');
-
-        Config::set('mail.mailers.zeebroo_smtp', [
+        $mailConfig = [
             'transport' => 'smtp',
             'host' => $smtpHost,
             'port' => $smtpPort,
-            'encryption' => $smtpEncryption,
-            'username' => $fromAddress,
-            'password' => (string) $account->password,
+            'encryption' => $smtpEncryption !== '' && $smtpEncryption !== 'null' ? $smtpEncryption : null,
             'timeout' => null,
             'local_domain' => null,
-        ]);
+        ];
+        $smtpDefaultUsername = trim((string) Config::get('mail.mailers.smtp.username', ''));
+        $smtpDefaultPassword = (string) Config::get('mail.mailers.smtp.password', '');
+
+        if ($smtpDefaultUsername !== '') {
+            $mailConfig['username'] = $smtpDefaultUsername;
+            $mailConfig['password'] = $smtpDefaultPassword;
+        } else {
+            // Preferred for dedicated mailbox SMTP setups.
+            $mailConfig['username'] = $fromAddress;
+            $mailConfig['password'] = (string) $account->password;
+        }
 
         $subject = trim($subject) !== '' ? $subject : '(No subject)';
 
         try {
+            Config::set('mail.mailers.zeebroo_smtp', $mailConfig);
             Mail::mailer('zeebroo_smtp')->raw($body, function ($message) use ($to, $cc, $bcc, $subject, $fromAddress): void {
                 $message->from($fromAddress)
                     ->to($to)
@@ -180,6 +189,35 @@ class ZeeBrooMailService
                 }
             });
         } catch (\Throwable $throwable) {
+            $errorMessage = (string) $throwable->getMessage();
+            $isAuthError = str_contains(mb_strtolower($errorMessage), 'auth')
+                || str_contains(mb_strtolower($errorMessage), '535')
+                || str_contains(mb_strtolower($errorMessage), 'authentication');
+
+            if ($isAuthError) {
+                try {
+                    // Local Postfix relay commonly accepts unauthenticated submissions.
+                    $mailConfig['username'] = null;
+                    $mailConfig['password'] = null;
+                    Config::set('mail.mailers.zeebroo_smtp', $mailConfig);
+                    Mail::mailer('zeebroo_smtp')->raw($body, function ($message) use ($to, $cc, $bcc, $subject, $fromAddress): void {
+                        $message->from($fromAddress)
+                            ->to($to)
+                            ->subject($subject);
+                        if ($cc !== []) {
+                            $message->cc($cc);
+                        }
+                        if ($bcc !== []) {
+                            $message->bcc($bcc);
+                        }
+                    });
+
+                    return ['ok' => true, 'error' => null];
+                } catch (\Throwable $fallbackThrowable) {
+                    return ['ok' => false, 'error' => (string) $fallbackThrowable->getMessage()];
+                }
+            }
+
             return ['ok' => false, 'error' => $throwable->getMessage()];
         }
 
